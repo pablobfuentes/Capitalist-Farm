@@ -1,0 +1,13 @@
+{
+  "name": "econgame-ai-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Localhost proxy: game → Ollama negotiation replies",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

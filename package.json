@@ -1,0 +1,20 @@
+{
+  "name": "econgame",
+  "version": "6.0.0",
+  "private": true,
+  "description": "EconomyGame MVP 6 — supply chain hierarchy + local AI proxy",
+  "scripts": {
+    "start": "node ai-proxy/server.js",
+    "proxy": "node ai-proxy/server.js",
+    "test": "node scripts/regression-phase8.js && node scripts/regression-upgrades.js && node scripts/regression-upgrades-phase5.js && node scripts/regression-upgrades-phase6.js && node scripts/regression-negotiation-close.js && node scripts/regression-acquisition-balance.js",
+    "test:phase8": "node scripts/regression-phase8.js",
+    "test:upgrades": "node scripts/regression-upgrades.js",
+    "test:upgrades-phase5": "node scripts/regression-upgrades-phase5.js",
+    "test:upgrades-phase6": "node scripts/regression-upgrades-phase6.js",
+    "test:negotiation-close": "node scripts/regression-negotiation-close.js",
+    "test:acquisition-balance": "node scripts/regression-acquisition-balance.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

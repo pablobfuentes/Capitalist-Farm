@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capital Farm — Supply Chain Infographic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="js/farm-supply-chain.js"></script>
+<script src="js/business-upgrades.js"></script>
+<style>
+:root {
+  --ink: #0f1419;
+  --panel: #e9e2cf;
+  --panel-line: #c7bb9c;
+  --brass: #c79a3a;
+  --forest: #2f6a52;
+  --forest-dim: #1a3d30;
+  --brick: #c45c4a;
+  --amber: #d4a044;
+  --text: #efe9d8;
+  --text-dim: #9aa3a0;
+  --mono: 'IBM Plex Mono', monospace;
+  --serif: 'Fraunces', serif;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --layer-up: #3d6b4f;
+  --layer-proc: #5a4a8a;
+  --layer-infra: #8a6f2b;
+  --layer-cons: #a1483a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text); font-family: var(--sans); }
+body { display: flex; flex-direction: column; min-height: 100vh; }
+
+header {
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid #2a3530;
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;
+}
+header h1 { font-family: var(--serif); font-size: 1.45rem; margin: 0; color: #8fd6b3; font-weight: 600; }
+header p { margin: 4px 0 0; font-size: 0.85rem; color: var(--text-dim); max-width: 52rem; line-height: 1.45; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.presets button, .policy-row select {
+  font-family: var(--mono); font-size: 11px; padding: 7px 12px;
+  border: 1px solid #3a4a42; background: #1a2820; color: #8fd6b3;
+  border-radius: 3px; cursor: pointer;
+}
+.presets button:hover { background: #243830; border-color: var(--forest); }
+.presets button.primary { background: var(--forest-dim); border-color: var(--forest); }
+
+main { flex: 1; display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+
+.graph-wrap {
+  position: relative; overflow: auto; padding: 12px;
+  background: radial-gradient(ellipse at 50% 0%, #1a2820 0%, var(--ink) 70%);
+}
+#graphSvg { display: block; width: 100%; min-width: 920px; height: auto; }
+
+.layer-band { fill: rgba(255,255,255,0.02); stroke: rgba(255,255,255,0.04); }
+.layer-label {
+  font-family: var(--mono); font-size: 10px; fill: #5a6a62;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+.link { fill: none; stroke-width: 2; transition: stroke 0.25s, stroke-width 0.25s, opacity 0.25s; cursor: pointer; }
+.link.inactive { stroke: #2a3530; stroke-dasharray: 6 5; opacity: 0.45; }
+.link.active { stroke: #4a9a72; opacity: 0.85; }
+.link.partial { stroke: var(--amber); opacity: 0.9; }
+.link.strained { stroke: var(--brick); stroke-width: 2.5; opacity: 1; }
+.link:hover { stroke-width: 3.5; opacity: 1; }
+
+.link-label {
+  font-family: var(--mono); font-size: 9px; fill: #8fd6b3; pointer-events: none;
+  paint-order: stroke; stroke: var(--ink); stroke-width: 3px;
+}
+
+.node-g { cursor: pointer; }
+.node-card {
+  transition: transform 0.2s, filter 0.2s;
+}
+.node-g:hover .node-card { filter: brightness(1.08); }
+.node-g.owned .node-card { filter: drop-shadow(0 0 8px rgba(143,214,179,0.35)); }
+
+.node-rect {
+  rx: 6; ry: 6; stroke-width: 1.5;
+  fill: #1e2a24; stroke: #3a4a42;
+}
+.node-g.owned .node-rect { fill: #1a3228; stroke: var(--forest); }
+.node-g.owned.layer-primary_production .node-rect { stroke: var(--layer-up); }
+.node-g.owned.layer-processing .node-rect { stroke: var(--layer-proc); }
+.node-g.owned.layer-infrastructure .node-rect { stroke: var(--layer-infra); }
+.node-g.owned.layer-consumer_channel .node-rect { stroke: var(--layer-cons); }
+.node-g.shortage .node-rect { stroke: var(--brick); stroke-width: 2.5; }
+
+.node-title { font-family: var(--serif); font-size: 12px; fill: #efe9d8; font-weight: 600; }
+.node-meta { font-family: var(--mono); font-size: 8.5px; fill: #7a8a82; }
+.node-stat { font-family: var(--mono); font-size: 8px; fill: #8fd6b3; }
+.node-badge {
+  font-family: var(--mono); font-size: 7px; fill: #1a2820;
+}
+
+.cap-bar-bg { fill: #2a3530; rx: 2; }
+.cap-bar-fill { rx: 2; transition: width 0.35s; }
+.cap-bar-fill.ok { fill: var(--forest); }
+.cap-bar-fill.warn { fill: var(--amber); }
+.cap-bar-fill.over { fill: var(--brick); }
+
+aside {
+  border-left: 1px solid #2a3530; background: #141c18;
+  overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px;
+}
+@media (max-width: 1100px) { aside { border-left: none; border-top: 1px solid #2a3530; max-height: 420px; } }
+
+.panel {
+  background: #1a2820; border: 1px solid #2a4034; border-radius: 4px; padding: 12px 14px;
+}
+.panel h2 {
+  font-family: var(--serif); font-size: 13px; margin: 0 0 10px; color: #8fd6b3;
+  letter-spacing: 0.02em;
+}
+.panel .hint { font-size: 11px; color: var(--text-dim); line-height: 1.5; margin-bottom: 10px; }
+
+.pl-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; padding: 4px 0; border-bottom: 1px dashed #2a4034; }
+.pl-row:last-child { border-bottom: none; }
+.pl-row .lbl { color: var(--text-dim); }
+.pl-row .val { color: #efe9d8; font-weight: 500; }
+.pl-row .val.pos { color: #8fd6b3; }
+.pl-row .val.neg { color: var(--brick); }
+.pl-total { margin-top: 8px; padding-top: 8px; border-top: 1px solid #2f6a52; font-weight: 600; }
+
+.link-detail {
+  font-family: var(--mono); font-size: 10px; line-height: 1.55; color: #b8c8bc;
+  padding: 8px 10px; background: #142018; border-radius: 3px; margin-top: 6px;
+}
+.link-detail strong { color: #8fd6b3; }
+.link-detail .tag { display: inline-block; background: #243830; padding: 1px 6px; border-radius: 2px; margin: 2px 4px 2px 0; font-size: 9px; }
+
+.policy-row { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.policy-row label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+.policy-row select { width: 100%; padding: 6px 8px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--mono); font-size: 9px; color: var(--text-dim); }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.legend i { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend .l-active i { background: #4a9a72; }
+.legend .l-partial i { background: var(--amber); }
+.legend .l-strained i { background: var(--brick); }
+.legend .l-inactive i { background: #2a3530; border: 1px dashed #4a5a52; height: 2px; }
+
+.alloc-list { list-style: none; margin: 0; padding: 0; font-family: var(--mono); font-size: 10px; }
+.alloc-list li { padding: 5px 0; border-bottom: 1px dashed #2a4034; color: #b8c8bc; }
+.alloc-list li:last-child { border-bottom: none; }
+
+.upgrade-lever-strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.upgrade-lever {
+  font-family: var(--mono); font-size: 8px; padding: 2px 5px;
+  border: 1px solid #3a4a42; border-radius: 2px; color: #8fd6b3; cursor: pointer;
+}
+.upgrade-lever:hover { background: #243830; }
+.upgrade-lever.mgr-done { border-color: var(--brass); color: #e8c878; }
+.upgrade-row-demo { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #2a4034; }
+.upgrade-row-demo h3 { font-family: var(--mono); font-size: 10px; color: #8fd6b3; margin: 0 0 6px; font-weight: 500; }
+.upgrade-track-btns { display: flex; flex-wrap: wrap; gap: 4px; }
+.upgrade-track-btns button {
+  font-family: var(--mono); font-size: 9px; padding: 4px 8px;
+  border: 1px solid #3a4a42; background: #1a2820; color: #8fd6b3; border-radius: 2px; cursor: pointer;
+}
+.upgrade-track-btns button:hover { background: #243830; }
+.upgrade-track-btns button:disabled { opacity: 0.45; cursor: default; }
+.upgrade-hint { font-size: 9px; color: var(--text-dim); margin-top: 4px; line-height: 1.4; }
+
+.link-ghost { stroke: #8fd6b3; stroke-width: 2.5; stroke-dasharray: 6 4; fill: none; opacity: 0.85; pointer-events: none; }
+.ghost-label {
+  font-family: var(--mono); font-size: 9px; fill: #c79a3a; pointer-events: none;
+  paint-order: stroke; stroke: var(--ink); stroke-width: 3px;
+}
+.cap-bar-fill.ghost { fill: rgba(143, 214, 179, 0.45); pointer-events: none; }
+
+footer {
+  padding: 10px 24px; border-top: 1px solid #2a3530;
+  font-family: var(--mono); font-size: 10px; color: #5a6a62;
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Capital Farm Supply Chain</h1>
+    <p>Click businesses to simulate ownership. Active links show cost savings and fulfillment. Capacity bars reflect allocation — internal links save costs only; consolidated P&amp;L is external revenue minus real costs.</p>
+  </div>
+  <div class="presets" id="presets"></div>
+</header>
+
+<main>
+  <div class="graph-wrap">
+    <svg id="graphSvg" viewBox="0 0 960 620" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <aside id="sidebar"></aside>
+</main>
+
+<footer>
+  Uses live rules from <code>js/farm-supply-chain.js</code> + <code>js/business-upgrades.js</code> · Hover upgrade tracks for ghost preview on the map ·
+  <button type="button" id="advanceQuarterBtn" style="font-family:var(--mono);font-size:10px;padding:4px 10px;margin-left:8px;border:1px solid #3a4a42;background:#1a2820;color:#8fd6b3;border-radius:3px;cursor:pointer;">Advance quarter (manager drift)</button>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  const F = window.FarmSupplyChain;
+  const U = window.BusinessUpgrades;
+  if (!F) { document.body.innerHTML = '<p style="padding:2rem;color:#c45c4a;">Failed to load farm-supply-chain.js</p>'; return; }
+  if (!U) { document.body.innerHTML = '<p style="padding:2rem;color:#c45c4a;">Failed to load business-upgrades.js</p>'; return; }
+
+  const DEMO = {
+    grain_farm: { revenuePerTurn: 18000, operatingCosts: 10000, rentPerTurn: 0, operatingExpenses: 0 },
+    vegetable_farm: { revenuePerTurn: 20000, operatingCosts: 12000, rentPerTurn: 0, operatingExpenses: 0 },
+    dairy_barn: { revenuePerTurn: 26000, operatingCosts: 17000, rentPerTurn: 0, operatingExpenses: 0 },
+    poultry_coop: { revenuePerTurn: 19000, operatingCosts: 12500, rentPerTurn: 0, operatingExpenses: 0 },
+    feed_mill: { revenuePerTurn: 22000, operatingCosts: 14000, rentPerTurn: 0, operatingExpenses: 0 },
+    bakery: { revenuePerTurn: 28000, operatingCosts: 19000, rentPerTurn: 0, operatingExpenses: 0 },
+    farmhouse_restaurant: { revenuePerTurn: 48000, operatingCosts: 33000, rentPerTurn: 0, operatingExpenses: 0 },
+    general_store: { revenuePerTurn: 36000, operatingCosts: 25000, rentPerTurn: 0, operatingExpenses: 0 },
+    equipment_repair: { revenuePerTurn: 0, operatingCosts: 0, rentPerTurn: 21000, operatingExpenses: 7000, vacancyRisk: 0.1 },
+    delivery_cold_storage: { revenuePerTurn: 0, operatingCosts: 0, rentPerTurn: 30000, operatingExpenses: 10000, vacancyRisk: 0.12 },
+  };
+
+  const LAYOUT = {
+    grain_farm: { x: 80, y: 72, w: 128, h: 72 },
+    vegetable_farm: { x: 240, y: 72, w: 128, h: 72 },
+    dairy_barn: { x: 560, y: 72, w: 128, h: 72 },
+    poultry_coop: { x: 720, y: 72, w: 128, h: 72 },
+    feed_mill: { x: 160, y: 200, w: 128, h: 72 },
+    bakery: { x: 640, y: 200, w: 128, h: 72 },
+    equipment_repair: { x: 200, y: 340, w: 148, h: 72 },
+    delivery_cold_storage: { x: 520, y: 340, w: 168, h: 72 },
+    farmhouse_restaurant: { x: 280, y: 480, w: 148, h: 72 },
+    general_store: { x: 560, y: 480, w: 148, h: 72 },
+  };
+
+  const LAYER_BANDS = [
+    { layer: 'primary_production', y: 48, h: 108, label: 'Upstream production' },
+    { layer: 'processing', y: 176, h: 108, label: 'Processing' },
+    { layer: 'infrastructure', y: 316, h: 108, label: 'Infrastructure tollbooth' },
+    { layer: 'consumer_channel', y: 456, h: 108, label: 'Consumer channel' },
+  ];
+
+  const PRESETS = [
+    { id: 'clear', label: 'Clear', ids: [] },
+    { id: 'grain', label: 'Grain only', ids: ['grain_farm'] },
+    { id: 'vertical', label: 'Grain → Feed → Dairy', ids: ['grain_farm', 'feed_mill', 'dairy_barn'] },
+    { id: 'shortage', label: 'Grain shortage demo', ids: ['grain_farm', 'feed_mill', 'bakery', 'general_store'] },
+    { id: 'tollbooth', label: 'Cold storage network', ids: ['vegetable_farm', 'dairy_barn', 'bakery', 'farmhouse_restaurant', 'delivery_cold_storage'] },
+    { id: 'full', label: 'Full network', ids: F.TEMPLATES.map((t) => t.id) },
+  ];
+
+  const owned = new Set();
+  const supplyPolicies = {};
+  const nodeMeta = {};
+  let hoveredLink = null;
+  let selectedLink = null;
+  let ghostPreview = null;
+  let turn = 1;
+  let lastState = null;
+  let lastEcon = null;
+
+  function ensureNodeMeta(id) {
+    if (!nodeMeta[id]) {
+      nodeMeta[id] = {
+        upgrades: U.defaultUpgrades(),
+        managerDrift: U.defaultManagerDrift(),
+        valuation: null,
+      };
+    }
+    return nodeMeta[id];
+  }
+
+  function fmt(n) {
+    if (n == null || isNaN(n)) return '—';
+    const sign = n < 0 ? '−' : '';
+    return sign + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
+  }
+  function pct(n) { return n == null ? '—' : Math.round(n) + '%'; }
+  function pctFrac(n) { return n == null ? '—' : Math.round(n * 100) + '%'; }
+
+  function buildState() {
+    const businesses = [];
+    const realEstate = [];
+    owned.forEach((id) => {
+      const t = F.templateById(id);
+      const d = DEMO[id];
+      if (!t || !d) return;
+      const meta = ensureNodeMeta(id);
+      const margin = Math.max(1, (d.revenuePerTurn || d.rentPerTurn || 0) - (d.operatingCosts || d.operatingExpenses || 0));
+      const node = Object.assign({
+        id,
+        templateId: id,
+        name: t.name,
+        industry: t.industry || 'farm_food',
+        crisisMult: 1,
+        valuation: meta.valuation || Math.max(80000, margin * 12),
+        lastCareTurn: turn,
+        acquiredTurn: 1,
+        clientHealth: 72,
+        supplierHealth: 72,
+      }, d);
+      node.upgrades = Object.assign(U.defaultUpgrades(), meta.upgrades);
+      node.managerDrift = Object.assign(U.defaultManagerDrift(), meta.managerDrift);
+      if (t.assetClass === 'real_estate') realEstate.push(node);
+      else businesses.push(node);
+    });
+    const state = {
+      mode: 'arcade',
+      farmUpgradeV2: true,
+      turn,
+      strategicEdges: [],
+      portfolio: { businesses, realEstate },
+      supplyPolicies: Object.assign({}, supplyPolicies),
+    };
+    U.ensurePortfolioUpgrades(state);
+    state.portfolio.businesses.forEach((b) => {
+      const meta = ensureNodeMeta(b.templateId);
+      meta.upgrades = Object.assign({}, b.upgrades);
+      meta.managerDrift = Object.assign({}, b.managerDrift || U.defaultManagerDrift());
+    });
+    return state;
+  }
+
+  function persistNodeFromState(state) {
+    state.portfolio.businesses.forEach((b) => {
+      const meta = ensureNodeMeta(b.templateId);
+      meta.upgrades = Object.assign({}, b.upgrades);
+      meta.managerDrift = Object.assign({}, b.managerDrift || U.defaultManagerDrift());
+      meta.valuation = b.valuation;
+    });
+  }
+
+  function applyDemoUpgrade(templateId, trackId) {
+    const state = buildState();
+    const node = state.portfolio.businesses.find((b) => b.templateId === templateId);
+    if (!node) return;
+    const check = U.canApplyTrack(node, trackId, templateId);
+    if (!check.ok) return;
+    U.applyUpgradeToNode(node, trackId, templateId, state.turn, { skipCareSideEffects: true });
+    persistNodeFromState(state);
+    ghostPreview = null;
+    render();
+  }
+
+  function advanceDemoQuarter() {
+    const state = buildState();
+    U.applyManagerPassiveDrift(state);
+    persistNodeFromState(state);
+    turn += 1;
+    ghostPreview = null;
+    render();
+  }
+
+  function nodeCenter(id) {
+    const L = LAYOUT[id];
+    return { x: L.x + L.w / 2, y: L.y + L.h / 2, L };
+  }
+
+  function linkPath(from, to) {
+    const a = nodeCenter(from);
+    const b = nodeCenter(to);
+    const dy = b.y - a.y;
+    const cp = Math.max(40, Math.abs(dy) * 0.45);
+    return `M ${a.x} ${a.y + (dy > 0 ? a.L.h / 2 - 4 : -a.L.h / 2 + 4)} C ${a.x} ${a.y + cp}, ${b.x} ${b.y - cp}, ${b.x} ${b.y + (dy > 0 ? -b.L.h / 2 + 4 : b.L.h / 2 - 4)}`;
+  }
+
+  function computeEconomics(state) {
+    const syns = F.computeSynergies(state);
+    const util = F.computeSupplierUtilization(state);
+    let revenue = 0;
+    let costs = 0;
+    let exportRev = 0;
+    let externalContract = 0;
+    const bizRows = [];
+    const reRows = [];
+
+    state.portfolio.businesses.forEach((b) => {
+      const applied = F.applyToBusiness(b, syns, state, {});
+      const exp = F.applyExportToBusiness(b, state);
+      const rev = applied.rev + (exp.exportRevenue || 0);
+      revenue += rev;
+      costs += applied.cost;
+      exportRev += exp.exportRevenue || 0;
+      bizRows.push({
+        id: b.templateId,
+        name: b.name,
+        baseRev: b.revenuePerTurn,
+        rev,
+        baseCost: b.operatingCosts,
+        cost: applied.cost,
+        savings: b.operatingCosts - applied.cost,
+        export: exp.exportRevenue || 0,
+      });
+    });
+
+    state.portfolio.realEstate.forEach((r) => {
+      if (F.isInfrastructureTemplate(r.templateId)) {
+        const infra = F.applyInfrastructureToRealEstate(r, state, syns);
+        revenue += infra.rent;
+        costs += infra.opex;
+        externalContract += infra.externalContractRevenue || 0;
+        reRows.push({
+          id: r.templateId,
+          name: r.name,
+          baseRent: Math.round(r.rentPerTurn * (1 - r.vacancyRisk * 0.4)),
+          rent: infra.rent,
+          opex: infra.opex,
+          external: infra.externalContractRevenue || 0,
+          utilPct: infra.utilizationPct,
+        });
+      } else {
+        revenue += Math.round(r.rentPerTurn * (1 - r.vacancyRisk * 0.4));
+        costs += r.operatingExpenses;
+      }
+    });
+
+    return {
+      syns, util, revenue, costs, profit: revenue - costs,
+      exportRev, externalContract, bizRows, reRows,
+      shortages: F.detectSupplyShortages(state),
+    };
+  }
+
+  function effectTags(conn, syn) {
+    const fx = conn.effects || {};
+    const tags = [];
+    const scale = syn ? syn.fulfillRatio : 0;
+    if (fx.customerCostReduction) tags.push({ label: '−' + pctFrac(fx.customerCostReduction * scale) + ' cost', kind: 'cost' });
+    if (fx.customerRevenueBonus) tags.push({ label: '+' + pctFrac(fx.customerRevenueBonus * scale) + ' rev (customer)', kind: 'rev' });
+    if (fx.customerReliabilityBonus) tags.push({ label: '+' + pctFrac(fx.customerReliabilityBonus * scale) + ' reliability', kind: 'rel' });
+    if (fx.supplierRevenueBonus && !syn?.internalLink) tags.push({ label: '+' + pctFrac(fx.supplierRevenueBonus) + ' supplier rev', kind: 'ext' });
+    if (syn?.internalLink) tags.push({ label: 'internal — no supplier rev stack', kind: 'int' });
+    return tags;
+  }
+
+  function toggleOwned(id) {
+    if (owned.has(id)) {
+      owned.delete(id);
+      delete supplyPolicies[id];
+    } else {
+      owned.add(id);
+    }
+    render();
+  }
+
+  function applyPreset(ids) {
+    owned.clear();
+    Object.keys(supplyPolicies).forEach((k) => delete supplyPolicies[k]);
+    ids.forEach((id) => owned.add(id));
+    render();
+  }
+
+  function setPolicy(templateId, policyId) {
+    supplyPolicies[templateId] = policyId;
+    render();
+  }
+
+  function renderPresets() {
+    document.getElementById('presets').innerHTML = PRESETS.map((p) =>
+      `<button type="button" class="${p.id === 'vertical' ? 'primary' : ''}" data-preset="${p.id}">${p.label}</button>`
+    ).join('');
+    document.getElementById('presets').querySelectorAll('[data-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const p = PRESETS.find((x) => x.id === btn.dataset.preset);
+        if (p) applyPreset(p.ids);
+      });
+    });
+  }
+
+  function renderGhostOverlay(state, econ) {
+    if (!ghostPreview || !U.isActive(state)) return '';
+    const preview = U.computeUpgradePreview(state, ghostPreview.bizId, ghostPreview.trackId);
+    if (!preview || !preview.canApply) return '';
+
+    const node = state.portfolio.businesses.find((b) => b.id === ghostPreview.bizId);
+    if (!node) return '';
+
+    let html = '<g class="ghost-layer" pointer-events="none">';
+    const templateId = node.templateId;
+
+    (preview.chain || []).forEach((link) => {
+      if (Math.abs(link.fulfillAfter - link.fulfillBefore) < 0.001) return;
+      const conn = F.CONNECTIONS.find((c) => c.id === link.connectionId);
+      if (!conn || !owned.has(conn.supplier) || !owned.has(conn.customer)) return;
+      const mid = midpoint(conn.supplier, conn.customer);
+      html += `<path class="link link-ghost" d="${linkPath(conn.supplier, conn.customer)}"/>`;
+      html += `<text class="ghost-label" x="${mid.x}" y="${mid.y + 14}" text-anchor="middle">${Math.round(link.fulfillBefore * 100)}% → ${Math.round(link.fulfillAfter * 100)}%</text>`;
+    });
+
+    if ((ghostPreview.trackId === 'hire' || ghostPreview.trackId === 'marketing') && F.isAllocatableTemplate(templateId)) {
+      const L = LAYOUT[templateId];
+      const u = econ.util[templateId];
+      const beforeMult = preview.local?.before?.capacityMult || 1;
+      const afterMult = preview.local?.after?.capacityMult || beforeMult;
+      if (L && u && afterMult > beforeMult + 0.001) {
+        const afterCap = Math.max(1, Math.round(u.capacity * (afterMult / beforeMult)));
+        const barW = L.w - 20;
+        const ghostFillW = Math.min(barW, barW * Math.min(1.15, u.demand / afterCap));
+        html += `<rect class="cap-bar-fill ghost" x="${L.x + 10}" y="${L.y + L.h - 16}" width="${ghostFillW}" height="6"/>`;
+        html += `<text class="ghost-label" x="${L.x + L.w / 2}" y="${L.y - 4}" text-anchor="middle">Cap ${u.capacity} → ${afterCap}</text>`;
+      }
+    }
+
+    html += '</g>';
+    return html;
+  }
+
+  function renderSvg(state, econ) {
+    const svg = document.getElementById('graphSvg');
+    const synByConn = {};
+    econ.syns.forEach((s) => { synByConn[s.connectionId + ':' + s.customerId] = s; });
+
+    let html = '';
+
+    LAYER_BANDS.forEach((band) => {
+      html += `<rect class="layer-band" x="24" y="${band.y}" width="912" height="${band.h}" rx="4"/>`;
+      html += `<text class="layer-label" x="36" y="${band.y + 18}">${band.label}</text>`;
+    });
+
+    F.CONNECTIONS.forEach((conn) => {
+      const active = owned.has(conn.supplier) && owned.has(conn.customer);
+      const syn = active ? econ.syns.find((s) => s.connectionId === conn.id) : null;
+      const fulfill = syn ? syn.fulfillRatio : 0;
+      let cls = 'inactive';
+      if (active) {
+        if (syn && syn.capacityStrained) cls = 'strained';
+        else if (fulfill < 0.99) cls = 'partial';
+        else cls = 'active';
+      }
+      const isHot = hoveredLink === conn.id || selectedLink === conn.id;
+      const path = linkPath(conn.supplier, conn.customer);
+      html += `<path class="link ${cls}${isHot ? ' strained' : ''}" data-link="${conn.id}" d="${path}" opacity="${isHot ? 1 : ''}"/>`;
+      if (active && syn) {
+        const mid = midpoint(conn.supplier, conn.customer);
+        html += `<text class="link-label" x="${mid.x}" y="${mid.y}" text-anchor="middle">${pctFrac(fulfill)} fill</text>`;
+      }
+    });
+
+    F.TEMPLATES.forEach((t) => {
+      const L = LAYOUT[t.id];
+      if (!L) return;
+      const isOwned = owned.has(t.id);
+      const u = econ.util[t.id];
+      const shortage = u && u.overCapacity;
+      const cap = u ? u.capacity : F.capacityFor(t.id);
+      const demand = u ? u.demand : 0;
+      const utilPct = u ? u.utilizationPct : 0;
+      const stars = t.autopilot ? '★'.repeat(t.autopilot) + '☆'.repeat(5 - t.autopilot) : '';
+
+      html += `<g class="node-g ${isOwned ? 'owned' : ''} layer-${t.layer}${shortage ? ' shortage' : ''}" data-node="${t.id}">`;
+      html += `<rect class="node-card node-rect" x="${L.x}" y="${L.y}" width="${L.w}" height="${L.h}"/>`;
+      html += `<text class="node-title" x="${L.x + 10}" y="${L.y + 22}">${t.name}</text>`;
+      html += `<text class="node-meta" x="${L.x + 10}" y="${L.y + 36}">${t.layerLabel}${isOwned ? '' : ' · click to own'}</text>`;
+
+      if (isOwned) {
+        const d = DEMO[t.id];
+        const row = econ.bizRows.find((r) => r.id === t.id);
+        if (t.assetClass === 'real_estate') {
+          const re = econ.reRows.find((r) => r.id === t.id);
+          html += `<text class="node-stat" x="${L.x + 10}" y="${L.y + 50}">Rent ${fmt(re ? re.rent : d.rentPerTurn)}/qtr</text>`;
+          if (re && re.external) {
+            html += `<text class="node-meta" x="${L.x + 10}" y="${L.y + 62}">+${fmt(re.external)} external</text>`;
+          }
+        } else if (row) {
+          html += `<text class="node-stat" x="${L.x + 10}" y="${L.y + 50}">Rev ${fmt(row.rev)} · Cost ${fmt(row.cost)}</text>`;
+        }
+        if (F.isAllocatableTemplate(t.id) && cap) {
+          const barW = L.w - 20;
+          const baseline = u.baselineLoad || 0;
+          const chain = demand;
+          const displayPct = u.displayUtilPct != null ? u.displayUtilPct : utilPct;
+          const fillW = Math.min(barW, barW * Math.min(1.15, displayPct / 100));
+          const fillCls = utilPct > 100 ? 'over' : displayPct >= 85 ? 'warn' : 'ok';
+          const capLabel = chain > 0 ? `Base ${baseline} + chain ${chain}/${cap}` : `Base ${baseline}/${cap} · chain 0`;
+          html += `<rect class="cap-bar-bg" x="${L.x + 10}" y="${L.y + L.h - 16}" width="${barW}" height="6"/>`;
+          html += `<rect class="cap-bar-fill ${fillCls}" x="${L.x + 10}" y="${L.y + L.h - 16}" width="${fillW}" height="6"/>`;
+          html += `<text class="node-meta" x="${L.x + 10}" y="${L.y + L.h - 20}">${capLabel} · ${pct(displayPct)}${shortage ? ' SHORTAGE' : ''}</text>`;
+        } else if (stars) {
+          html += `<text class="node-meta" x="${L.x + 10}" y="${L.y + L.h - 12}">${stars}</text>`;
+        }
+        const bizNode = state.portfolio.businesses.find((b) => b.templateId === t.id);
+        if (bizNode && U.isActive(state)) {
+          const strip = U.formatLeverStripText(bizNode);
+          html += `<text class="node-meta" x="${L.x + 10}" y="${L.y + L.h - 6}" font-size="7">${strip.slice(0, 44)}</text>`;
+        }
+      } else {
+        html += `<text class="node-meta" x="${L.x + 10}" y="${L.y + 52}">${stars || t.blurb.slice(0, 42) + '…'}</text>`;
+      }
+      html += `</g>`;
+    });
+
+    html += renderGhostOverlay(state, econ);
+    svg.innerHTML = html;
+
+    svg.querySelectorAll('[data-node]').forEach((el) => {
+      el.addEventListener('click', () => toggleOwned(el.dataset.node));
+    });
+    svg.querySelectorAll('[data-link]').forEach((el) => {
+      const id = el.dataset.link;
+      el.addEventListener('mouseenter', () => {
+        hoveredLink = id;
+        highlightLinks();
+        if (lastState && lastEcon) renderSidebar(lastState, lastEcon);
+      });
+      el.addEventListener('mouseleave', () => {
+        hoveredLink = null;
+        highlightLinks();
+        if (lastState && lastEcon) renderSidebar(lastState, lastEcon);
+      });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedLink = selectedLink === id ? null : id;
+        highlightLinks();
+        if (lastState && lastEcon) renderSidebar(lastState, lastEcon);
+      });
+    });
+  }
+
+  function highlightLinks() {
+    const hot = selectedLink || hoveredLink;
+    document.querySelectorAll('[data-link]').forEach((el) => {
+      el.style.strokeWidth = el.dataset.link === hot ? '3.5' : '';
+      el.style.opacity = hot && el.dataset.link !== hot ? '0.35' : '';
+    });
+  }
+
+  function midpoint(from, to) {
+    const a = nodeCenter(from);
+    const b = nodeCenter(to);
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 6 };
+  }
+
+  function renderOwnedUpgrades(state) {
+    const tracks = ['hire', 'marketing', 'automation', 'care', 'manager'];
+    const bizNodes = state.portfolio.businesses.filter((b) => owned.has(b.templateId));
+    if (!bizNodes.length) return '';
+    return bizNodes.map((node) => {
+      const levers = U.leverStripData(node);
+      const btns = tracks.map((trackId) => {
+        const check = U.canApplyTrack(node, trackId, node.templateId);
+        const short = U.UPGRADE_TRACKS[trackId].name.split(/[\s&]+/)[0];
+        return `<button type="button" data-upgrade="${node.templateId}" data-track="${trackId}" data-ghost-biz="${node.id}" data-ghost-track="${trackId}"${!check.ok ? ' disabled' : ''}>+ ${short}</button>`;
+      }).join('');
+      const stats = node.upgradeStats || {};
+      const drift = stats.managerDrift || {};
+      const driftLine = (drift.hire || drift.marketing || drift.automation)
+        ? ` · drift +${Math.round(((drift.hire || 0) + (drift.marketing || 0) + (drift.automation || 0)) * 1000) / 10}%`
+        : '';
+      return `<div class="upgrade-row-demo">
+        <h3>${node.name}</h3>
+        <div class="upgrade-lever-strip">${levers.map((t) =>
+          `<span class="upgrade-lever${t.id === 'manager' && t.tier >= 1 ? ' mgr-done' : ''}">${t.label} ${U.renderTierPips(t.tier, t.max)}</span>`
+        ).join('')}</div>
+        <div class="upgrade-track-btns">${btns}</div>
+        <div class="upgrade-hint">Cap ×${(stats.capacityMult || 1).toFixed(2)} · Dem ×${(stats.demandMult || 1).toFixed(2)} · Opex ×${(stats.opexMult || 1).toFixed(2)}${driftLine}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderSidebar(state, econ) {
+    const allocatable = Object.values(econ.util || {});
+    const policyHtml = allocatable.length ? allocatable.map((u) => {
+      const pol = F.getSupplyPolicy(state, u.templateId);
+      const opts = Object.keys(F.SUPPLY_POLICIES).map((k) => {
+        const p = F.SUPPLY_POLICIES[k];
+        return `<option value="${k}"${pol === k ? ' selected' : ''}>${p.label}</option>`;
+      }).join('');
+      return `<div class="policy-row"><label>${u.name} allocation</label><select data-policy="${u.templateId}">${opts}</select></div>`;
+    }).join('') : '<p class="hint">Own upstream or infrastructure assets to set allocation policy.</p>';
+
+    let linkDetail = '<p class="hint">Hover or click a connection line to see modifiers.</p>';
+    const connId = selectedLink || hoveredLink;
+    if (connId) {
+      const conn = F.CONNECTIONS.find((c) => c.id === connId);
+      const active = conn && owned.has(conn.supplier) && owned.has(conn.customer);
+      const syn = active ? econ.syns.find((s) => s.connectionId === conn.id) : null;
+      const sup = F.templateById(conn.supplier);
+      const cust = F.templateById(conn.customer);
+      const tags = effectTags(conn, syn);
+      linkDetail = `<div class="link-detail">
+        <strong>${sup.name} → ${cust.name}</strong><br>
+        Flow: ${conn.flow}<br>
+        ${active ? `Fulfillment: <strong>${pctFrac(syn.fulfillRatio)}</strong> · ${syn.label}` : 'Inactive — own both businesses to activate.'}
+        <div style="margin-top:6px;">${tags.map((t) => `<span class="tag">${t.label}</span>`).join('')}</div>
+        ${active && syn.internalLink ? '<div style="margin-top:4px;color:#8fd6b3;">Internal link: cost savings only on consolidated P&amp;L</div>' : ''}
+        ${conn.vulnerabilityLabel ? `<div style="margin-top:4px;font-size:9px;color:#7a8a82;">Risk: ${conn.vulnerabilityLabel}</div>` : ''}
+      </div>`;
+    }
+
+    const activeLinks = econ.syns.filter((s) => s.fulfillRatio > 0);
+    const allocLines = activeLinks.slice(0, 8).map((s) =>
+      `<li>${s.label}: ${pctFrac(s.fulfillRatio)} · −${pctFrac(s.costReduction)} cost${s.revenueBonusCustomer ? ', +' + pctFrac(s.revenueBonusCustomer) + ' cust rev' : ''}</li>`
+    ).join('');
+
+    const upgradeHtml = renderOwnedUpgrades(state);
+
+    document.getElementById('sidebar').innerHTML = `
+      <div class="panel">
+        <h2>Consolidated P&amp;L (quarterly)</h2>
+        <p class="hint">External revenue + export/contracts − operating costs. Internal synergies reduce costs — they do not double-count as fake revenue.</p>
+        <div class="pl-row"><span class="lbl">External revenue</span><span class="val">${fmt(econ.revenue)}</span></div>
+        <div class="pl-row"><span class="lbl">Operating costs</span><span class="val neg">${fmt(econ.costs)}</span></div>
+        <div class="pl-row pl-total"><span class="lbl">Profit</span><span class="val ${econ.profit >= 0 ? 'pos' : 'neg'}">${fmt(econ.profit)}</span></div>
+        ${econ.exportRev ? `<div class="pl-row"><span class="lbl">Export (floor)</span><span class="val">${fmt(econ.exportRev)}/qtr</span></div>` : ''}
+        ${econ.externalContract ? `<div class="pl-row"><span class="lbl">Infra external contracts</span><span class="val">${fmt(econ.externalContract)}/qtr</span></div>` : ''}
+        ${econ.shortages.length ? `<div class="pl-row"><span class="lbl" style="color:var(--brick)">Shortage</span><span class="val neg">${econ.shortages.map((s) => s.name).join(', ')}</span></div>` : ''}
+      </div>
+      <div class="panel">
+        <h2>Capacity &amp; allocation</h2>
+        ${policyHtml}
+        ${allocLines ? `<ul class="alloc-list">${allocLines}</ul>` : ''}
+      </div>
+      <div class="panel">
+        <h2>Connection detail</h2>
+        ${linkDetail}
+        <div class="legend" style="margin-top:10px;">
+          <span class="l-active"><i></i> Full fill</span>
+          <span class="l-partial"><i></i> Partial</span>
+          <span class="l-strained"><i></i> Strained / shortage</span>
+          <span class="l-inactive"><i></i> Inactive</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Owned businesses</h2>
+        ${econ.bizRows.length ? econ.bizRows.map((r) =>
+          `<div class="pl-row"><span class="lbl">${r.name}</span><span class="val">${fmt(r.rev)} rev · ${fmt(r.savings)} saved</span></div>`
+        ).join('') : ''}
+        ${econ.reRows.length ? econ.reRows.map((r) =>
+          `<div class="pl-row"><span class="lbl">${r.name}</span><span class="val">${fmt(r.rent)} rent · ${pct(r.utilPct)} util</span></div>`
+        ).join('') : ''}
+        ${!econ.bizRows.length && !econ.reRows.length ? '<p class="hint">No businesses owned — click nodes on the map or use a preset.</p>' : ''}
+      </div>
+      ${upgradeHtml ? `<div class="panel"><h2>Operational upgrades</h2><p class="hint">Hover + buttons to ghost-preview link fulfillment on the map. Quarter ${turn}.</p>${upgradeHtml}</div>` : ''}`;
+
+    document.querySelectorAll('[data-policy]').forEach((sel) => {
+      sel.addEventListener('change', () => setPolicy(sel.dataset.policy, sel.value));
+    });
+    document.querySelectorAll('[data-upgrade]').forEach((btn) => {
+      btn.addEventListener('click', () => applyDemoUpgrade(btn.dataset.upgrade, btn.dataset.track));
+    });
+    document.querySelectorAll('[data-ghost-biz]').forEach((btn) => {
+      btn.addEventListener('mouseenter', () => {
+        ghostPreview = { bizId: btn.dataset.ghostBiz, trackId: btn.dataset.ghostTrack };
+        if (lastState && lastEcon) renderSvg(lastState, lastEcon);
+      });
+      btn.addEventListener('mouseleave', () => {
+        ghostPreview = null;
+        if (lastState && lastEcon) renderSvg(lastState, lastEcon);
+      });
+    });
+  }
+
+  function render() {
+    lastState = buildState();
+    lastEcon = computeEconomics(lastState);
+    renderSvg(lastState, lastEcon);
+    renderSidebar(lastState, lastEcon);
+    highlightLinks();
+  }
+
+  document.getElementById('advanceQuarterBtn').addEventListener('click', advanceDemoQuarter);
+
+  renderPresets();
+  applyPreset(PRESETS.find((p) => p.id === 'vertical').ids);
+})();
+</script>
+</body>
+</html>
