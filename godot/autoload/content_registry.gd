@@ -1,4 +1,5 @@
 # Loads authored farm content from JSON (exported from js/farm-supply-chain.js).
+class_name FarmContentRegistry
 extends Node
 
 const BusinessTemplateClass := preload("res://data/templates/business_template.gd")

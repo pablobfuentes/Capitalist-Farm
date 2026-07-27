@@ -37,7 +37,7 @@ func portfolio_nodes() -> Array:
 	nodes.append_array(businesses)
 	for raw: Dictionary in real_estate:
 		var tid: String = str(raw.get("templateId", raw.get("template_id", "")))
-		if Content.is_real_estate_asset(tid):
+		if ContentAccess.is_real_estate_asset(tid):
 			nodes.append(raw)
 	return nodes
 

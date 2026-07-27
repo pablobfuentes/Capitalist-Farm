@@ -48,6 +48,11 @@ custom_minimum_size = Vector2(280, 44)
 layout_mode = 2
 text = "New Capital Farm Run"
 
+[node name="New2DRunButton" type="Button" parent="Center/VBox"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "New 2D Run"
+
 [node name="LoadButton" type="Button" parent="Center/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 44)
@@ -60,5 +65,6 @@ layout_mode = 2
 text = "Run Smoke Test"
 
 [connection signal="pressed" from="Center/VBox/CapitalFarmButton" to="." method="_on_capital_farm_pressed"]
+[connection signal="pressed" from="Center/VBox/New2DRunButton" to="." method="_on_new_2d_run_pressed"]
 [connection signal="pressed" from="Center/VBox/LoadButton" to="." method="_on_load_pressed"]
 [connection signal="pressed" from="Center/VBox/SmokeTestButton" to="." method="_on_smoke_test_pressed"]

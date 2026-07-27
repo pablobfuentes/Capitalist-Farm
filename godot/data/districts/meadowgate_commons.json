@@ -1,0 +1,37 @@
+{
+  "id": "meadowgate_commons",
+  "name": "Meadowgate Commons",
+  "lot_tiles": 3,
+  "building_tiles": 2,
+  "road_gap": 1,
+  "plazas": [
+    { "parcel_x": 2, "parcel_y": 2, "label": "Village Green" }
+  ],
+  "road_notes": "One-tile dirt row between each 3x3 lot; lots stay full size with 2x2 building pad inside.",
+  "parcels": [
+    { "id": "mg_01", "parcel_x": 1, "parcel_y": 0, "label": "Grain Farm", "template_id": "grain_farm", "role": "core" },
+    { "id": "mg_02", "parcel_x": 2, "parcel_y": 0, "label": "Vegetable Farm", "template_id": "vegetable_farm", "role": "core" },
+    { "id": "mg_03", "parcel_x": 3, "parcel_y": 0, "label": "Dairy Barn", "template_id": "dairy_barn", "role": "core" },
+    { "id": "mg_04", "parcel_x": 4, "parcel_y": 0, "label": "Poultry Coop", "template_id": "poultry_coop", "role": "core" },
+    { "id": "mg_05", "parcel_x": 0, "parcel_y": 1, "label": "Feed Mill", "template_id": "feed_mill", "role": "core" },
+    { "id": "mg_06", "parcel_x": 1, "parcel_y": 1, "label": "Equipment & Repair Shed", "template_id": "equipment_repair", "role": "core" },
+    { "id": "mg_07", "parcel_x": 2, "parcel_y": 1, "label": "Bakery", "template_id": "bakery", "role": "core" },
+    { "id": "mg_08", "parcel_x": 3, "parcel_y": 1, "label": "Farmhouse Restaurant", "template_id": "farmhouse_restaurant", "role": "core" },
+    { "id": "mg_09", "parcel_x": 4, "parcel_y": 1, "label": "General Store & Market", "template_id": "general_store", "role": "core" },
+    { "id": "mg_10", "parcel_x": 0, "parcel_y": 2, "label": "Delivery & Cold Storage", "template_id": "delivery_cold_storage", "role": "core" },
+    { "id": "mg_11", "parcel_x": 1, "parcel_y": 2, "label": "General Store — East Wing", "template_id": "general_store", "role": "specialization" },
+    { "id": "mg_12", "parcel_x": 3, "parcel_y": 2, "label": "Village Bakery", "template_id": "bakery", "role": "specialization" },
+    { "id": "mg_13", "parcel_x": 4, "parcel_y": 2, "label": "Greens & Roots Stand", "template_id": "vegetable_farm", "role": "specialization" },
+    { "id": "mg_14", "parcel_x": 5, "parcel_y": 2, "label": "Sunny Coop", "template_id": "poultry_coop", "role": "specialization" },
+    { "id": "mg_15", "parcel_x": 0, "parcel_y": 3, "label": "Hearth & Table", "template_id": "farmhouse_restaurant", "role": "specialization" },
+    { "id": "mg_16", "parcel_x": 1, "parcel_y": 3, "label": "Rowe Family Grain", "template_id": "grain_farm", "role": "competitive" },
+    { "id": "mg_17", "parcel_x": 2, "parcel_y": 3, "label": "Premium Dairy Exchange", "template_id": "dairy_barn", "role": "premium" },
+    { "id": "mg_18", "parcel_x": 3, "parcel_y": 3, "label": "Vacant — Orchard Lane", "template_id": "", "role": "development" },
+    { "id": "mg_19", "parcel_x": 4, "parcel_y": 3, "label": "Vacant — Mill Road", "template_id": "", "role": "development" },
+    { "id": "mg_20", "parcel_x": 5, "parcel_y": 3, "label": "Market Hall", "template_id": "", "role": "civic" },
+    { "id": "mg_21", "parcel_x": 1, "parcel_y": 4, "label": "Vacant — South Meadow", "template_id": "", "role": "development" },
+    { "id": "mg_22", "parcel_x": 2, "parcel_y": 4, "label": "Town Commons", "template_id": "", "role": "civic" },
+    { "id": "mg_23", "parcel_x": 3, "parcel_y": 4, "label": "Rival Feed & Supply", "template_id": "feed_mill", "role": "competitive" },
+    { "id": "mg_24", "parcel_x": 4, "parcel_y": 4, "label": "Vacant — Creek Bend", "template_id": "", "role": "development" }
+  ]
+}

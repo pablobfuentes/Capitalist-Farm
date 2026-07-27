@@ -87,7 +87,7 @@ func to_dict() -> Dictionary:
 
 
 static func create_from_template(tmpl_id: String, display_name: String, revenue: int, costs: int) -> BusinessInstance:
-	var tmpl := Content.get_template(tmpl_id)
+	var tmpl: BusinessTemplate = ContentAccess.get_template(tmpl_id)
 	var b := BusinessInstance.new()
 	b.id = MathUtil.uid()
 	b.template_id = tmpl_id

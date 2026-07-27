@@ -28,13 +28,9 @@ Content="*res://autoload/content_registry.gd"
 AiClient="*res://autoload/ai_client.gd"
 NegotiationContent="*res://autoload/negotiation_content.gd"
 
-[debug]
-
-gdscript/warnings/untyped_declaration=0
-
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/gut_plugin.gd")
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 [rendering]
 

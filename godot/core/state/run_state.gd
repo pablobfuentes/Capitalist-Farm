@@ -3,6 +3,7 @@ extends RefCounted
 
 ## Matches GameMode.MODE_CAPITAL_FARM — kept here so core/state has no parse-order dependency on GameMode.
 const CAPITAL_FARM_MODE := "arcade"
+const FARM_2D_MODE := "farm_2d"
 
 var run_seed: int = 0
 var mode: String = "simulator"
@@ -41,6 +42,10 @@ var sec_prices: Dictionary = {}
 var run_stats: Dictionary = {}
 var turn_history: Array = []
 var contracts: Array = []
+var active_district_id: String = "meadowgate_commons"
+var parcel_assignments: Dictionary = {}
+var unlocked_districts: Array = []
+var district_unlock_dev_bypass: bool = false
 
 
 static func create_new(run_mode: String = CAPITAL_FARM_MODE) -> RunState:
@@ -105,6 +110,10 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.run_stats = d.get("runStats", d.get("run_stats", {}))
 	s.turn_history = d.get("turnHistory", d.get("turn_history", []))
 	s.contracts = d.get("contracts", [])
+	s.active_district_id = str(d.get("activeDistrictId", d.get("active_district_id", "meadowgate_commons")))
+	s.parcel_assignments = d.get("parcelAssignments", d.get("parcel_assignments", {}))
+	s.unlocked_districts = d.get("unlockedDistricts", d.get("unlocked_districts", []))
+	s.district_unlock_dev_bypass = bool(d.get("districtUnlockDevBypass", d.get("district_unlock_dev_bypass", false)))
 	return s
 
 
@@ -147,11 +156,15 @@ func to_dict() -> Dictionary:
 		"runStats": run_stats,
 		"turnHistory": turn_history,
 		"contracts": contracts,
+		"activeDistrictId": active_district_id,
+		"parcelAssignments": parcel_assignments,
+		"unlockedDistricts": unlocked_districts,
+		"districtUnlockDevBypass": district_unlock_dev_bypass,
 	}
 
 
 func is_capital_farm() -> bool:
-	return mode == CAPITAL_FARM_MODE
+	return mode == CAPITAL_FARM_MODE or mode == FARM_2D_MODE
 
 
 func has_strategic_edge(edge_id: String) -> bool:

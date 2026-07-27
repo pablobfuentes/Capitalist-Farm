@@ -1,0 +1,38 @@
+{
+  "id": "highland_terrace",
+  "name": "Highland Terrace",
+  "lot_tiles": 3,
+  "building_tiles": 2,
+  "road_gap": 1,
+  "plazas": [
+    { "parcel_x": 2, "parcel_y": 2, "label": "Terrace Outlook" }
+  ],
+  "road_notes": "One-tile dirt row between each 3x3 lot; lots stay full size with 2x2 building pad inside.",
+  "shape_notes": "Irregular L-shape — same parcel coordinates as Meadowgate Commons; shares south edge with Meadowgate north row.",
+  "parcels": [
+    { "id": "ht_01", "parcel_x": 1, "parcel_y": 0, "label": "Terrace Grain Farm", "template_id": "grain_farm", "role": "core" },
+    { "id": "ht_02", "parcel_x": 2, "parcel_y": 0, "label": "Highland Vegetables", "template_id": "vegetable_farm", "role": "core" },
+    { "id": "ht_03", "parcel_x": 3, "parcel_y": 0, "label": "Summit Dairy Barn", "template_id": "dairy_barn", "role": "core" },
+    { "id": "ht_04", "parcel_x": 4, "parcel_y": 0, "label": "Terrace Poultry Coop", "template_id": "poultry_coop", "role": "core" },
+    { "id": "ht_05", "parcel_x": 0, "parcel_y": 1, "label": "Highland Feed Mill", "template_id": "feed_mill", "role": "core" },
+    { "id": "ht_06", "parcel_x": 1, "parcel_y": 1, "label": "Terrace Equipment Shed", "template_id": "equipment_repair", "role": "core" },
+    { "id": "ht_07", "parcel_x": 2, "parcel_y": 1, "label": "Highland Bakery", "template_id": "bakery", "role": "core" },
+    { "id": "ht_08", "parcel_x": 3, "parcel_y": 1, "label": "Terrace Restaurant", "template_id": "farmhouse_restaurant", "role": "core" },
+    { "id": "ht_09", "parcel_x": 4, "parcel_y": 1, "label": "Highland General Store", "template_id": "general_store", "role": "core" },
+    { "id": "ht_10", "parcel_x": 0, "parcel_y": 2, "label": "Terrace Cold Storage", "template_id": "delivery_cold_storage", "role": "core" },
+    { "id": "ht_11", "parcel_x": 1, "parcel_y": 2, "label": "Highland Market — East Wing", "template_id": "general_store", "role": "specialization" },
+    { "id": "ht_12", "parcel_x": 3, "parcel_y": 2, "label": "Outlook Bakery", "template_id": "bakery", "role": "specialization" },
+    { "id": "ht_13", "parcel_x": 4, "parcel_y": 2, "label": "Terrace Greens Stand", "template_id": "vegetable_farm", "role": "specialization" },
+    { "id": "ht_14", "parcel_x": 5, "parcel_y": 2, "label": "Highland Coop", "template_id": "poultry_coop", "role": "specialization" },
+    { "id": "ht_15", "parcel_x": 0, "parcel_y": 3, "label": "Summit Hearth & Table", "template_id": "farmhouse_restaurant", "role": "specialization" },
+    { "id": "ht_16", "parcel_x": 1, "parcel_y": 3, "label": "Rival Terrace Grain", "template_id": "grain_farm", "role": "competitive" },
+    { "id": "ht_17", "parcel_x": 2, "parcel_y": 3, "label": "Premium Highland Dairy", "template_id": "dairy_barn", "role": "premium" },
+    { "id": "ht_18", "parcel_x": 3, "parcel_y": 3, "label": "Vacant — Terrace Lane", "template_id": "", "role": "development" },
+    { "id": "ht_19", "parcel_x": 4, "parcel_y": 3, "label": "Vacant — Highland Road", "template_id": "", "role": "development" },
+    { "id": "ht_20", "parcel_x": 5, "parcel_y": 3, "label": "Terrace Market Hall", "template_id": "", "role": "civic" },
+    { "id": "ht_21", "parcel_x": 1, "parcel_y": 4, "label": "Vacant — South Terrace", "template_id": "", "role": "development" },
+    { "id": "ht_22", "parcel_x": 2, "parcel_y": 4, "label": "Highland Commons", "template_id": "", "role": "civic" },
+    { "id": "ht_23", "parcel_x": 3, "parcel_y": 4, "label": "Rival Highland Feed", "template_id": "feed_mill", "role": "competitive" },
+    { "id": "ht_24", "parcel_x": 4, "parcel_y": 4, "label": "Vacant — Bluff Bend", "template_id": "", "role": "development" }
+  ]
+}

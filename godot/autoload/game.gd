@@ -4,6 +4,7 @@ extends Node
 const DASHBOARD_SCENE := "res://ui/screens/dashboard.tscn"
 const RUN_REPORT_SCENE := "res://ui/screens/run_report.tscn"
 const MAIN_MENU_SCENE := "res://ui/screens/main_menu.tscn"
+const ISO_FARM_MAP_SCENE := "res://scenes/farm_map/iso_farm_map.tscn"
 const DEFAULT_SAVE_PATH := "user://saves/slot_0.json"
 
 var state: RunState = null
@@ -26,6 +27,9 @@ func start_new_run(mode: String = RunState.CAPITAL_FARM_MODE) -> RunState:
 	state = RunState.create_new(mode)
 	RunBootstrap.prepare_new_run(state)
 	OpportunitySystem.refresh_opportunities(state)
+	ParcelOwnershipSystem.sync_from_state(state)
+	DistrictUnlockSystem.ensure_initialized(state)
+	DistrictUnlockSystem.refresh_auto_unlocks(state)
 	ActionPointsSystem.reset_for_turn(state)
 	EventBus.run_started.emit(state)
 	return state
@@ -65,6 +69,7 @@ func load_from_file(path: String = DEFAULT_SAVE_PATH) -> bool:
 		push_error("Game.load_from_file: invalid JSON in %s" % path)
 		return false
 	load_from_dict(parsed)
+	ParcelOwnershipSystem.sync_from_state(state)
 	return true
 
 
@@ -125,8 +130,28 @@ func go_to_dashboard() -> void:
 	get_tree().change_scene_to_file(DASHBOARD_SCENE)
 
 
+func go_to_active_run() -> void:
+	if state == null:
+		go_to_main_menu()
+		return
+	if state.game_over != null:
+		go_to_run_report()
+		return
+	if GameMode.is_2d_run(state.mode):
+		go_to_iso_farm_map()
+	else:
+		go_to_dashboard()
+
+
 func go_to_run_report() -> void:
 	get_tree().change_scene_to_file(RUN_REPORT_SCENE)
+
+
+func go_to_iso_farm_map() -> void:
+	if state != null and state.game_over != null:
+		get_tree().change_scene_to_file(RUN_REPORT_SCENE)
+		return
+	get_tree().change_scene_to_file(ISO_FARM_MAP_SCENE)
 
 
 func send_negotiation_message_async(text: String, callback: Callable) -> void:

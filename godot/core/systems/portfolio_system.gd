@@ -22,6 +22,7 @@ static func sell_asset(state: RunState, asset_kind: String, asset_id: String) ->
 		)
 		ActionPointsSystem.spend(state, 1)
 		state.run_log.append("Sold %s for %s" % [biz.name, MathUtil.fmt_money(price)])
+		ParcelOwnershipSystem.sync_from_state(state)
 		return {"ok": true, "state": state, "proceeds": price, "assetKind": asset_kind}
 
 	if asset_kind == "realestate":

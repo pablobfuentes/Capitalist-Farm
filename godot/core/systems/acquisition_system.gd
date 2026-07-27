@@ -63,6 +63,7 @@ static func close_business_acquisition(state: RunState, opportunity_id: String, 
 		"business",
 	)
 	_remove_opportunity(state, opportunity_id)
+	ParcelOwnershipSystem.on_business_acquired(state, biz, opp)
 
 	return {
 		"ok": true,

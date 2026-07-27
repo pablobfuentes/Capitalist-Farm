@@ -3,6 +3,7 @@ extends RefCounted
 
 const MODE_SIMULATOR := "simulator"
 const MODE_CAPITAL_FARM := "arcade"
+const MODE_2D_RUN := "farm_2d"
 
 const STARTER_FARM_TEMPLATES: Array[String] = ["grain_farm", "vegetable_farm", "general_store"]
 
@@ -13,9 +14,10 @@ const FARM_SUFFIXES: Array[String] = [
 
 static func config(mode: String) -> Dictionary:
 	match mode:
-		MODE_CAPITAL_FARM:
+		MODE_CAPITAL_FARM, MODE_2D_RUN:
+			var label := "New 2D Run" if mode == MODE_2D_RUN else "Capital Farm"
 			return {
-				"label": "Capital Farm",
+				"label": label,
 				"price_mult": 1.0,
 				"revenue_mult": 1.18,
 				"cost_mult": 1.0,
@@ -27,6 +29,7 @@ static func config(mode: String) -> Dictionary:
 				"rate_adj": -0.02,
 				"urgent_freq_mult": 1.4,
 				"event_freq_mult": 1.45,
+				"iso_view": mode == MODE_2D_RUN,
 			}
 		_:
 			return {
@@ -44,4 +47,8 @@ static func config(mode: String) -> Dictionary:
 
 
 static func is_capital_farm(mode: String) -> bool:
-	return mode == MODE_CAPITAL_FARM
+	return mode == MODE_CAPITAL_FARM or mode == MODE_2D_RUN
+
+
+static func is_2d_run(mode: String) -> bool:
+	return mode == MODE_2D_RUN

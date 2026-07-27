@@ -30,6 +30,7 @@ static func bootstrap_for_new_run(state: RunState) -> void:
 	if not state.is_capital_farm():
 		return
 	state.opportunities = _generate_fresh_batch(state, true)
+	ParcelOwnershipSystem.sync_from_state(state)
 
 
 static func advance_opportunities(state: RunState) -> void:
@@ -75,6 +76,7 @@ static func advance_opportunities(state: RunState) -> void:
 	if combined.size() > REGULAR_OPP_CAP:
 		combined = combined.slice(0, REGULAR_OPP_CAP)
 	state.opportunities = combined + surviving_levelups + fresh_levelups
+	ParcelOwnershipSystem.sync_from_state(state)
 
 
 static func find_opportunity(state: RunState, opportunity_id: String) -> Dictionary:

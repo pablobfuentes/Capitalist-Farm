@@ -1,0 +1,125 @@
+[gd_scene load_steps=6 format=3 uid="uid://econgame_iso_farm_map"]
+
+[ext_resource type="Script" path="res://scenes/farm_map/iso_farm_map.gd" id="1_map"]
+[ext_resource type="Script" path="res://scenes/farm_map/iso_farm_terrain.gd" id="2_terrain"]
+[ext_resource type="Script" path="res://scenes/farm_map/district_parcels.gd" id="3_lots"]
+[ext_resource type="Script" path="res://scenes/farm_map/iso_farm_map_ui.gd" id="4_ui"]
+[ext_resource type="PackedScene" uid="uid://econgame_parcel_business_panel" path="res://scenes/farm_map/parcel_business_panel.tscn" id="5_panel"]
+
+[node name="IsoFarmMap" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_map")
+
+[node name="Sky" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.34, 0.40, 0.36, 1)
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Camera2D" type="Camera2D" parent="World"]
+
+[node name="Terrain" type="Node2D" parent="World"]
+script = ExtResource("2_terrain")
+
+[node name="Lots" type="Node2D" parent="World"]
+z_index = 1
+script = ExtResource("3_lots")
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="Hud" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4_ui")
+
+[node name="TopBar" type="PanelContainer" parent="UI/Hud"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 980.0
+offset_bottom = 72.0
+
+[node name="Row" type="HBoxContainer" parent="UI/Hud/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="UI/Hud/TopBar/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Capital Farm Valley — Overview"
+
+[node name="RunStats" type="Label" parent="UI/Hud/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.82, 0.88, 0.78, 1)
+theme_override_font_sizes/font_size = 14
+text = "Turn 1 · $25,000 · 2 AP"
+horizontal_alignment = 2
+
+[node name="OverviewButton" type="Button" parent="UI/Hud/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Overview"
+
+[node name="UnlockAllButton" type="Button" parent="UI/Hud/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Unlock All (Test)"
+
+[node name="EnforceLocksButton" type="Button" parent="UI/Hud/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enforce Locks"
+
+[node name="BackButton" type="Button" parent="UI/Hud/TopBar/Row"]
+layout_mode = 2
+text = "Main Menu"
+
+[node name="Hint" type="Label" parent="UI/Hud"]
+layout_mode = 0
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -40.0
+offset_right = 520.0
+offset_bottom = -12.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.88, 0.85)
+text = "Overview: all districts · Click district/lot to zoom · Yellow blink = for sale · Test unlock buttons in top bar"
+
+[node name="ParcelBusinessPanel" parent="UI/Hud" instance=ExtResource("5_panel")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -316.0
+offset_top = 96.0
+offset_right = -16.0
+offset_bottom = 360.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+
+[connection signal="pressed" from="UI/Hud/TopBar/Row/BackButton" to="." method="_on_back_pressed"]

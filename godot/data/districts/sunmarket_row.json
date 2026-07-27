@@ -1,0 +1,38 @@
+{
+  "id": "sunmarket_row",
+  "name": "Sunmarket Row",
+  "lot_tiles": 3,
+  "building_tiles": 2,
+  "road_gap": 1,
+  "shape_notes": "C-shape — 6×5 footprint with six northwest corner/edge cells cut out; plaza in the inner bend.",
+  "plazas": [
+    { "parcel_x": 1, "parcel_y": 1, "label": "Sunmarket Plaza" }
+  ],
+  "road_notes": "One-tile dirt row between each 3x3 lot; lots stay full size with 2x2 building pad inside.",
+  "parcels": [
+    { "id": "sm_01", "parcel_x": 3, "parcel_y": 0, "label": "Sunmarket General Store", "template_id": "general_store", "role": "core" },
+    { "id": "sm_02", "parcel_x": 4, "parcel_y": 0, "label": "Row Grain Farm", "template_id": "grain_farm", "role": "core" },
+    { "id": "sm_03", "parcel_x": 5, "parcel_y": 0, "label": "Sun Poultry Market", "template_id": "poultry_coop", "role": "core" },
+    { "id": "sm_04", "parcel_x": 2, "parcel_y": 1, "label": "Row Vegetable Stalls", "template_id": "vegetable_farm", "role": "core" },
+    { "id": "sm_05", "parcel_x": 3, "parcel_y": 1, "label": "Sunmarket Bakery", "template_id": "bakery", "role": "core" },
+    { "id": "sm_06", "parcel_x": 4, "parcel_y": 1, "label": "Row Dairy", "template_id": "dairy_barn", "role": "core" },
+    { "id": "sm_07", "parcel_x": 5, "parcel_y": 1, "label": "Market Feed Mill", "template_id": "feed_mill", "role": "core" },
+    { "id": "sm_08", "parcel_x": 1, "parcel_y": 2, "label": "Row Equipment Shed", "template_id": "equipment_repair", "role": "core" },
+    { "id": "sm_09", "parcel_x": 2, "parcel_y": 2, "label": "Sunmarket Restaurant", "template_id": "farmhouse_restaurant", "role": "core" },
+    { "id": "sm_10", "parcel_x": 3, "parcel_y": 2, "label": "Row Cold Storage", "template_id": "delivery_cold_storage", "role": "core" },
+    { "id": "sm_11", "parcel_x": 4, "parcel_y": 2, "label": "Sun Greens Stand", "template_id": "vegetable_farm", "role": "specialization" },
+    { "id": "sm_12", "parcel_x": 5, "parcel_y": 2, "label": "Row Bakery Annex", "template_id": "bakery", "role": "specialization" },
+    { "id": "sm_13", "parcel_x": 0, "parcel_y": 3, "label": "Market Poultry Exchange", "template_id": "poultry_coop", "role": "specialization" },
+    { "id": "sm_14", "parcel_x": 1, "parcel_y": 3, "label": "Sun Table & Hearth", "template_id": "farmhouse_restaurant", "role": "specialization" },
+    { "id": "sm_15", "parcel_x": 2, "parcel_y": 3, "label": "Row General Supply", "template_id": "general_store", "role": "specialization" },
+    { "id": "sm_16", "parcel_x": 3, "parcel_y": 3, "label": "Rival Row Feed", "template_id": "feed_mill", "role": "competitive" },
+    { "id": "sm_17", "parcel_x": 4, "parcel_y": 3, "label": "Premium Sun Dairy", "template_id": "dairy_barn", "role": "premium" },
+    { "id": "sm_18", "parcel_x": 5, "parcel_y": 3, "label": "Vacant — Row End", "template_id": "", "role": "development" },
+    { "id": "sm_19", "parcel_x": 0, "parcel_y": 4, "label": "Vacant — Alley Pad", "template_id": "", "role": "development" },
+    { "id": "sm_20", "parcel_x": 1, "parcel_y": 4, "label": "Market Hall Annex", "template_id": "", "role": "civic" },
+    { "id": "sm_21", "parcel_x": 2, "parcel_y": 4, "label": "Vacant — Sun Lane", "template_id": "", "role": "development" },
+    { "id": "sm_22", "parcel_x": 3, "parcel_y": 4, "label": "Sunmarket Office", "template_id": "", "role": "civic" },
+    { "id": "sm_23", "parcel_x": 4, "parcel_y": 4, "label": "Rival Sun Grain", "template_id": "grain_farm", "role": "competitive" },
+    { "id": "sm_24", "parcel_x": 5, "parcel_y": 4, "label": "Vacant — Market Backlot", "template_id": "", "role": "development" }
+  ]
+}

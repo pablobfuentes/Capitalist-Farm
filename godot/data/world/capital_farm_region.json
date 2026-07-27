@@ -1,0 +1,48 @@
+{
+  "id": "capital_farm_region",
+  "name": "Capital Farm Valley",
+  "districts": [
+    {
+      "district_id": "meadowgate_commons",
+      "path": "res://data/districts/meadowgate_commons.json",
+      "world_tile_origin": [0, 0],
+      "unlock_net_worth": 0,
+      "index": 1
+    },
+    {
+      "district_id": "northfield_heights",
+      "path": "res://data/districts/northfield_heights.json",
+      "world_tile_origin": [28, -24],
+      "unlock_net_worth": 75000,
+      "index": 2
+    },
+    {
+      "district_id": "riverbend_flats",
+      "path": "res://data/districts/riverbend_flats.json",
+      "world_tile_origin": [0, 24],
+      "unlock_net_worth": 120000,
+      "index": 3
+    },
+    {
+      "district_id": "sunmarket_row",
+      "path": "res://data/districts/sunmarket_row.json",
+      "world_tile_origin": [28, 24],
+      "unlock_net_worth": 150000,
+      "index": 4
+    },
+    {
+      "district_id": "ironwood_yard",
+      "path": "res://data/districts/ironwood_yard.json",
+      "world_tile_origin": [28, 0],
+      "unlock_net_worth": 200000,
+      "index": 5
+    },
+    {
+      "district_id": "highland_terrace",
+      "path": "res://data/districts/highland_terrace.json",
+      "world_tile_origin": [0, -24],
+      "unlock_net_worth": 100000,
+      "index": 6
+    }
+  ]
+}
