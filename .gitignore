@@ -7,3 +7,10 @@ node_modules/
 Thumbs.db
 .cursor/
 *.local
+
+# Godot
+godot/.godot/
+godot/.import/
+godot/export/
+godot/export_presets.cfg
+*.import

@@ -1,0 +1,723 @@
+CAPITAL FARM
+NPC Negotiation Mechanics
+Deterministic Deal Progress, Price Movement, and Close Deal Gauge
+Implementation specification for EconomyGame / Capital Farm Arcade ModeDefines how ask price, species, business situation, reputation, relationship memory, morality, leverage, conversation tactics, and offer terms produce a transparent and testable negotiation result.This document supersedes the earlier open-ended NPC utility model for the streamlined negotiation flow described here.
+Version 2.0  |  July 2026  |  EconomyGame 0.6 -> 1.0
+1. Executive Summary
+The revised negotiation system converts free-form dialogue into a bounded, deterministic progression model. The AI may interpret what the player said and write the NPC response, but it may not decide whether the deal succeeds, how far the price moves, or what persistent state changes occur.
+Core rule  Every negotiation begins with an asking price, a hard economic floor, a hidden species discount capacity, a hidden business-situation discount capacity, and a visible Deal Momentum gauge. Conversation unlocks movement inside those pre-generated ranges; it never creates a new range.
+The system has two independent gates:
+Economic gate: the player’s risk-adjusted offer value must meet or exceed the NPC’s current acceptable economic value.
+Willingness gate: the visible Deal Momentum gauge must reach the Ready to Close zone without violating a red line.
+Both gates must be satisfied before the Close Deal button becomes available.
+1.1 Resolved Design Decisions
+Decision
+Implementation rule
+Relationship memory
+Moves Deal Momentum gauge points only; range -25 to +25.
+Morality compatibility
+Moves Deal Momentum gauge points only; future range -30 to +30. Inactive until the morality system is implemented.
+Species range
+Represents the maximum headline-price discount that species-compatible negotiation can unlock.
+Urgency
+Contained inside the business situation for the MVP; no separate urgency variable.
+Old archetypes
+Removed from the deterministic model and replaced by Role + Business Situation.
+Leverage
+Remains a separate deterministic modifier.
+Hen identity
+Cautious and anxious; prefers simple, secured, easy-to-understand terms and a warm tone.
+Reputation
+Uses the existing game reputation system and tier progression; negotiation consumes that output rather than recalculating reputation.
+1.2 Design Objectives
+Make every result reproducible from stored values and classified player actions.
+Give species a clear tactical identity without allowing species to override economics.
+Show direction of progress without revealing hidden price floors or exact modifier values.
+Make good discovery, structured offers, reputation, relationships, and leverage all matter.
+Keep the player—not the AI—in control of final execution through a Close Deal action.
+2. Authoritative Negotiation Model
+The negotiation engine must maintain two related but separate state values throughout the encounter.
+2.1 Economic State
+Ask Price: the public starting price or reference value.
+Hard Economic Floor: the minimum acceptable risk-adjusted value. It is generated before dialogue and never shown normally.
+Species Discount Capacity: a hidden maximum selected within the species range.
+Situation Discount Capacity: a hidden maximum selected from the business situation.
+Unlocked Species Progress: 0-100%, moved by species-compatible conversation and terms.
+Unlocked Situation Progress: 0-100%, moved by situation-compatible conversation and terms.
+Leverage Economic Adjustment: a small deterministic adjustment to the total discount capacity, bounded and floor-limited.
+Current Acceptable Economic Value: the value the current offer must meet.
+2.2 Willingness State
+Deal Momentum Gauge: visible 0-100 measure of how close the NPC is to agreeing.
+Reputation Starting Modifier: derived from the existing reputation tier.
+Relationship Memory Modifier: -25 to +25 gauge points.
+Morality Compatibility Modifier: -30 to +30 gauge points when enabled.
+Leverage Gauge Modifier: -20 to +20 gauge points.
+Conversation Movement: positive or negative movement caused by validated tactics.
+Offer Quality Movement: movement caused by how the current offer compares with the acceptable value.
+Patience and Red-Line State: tracks repetition, severe mistakes, and immediate-failure conditions.
+Separation rule  A warm conversation can improve willingness but cannot make an inadequate offer acceptable. A rich offer can satisfy the economic gate but still fail if the player has damaged trust, violated a red line, or exhausted the NPC’s patience.
+2.3 Responsibility Boundary
+Layer
+Authority
+AI language layer
+Classifies message intent and approved tactic tags; extracts explicitly stated terms; writes concise in-character dialogue using the engine result.
+Rules engine
+Validates classification; updates progress; values the offer; recalculates thresholds and gauge; selects Continue, Counter, Ready, Accept, or Reject.
+UI layer
+Displays NPC identity, structured offer summary, gauge position and trend, rounds/patience, and Close Deal when permitted.
+Persistent game state
+Applies money, ownership, contracts, trust, reputation, promises, grievances, and future obligations only after a validated state transition.
+3. Negotiation Profile Generation
+All hidden ranges and thresholds must be generated and stored before the first NPC line. Reopening the same encounter must restore the same values.
+3.1 Required Inputs
+Input
+Rule
+Transaction role
+Seller, supplier, client, lender, investor/partner, or other supported role.
+Species
+Pig, Donkey, Sheep, Goat, Horse, or Hen.
+Business situation
+Cash Pressure / Failing; Retirement / Transition; Entrepreneur / Growth; Stable Position.
+Ask price or reference economics
+Public asking price for acquisitions; current price/cost/contract value for ongoing relationships.
+Hard floor
+Minimum acceptable risk-adjusted value derived from asset economics, alternatives, and red lines.
+Reputation tier
+Existing game reputation tier and its negotiation modifier.
+Relationship memory
+Existing summarized modifier plus the memories that explain it.
+Morality compatibility
+Future summarized modifier; zero while the morality feature is inactive.
+Leverage score
+Deterministic score based on alternatives, switching costs, dependence, supply control, and competing options.
+Permitted terms
+Terms supported by this transaction type and by the current game systems.
+3.2 Hidden Species Capacity
+At encounter creation, select one hidden maximum discount inside the species range. This value remains fixed for the entire encounter. Conversation performance determines how much of it is unlocked.
+Species
+Hidden discount capacity
+Primary unlock route
+Pig
+10%-20%
+Structural upside, shares, exclusivity, information, credible future gain.
+Donkey
+5%-10%
+Evidence, risk sharing, warranties, inspection, realistic in-context numbers.
+Sheep
+15%-30%
+Reputation, testimonials, references, comparable deals, social proof.
+Goat
+10%-20%
+Firm bargaining, reciprocal concessions, confidence, controlled patience.
+Horse
+20%-25%
+Legacy continuity, employee care, small talk, promises and long-term stewardship.
+Hen
+5%-35%
+Warm directness, large upfront cash, simple terms, clear protection and limited complexity.
+Recommended selection rule: use a seeded random value within the stated range, then allow authored scenarios to bias toward the lower or upper end. The chosen value is not changed by the language model.
+3.3 Hard Floor and Global Discount Cap
+The hard floor must be derived from economics, not personality. The combined species, situation, and leverage movement can never reduce acceptable value below the hard floor.
+Current acceptable economic valueP_current = max(Hard Floor, Ask Price x (1 - Unlocked Discount))For seller acquisitions. Other roles use an equivalent minimum contract value, maximum cost, or risk-adjusted threshold.
+Default global headline-discount cap: 35% of Ask Price unless a hand-authored distressed scenario explicitly permits more. The hard floor remains authoritative even when the theoretical modifiers exceed the cap.
+4. Species Negotiation Profiles
+Species defines what type of interaction unlocks the species discount range and how the gauge reacts. It does not define the NPC’s role or business situation.
+4.1 Pig
+Field
+Definition
+Motto
+What else do I gain?
+Persona
+Political candidate
+Likes
+Clear numbers; confidence with credibility; future upside.
+Do not
+Hasty pressure; emotional appeals; price-only bargaining.
+Preferred non-cash value
+Exclusivity, shares, information rights, bounded future participation.
+Species discount range
+10%-20%
+Post-encounter trust potential
++3 maximum relationship-memory points when the interaction is successful and promises are credible.
+Upside
+Higher potential business margin or structural concessions.
+Downside
+Future rights can consume player profit or control.
+4.2 Donkey
+Field
+Definition
+Motto
+I cannot trust you yet.
+Persona
+Auditor
+Likes
+Evidence, prior success, realistic assumptions, risk sharing.
+Do not
+Rushing; unsupported numbers; exaggeration; lowballing.
+Preferred non-cash value
+Warranties, inspections, measurable contracts, realistic forecasts.
+Species discount range
+5%-10%
+Post-encounter trust potential
++1 maximum relationship-memory points when the interaction is successful and promises are credible.
+Upside
+More reliable post-deal operation; 75% fewer avoidable urgencies where supported.
+Downside
+Slow progress and long negotiations.
+4.3 Sheep
+Field
+Definition
+Motto
+Do I know you?
+Persona
+Influencer
+Likes
+Reputation, testimonials, references, quick socially validated deals.
+Do not
+Dry numbers-only conversation; ignoring community perception.
+Preferred non-cash value
+Comparable deal history, respected partners, visible adoption.
+Species discount range
+15%-30%
+Post-encounter trust potential
++5 maximum relationship-memory points when the interaction is successful and promises are credible.
+Upside
+Potentially the largest clean discounts.
+Downside
+Weak reputation or negative rumors sharply reduce progress.
+4.4 Goat
+Field
+Definition
+Motto
+How much can I squeeze?
+Persona
+Director
+Likes
+The haggle, confidence, reciprocal exchange, patience.
+Do not
+Emotional reactions; immediate concessions; uncredible bluffs.
+Preferred non-cash value
+Trade one term for another; volume, territory, side-business terms.
+Species discount range
+10%-20%
+Post-encounter trust potential
++4 maximum relationship-memory points when the interaction is successful and promises are credible.
+Upside
+Side benefits beyond price.
+Downside
+Player must concede something of real value.
+4.5 Horse
+Field
+Definition
+Motto
+Do I trust you to care for what matters?
+Persona
+Pops / steward
+Likes
+Legacy, employees, continuity, small talk, promises kept.
+Do not
+Money-only language; rushing; broken commitments.
+Preferred non-cash value
+Employee protections, continuity plan, long-term stewardship.
+Species discount range
+20%-25%
+Post-encounter trust potential
++5 maximum relationship-memory points when the interaction is successful and promises are credible.
+Upside
+High willingness when relationship is strong.
+Downside
+Often tied to low-margin or obligation-heavy businesses.
+4.6 Hen
+Field
+Definition
+Motto
+Can this go wrong?
+Persona
+Nervous parent / cautious owner
+Likes
+Warm direct tone, simple secured terms, large upfront cash, clear dates.
+Do not
+Aggression; complex structures; long unsecured deferrals; vague terms.
+Preferred non-cash value
+Upfront cash, short notes, guarantees, simple milestones.
+Species discount range
+5%-35%
+Post-encounter trust potential
++2 maximum relationship-memory points when the interaction is successful and promises are credible.
+Upside
+Very large discount possible when fear is resolved.
+Downside
+Can panic and exit quickly if confused or pressured.
+4.7 Species Progress Rules
+Each species has an internal progress meter from 0 to 100. The meter unlocks the hidden species discount capacity proportionally.
+Unlocked species discountSpecies Discount = Species Capacity x Species ProgressSpecies Progress is expressed as 0.00 to 1.00 in calculations.
+Classification
+Default movement
+Rule
+Strong aligned tactic
++15 progress
+The message directly uses a preferred route and is supported by facts or terms.
+Moderate aligned tactic
++8 progress
+The message is relevant but incomplete or mostly relational.
+Neutral message
+0
+No meaningful tactical content.
+Minor mismatch
+-6 progress
+The message conflicts mildly with species preferences.
+Direct violation
+-15 progress
+The player uses a listed Do Not behavior.
+Repeated tactic
+50% of normal on second use; 0 on third consecutive use
+Prevents tactic spam.
+Contradiction or fabricated fact
+-12 gauge points plus -10 progress
+Applied only after deterministic validation.
+Trust award  The species trust value is not added every message. It is the maximum post-encounter relationship-memory improvement available when species progress reaches at least 60, the player keeps promises, and the final resolution is fair. Failed or manipulative encounters may award zero or create a negative memory.
+5. Business Situations
+Business Situation replaces the old situational-archetype layer. It describes why this NPC is negotiating now and supplies the second discount lane.
+Situation
+Default hidden capacity
+Unlock route
+Special rule
+Cash Pressure / Failing
+8%-15% hidden capacity
+Unlocked by meaningful upfront cash, fast certainty, and relief of immediate obligations.
+Cash portion must be credible and actually available.
+Retirement / Transition
+5%-10% hidden capacity
+Unlocked by legacy, employee care, continuity, transition support, and respectful closing.
+Promises become persistent obligations.
+Entrepreneur / Growth
+5%-10% hidden capacity
+Unlocked by credible future business, introductions, growth access, volume, or retained upside.
+Promises are recorded; next encounter may be up to 10% more expensive if the player has not delivered.
+Stable Position
+No bonus lane
+No special discount is available. Multiply total unlocked species movement by 0.75.
+Stable counterparties have stronger alternatives and less reason to concede.
+5.1 Situation Progress
+Situation Progress also runs from 0 to 100. Only tactics that answer the actual situation may move it. Generic friendliness may move the Deal Momentum gauge but does not unlock a situation discount.
+Unlocked situation discountSituation Discount = Situation Capacity x Situation ProgressStable Position uses zero situation capacity and applies a 25% reduction to unlocked species movement.
+5.2 Applying Situations Across Roles
+Role
+Situation interpretation
+Seller
+Cash pressure, retirement, growth entrepreneur, stable owner.
+Supplier
+Cash pressure, transition of ownership, growth/capacity expansion, stable supplier.
+Client
+Budget pressure, leadership transition, growth rollout, stable buyer.
+Lender
+Liquidity/capital pressure, portfolio transition, growth financing mandate, stable lender.
+Partner / investor
+Capital need, succession/exit, growth thesis, stable holding position.
+The numerical framework remains the same. Only the qualifying tactics and economic reference value change by role.
+6. Starting Gauge Modifiers
+The gauge begins from a neutral base and applies persistent game-state modifiers before the first line is exchanged.
+Initial Deal MomentumGauge_start = clamp(45 + Reputation + Memory + Morality + Leverage Start, 0, 100)45 is the neutral starting base. All listed modifiers are gauge points, not discount percentages.
+6.1 Reputation
+Use the existing reputation system. Convert the current tier into the following negotiation gauge modifier:
+Existing reputation tier
+Gauge points
+Unknown
+-5
+Local Name
+0
+Trusted Operator
++4
+Regional Player
++7
+Market Anchor
++10
+These are negotiation-consumption values only. The reputation system remains responsible for moving the player between tiers.
+6.2 Relationship Memory
+The current detailed memories should be summarized into one value from -25 to +25. The UI may show the memories that explain the number without showing the number itself.
+Category
+Rule
+Strong positive examples
+Promises kept, on-time payment, prior fair resolution, crisis support, accurate disclosure.
+Strong negative examples
+Broken promise, hidden term, humiliation, late payment, repeated one-sided extraction.
+Mechanical use
+Applied to initial gauge only. New conversation actions may create temporary movement; post-encounter outcomes update memory for future encounters.
+6.3 Morality Compatibility
+Future system: -30 to +30 gauge points based on compatibility between player alignment and NPC values. Set to zero until morality is implemented. Morality never changes the economic floor.
+6.4 Leverage
+Leverage remains deterministic and comes from actual alternatives, switching costs, dependence, supply control, inventory buffers, competing offers, and contract position.
+Leverage use
+Rule
+Gauge effect
+Convert leverage to -20 to +20 starting gauge points.
+Economic effect
+May adjust total discount capacity by -5 to +5 percentage points. The hard floor and global cap still apply.
+Player visibility
+Show qualitative labels only: Weak, Limited, Balanced, Strong, Dominant.
+Behavioral consequence
+Aggressive use of Strong or Dominant leverage may reduce future relationship memory or reputation even when the current deal succeeds.
+7. Economic Calculation
+7.1 Total Unlocked Discount
+Unlocked discount before capsD_raw = Species Capacity x Species Progress + Situation Capacity x Situation Progress + Leverage Economic AdjustmentFor Stable Position, multiply the species portion by 0.75 before adding leverage.
+Final unlocked discountD_final = min(Global Discount Cap, D_raw, 1 - Hard Floor / Ask Price)This ensures the acceptable value can never pass the hard floor.
+7.2 Current Acceptable Value
+Seller / acquisitionAcceptable Value = max(Hard Floor, Ask Price x (1 - D_final))
+For other roles, translate the same logic into the relevant economic direction:
+Role
+Economic threshold includes
+Supplier negotiation
+Maximum price reduction, minimum margin, payment security, volume, and term value.
+Client negotiation
+Minimum retained price/margin, service burden, payment timing, and contract duration.
+Lender negotiation
+Minimum risk-adjusted return, repayment coverage, collateral, and covenant value.
+Partner / investor
+Minimum valuation, governance, ownership, liquidity, and upside participation.
+7.3 Risk-Adjusted Offer Value
+The player’s headline price is not the only value. Every recognized term must be converted into a deterministic cash-equivalent or risk adjustment.
+Offer valueOffer Value = Cash at Closing + Note Present Value + Earn-out Expected Value + Preferred-Term Value - Risk Penalties - Player Future-Cost Value
+Term
+Valuation rule
+Cash at closing
+Face value; strongest certainty component.
+Seller note
+Present value after duration, interest, default risk, security, player reputation, and species preference.
+Earn-out
+Probability-weighted value after performance uncertainty and control risk.
+Shares / retained ownership
+Current estimated equity value plus control/information value; also recorded as a real future cost to the player.
+Exclusivity
+Value depends on duration, territory, commercial upside, and the opportunity cost imposed on the player.
+Legacy / employee protection
+Preferred-term value for Horse or transition situations; creates enforceable promises or penalties.
+Warranty / inspection / guarantee
+Reduces counterparty risk and can raise offer value for Donkey and Hen.
+Future business promise
+Value only when credible; creates a tracked obligation and possible future price penalty.
+7.4 Species Preference Bonus
+Species preference affects how the NPC values valid terms, but it cannot invent value. Cap the total species preference bonus at 8% of Ask Price or the equivalent contract reference value.
+No free persuasion value  Social proof, warmth, confidence, and evidence primarily unlock discount progress and gauge movement. They are not added as imaginary dollars unless they are attached to an actual commercial term or risk reduction.
+8. Close Deal Gauge
+The gauge is a visible directional indicator of willingness. It is not a displayed probability and does not reveal the current acceptable value.
+8.1 Gauge Zones
+Gauge
+State
+Player meaning
+0-14
+Deal Collapsing
+A further severe mistake or unresolved red line ends the negotiation.
+15-34
+Resistant
+NPC is actively opposed; strong repair or a substantially improved offer is required.
+35-54
+Listening
+NPC remains engaged; discovery and aligned tactics can move the deal.
+55-74
+Close
+The relationship is workable, but terms or final confidence are still missing.
+75-100
+Ready to Close
+Available only when the economic gate is also satisfied and no red line is violated.
+8.2 Gauge Recalculation
+Current gaugeGauge = clamp(Gauge_start + Conversation Movement + Offer Quality + Discovery Bonus - Penalties, 0, 100)
+Event
+Default gauge effect
+Aligned conversation
+Typically +3 to +10 per meaningful message, based on validated tag strength.
+Useful discovery question
++2 to +5 and may unlock hidden information or a new permitted term.
+Strong offer improvement
+Up to +20 based on offer value relative to current acceptable value.
+Offer below threshold
+0 to -25 depending on the size of the gap and whether it is a lowball.
+Direct species violation
+-6 to -15.
+Contradiction / fabricated fact
+-12 and credibility flag.
+Repeated spam
+Second repetition half effect; third consecutive repetition no gain and possible -2 impatience.
+Hard red line
+Immediate rejection regardless of gauge.
+8.3 Offer Quality Movement
+Compare Offer Value with Current Acceptable Value. The calculation should be normalized to Ask Price or the relevant contract reference value.
+Normalized offer gapOffer Gap = (Offer Value - Acceptable Value) / Ask Price
+Gap
+Gauge movement
+Offer Gap at or above +5%
++20 gauge points
+0% to +5%
++10 to +20, interpolated
+-5% to 0%
+0 to +10, interpolated; usually countered
+-15% to -5%
+-5 to -15
+Below -15%
+-20 to -25 and Lowball flag
+8.4 Display Rules
+Show a five-zone horizontal gauge with the current marker and a small arrow indicating movement from the previous message.
+Do not show exact gauge numbers by default; accessibility settings may optionally display a qualitative label.
+Do not show hidden discount capacity, hard floor, progress percentages, or exact leverage score.
+When economic terms are not yet sufficient, the gauge cannot display Ready to Close even if social momentum is high.
+Display “Terms still too far apart” when willingness is high but the economic gate is not met.
+Display “Terms acceptable; confidence still needed” when economics are sufficient but gauge is below 75.
+9. Conversation Processing
+Each player message must pass through the following authoritative sequence. This is the core implementation process.
+Classify intent: discovery question, social/rapport, offer, counteroffer, acceptance, rejection, walk-away, threat, or irrelevant text.
+Extract only explicitly stated terms: price, cash at closing, deferred amount, rate, duration, earn-out, volume, exclusivity, guarantees, employment commitments, and other supported fields.
+Classify approved tactic tags. The AI may suggest tags, but deterministic validation confirms that the text supports them.
+Apply repetition, contradiction, truth, and credibility checks against prior messages and known game facts.
+Update Species Progress and Situation Progress using the approved movement rules.
+Update temporary Conversation Movement on the Deal Momentum gauge.
+If an offer exists, calculate Risk-Adjusted Offer Value.
+Recalculate Total Unlocked Discount and Current Acceptable Economic Value.
+Recalculate Offer Quality Movement and the visible Deal Momentum gauge.
+Check hard red lines, patience, lowball history, and maximum exchanges.
+Select the engine result: Continue, Counter, Ready to Close, Reject, or Walk-Away confirmation.
+Provide the result and permitted facts to the AI, which writes one to three concise in-character sentences.
+Update the visible structured offer summary and gauge trend.
+9.1 Approved Tactic Tags
+Tag family
+Approved tags
+Economic / evidence
+evidence, realistic_numbers, verified_history, cash_upfront, fast_closing, warranty, inspection, guarantee, risk_sharing
+Relationship / legacy
+warm_rapport, small_talk, legacy, employee_care, continuity, promise_reference, apology, reciprocity
+Market / reputation
+reputation, testimonial, comparable_deal, respected_partner, social_proof
+Bargaining
+firm_boundary, reciprocal_concession, option_package, patience, credible_walkaway, volume_commitment
+Risk / negative
+lowball, unsupported_claim, exaggeration, contradiction, aggression, pressure, complex_structure, vague_term, threat
+Tags should be extensible, but additions require authored weights for affected species and situations. The language model may not create new mechanical tags at runtime.
+9.2 Discovery
+Discovery questions may reveal motivation, alternatives, risk, nonfinancial interests, decision process, or economics. A discovery answer can unlock a tactic route, modify the permitted offer terms, or reduce uncertainty. It does not directly change the hard floor unless the revealed fact was already encoded as a contingent economic rule.
+9.3 Conversation Limits and Patience
+Rule
+Default
+Default exchanges
+Five meaningful player messages.
+Small/simple deal
+Four messages.
+Major deal
+Six messages.
+Institutional or rival contest
+Seven messages when explicitly enabled.
+Patience exhaustion
+If the final exchange ends below the economic threshold or gauge 75, the NPC issues a final counter or rejects according to the gap and relationship state.
+10. Outcome Rules
+10.1 Ready to Close
+Ready conditionOffer Value >= Current Acceptable Value  AND  Gauge >= 75  AND  No Red Line Violated
+When the condition is met, the NPC may say they are willing. The game displays Close Deal. No money, ownership, contract, or memory state changes until the player presses the button.
+10.2 Counteroffer
+Return Counter when the negotiation is still viable but one or both gates are not met. The counteroffer must be generated from the current acceptable value, preferred terms, and concession style; it may not be invented by the AI.
+Economic gap small: counter near the current acceptable value.
+Willingness low but economics sufficient: request trust-building, protection, or preferred terms rather than merely raising price.
+Species or situation route partly unlocked: counter should expose the next meaningful path without revealing hidden percentages.
+10.3 Rejection
+Trigger
+Result
+Hard red line violated
+Immediate rejection unless the term can be withdrawn before execution and the scenario explicitly permits repair.
+Gauge reaches 0-14
+Reject after the current response.
+Two severe lowballs
+Reject unless the NPC is a Goat or Cash Pressure situation with specific authored tolerance.
+Credibility failure
+Repeated contradiction or false claim may trigger rejection regardless of price.
+Patience exhausted
+Reject when final terms remain materially below threshold or willingness remains below 55.
+10.4 Walk Away
+The player may walk away at any time. Walking away is not automatically a failure. It may preserve reputation when the player avoids an uneconomic deal, but it may damage relationship memory when abandoning an urgent supplier/client issue or a promise already made.
+10.5 Post-Encounter Memory
+Outcome
+Persistent update
+Fair successful deal
+Apply up to the species trust potential, modified by promise credibility and deal fairness.
+One-sided but accepted deal
+Small or zero positive memory; possible grievance if leverage was used aggressively.
+Promise created
+Store the promise, due date, expected value, and consequence for nonperformance.
+Promise kept
+Positive memory and reputation effect at fulfillment.
+Promise broken
+Negative memory; entrepreneur follow-up may be up to 10% more expensive; Horse penalties are amplified.
+Respectful walk-away
+Neutral or small positive discipline memory when economics justify it.
+Threat / humiliation
+Negative memory even if the current deal closes.
+11. Worked Examples
+11.1 Hen Seller Under Cash Pressure
+Generated encounter values:
+Variable
+Value
+Ask Price
+$100,000
+Hard Floor
+$70,000
+Hen Capacity
+18% hidden value selected within 5%-35%
+Cash Pressure Capacity
+15%
+Leverage Adjustment
+0%
+Reputation
+Trusted Operator: +4 gauge
+Memory
++3 gauge
+Initial Gauge
+45 + 4 + 3 = 52
+The player begins warmly, asks what would make the owner comfortable, and offers $72,000 all cash with a fast close and a simple inspection contingency.
+Measure
+Result
+Explanation
+Hen Progress
+80%
+18% x 0.80 = 14.4%
+Situation Progress
+90%
+15% x 0.90 = 13.5%
+Raw discount
+27.9%
+Below global cap and above hard-floor limit.
+Current acceptable value
+$72,100
+$100,000 x (1 - 27.9%)
+Offer value
+$72,000 plus small inspection-risk value
+Near threshold; engine may value the protection enough to meet it.
+Gauge movement
++9 aligned conversation; +5 discovery; +12 offer quality
+Final gauge approximately 78.
+Outcome  If the validated inspection term adds at least $100 of counterparty value, both gates are met and Close Deal appears. The AI may express relief, but the rules engine made the decision.
+11.2 Donkey Seller in a Stable Position
+Variable
+Value
+Ask Price
+$100,000
+Hard Floor
+$86,000
+Donkey Capacity
+8% selected within 5%-10%
+Stable Position
+No situation lane; species movement multiplied by 0.75
+Initial Gauge
+49 after reputation, memory, and leverage
+The player first offers $75,000 without evidence. This is below the hard floor, triggers Lowball, reduces Donkey Progress and gauge, and cannot be accepted regardless of rapport.
+The player then supplies verified contracts, accepts an inspection right, and offers $88,000 with 70% cash at closing.
+Measure
+Result
+Donkey Progress
+90%
+Species discount before Stable reduction
+8% x 0.90 = 7.2%
+After Stable reduction
+7.2% x 0.75 = 5.4%
+Current acceptable value
+$94,600, but hard floor is $86,000
+Offer value
+$88,000 plus warranty/inspection value; still below threshold unless terms bridge the gap
+Likely result
+Counter, not acceptance; the Donkey is economically stable and only modestly flexible.
+Training result  The mechanic teaches that correct personality tactics do not guarantee a bargain. Situation and economics can make walking away the right decision.
+12. User Interface Specification
+UI element
+Requirement
+NPC identity strip
+Name, species, role, organization, short behavioral descriptor, and current relationship summary.
+Deal Momentum gauge
+Five zones, current marker, qualitative state, and movement arrow from the previous exchange.
+Structured offer summary
+Price, cash at closing, deferred terms, earn-out, duration, guarantees, ownership, exclusivity, and other recognized terms.
+Economic status hint
+One of: No offer; Terms too far apart; Terms nearly workable; Terms acceptable; Ready to Close.
+Rounds / patience
+Visible remaining meaningful exchanges.
+Known leverage
+Qualitative supply/market position only; exact score hidden.
+Known memories
+Concise factual chips such as Paid on time, Promise kept, Prior lowball, or Unresolved grievance.
+Close Deal button
+Visible and enabled only when both gates are satisfied.
+Walk Away
+Always available unless a specific scripted event prevents immediate exit.
+Post-deal debrief
+Economic quality, tactic alignment, discovery, concession discipline, relationship effect, promises, and future costs.
+12.1 Gauge Messaging
+State
+Suggested message
+Deal Collapsing
+“They are close to ending the conversation.”
+Resistant
+“Your position is moving away from agreement.”
+Listening
+“They are still considering the deal.”
+Close
+“You are close, but something is still missing.”
+Ready to Close
+“Terms and willingness are aligned.”
+12.2 Visibility Rules
+Never reveal the exact hard floor, species capacity, situation capacity, progress percentages, memory number, morality number, or leverage score in normal play.
+Investigation may reveal tactical guidance, known needs, alternatives, and a broad likely negotiation range.
+Negotiation Analyst or equivalent traits may reveal tighter estimates but still not the exact hidden state unless explicitly designed as a powerful late-game ability.
+The structured offer summary must be shown before execution so the player can detect extraction errors.
+13. Required Stored State
+The implementation must persist enough state to reproduce the result exactly. Field names are illustrative; this section describes required information, not code.
+State group
+Required content
+Encounter identity
+Encounter ID, NPC ID, transaction role, asset/contract ID, turn created, and seeded random source.
+Economic bounds
+Ask/reference value, hard floor, global cap, species capacity, situation capacity, leverage economic adjustment.
+Persistent modifiers
+Reputation tier/modifier, relationship memory value and reasons, morality compatibility, leverage label/score.
+Progress
+Species Progress, Situation Progress, conversation movement, offer movement, gauge history, patience, severe mistakes.
+Offer state
+Current player offer, current NPC counter, risk-adjusted values, permitted terms, red-line flags.
+Conversation state
+Validated intents/tags per message, repetition count, contradictions, discovered facts, remaining exchanges.
+Outcome state
+Continue, Counter, Ready, Rejected, Walked Away, or Closed; plus memory and promise updates.
+14. Validation and Acceptance Criteria
+Criterion
+Definition of done
+Determinism
+Given identical starting state and validated message tags/terms, the engine produces the same progress, threshold, gauge, and outcome.
+AI containment
+The AI cannot move the gauge, change discount capacity, alter the hard floor, accept a deal, or create persistent terms.
+Economic integrity
+No negotiation closes below the hard floor after risk-adjusted term valuation.
+Species clarity
+Each species has at least three positive and three negative tactics that produce measurably different progress.
+Situation clarity
+The same species behaves differently in Cash Pressure, Retirement, Entrepreneur, and Stable situations.
+Gauge honesty
+Gauge direction corresponds to engine movement and never shows Ready when the economic gate fails.
+Memory integrity
+Relationship memory affects starting gauge only and updates only from validated outcomes.
+Morality readiness
+Morality modifier is stored as zero and can later be activated without changing the negotiation formulas.
+Leverage integrity
+Leverage derives from game state; player dialogue cannot fabricate it.
+Offer extraction
+The player reviews a structured summary before any state-changing close.
+Walk-away viability
+At least some scenarios are intentionally better to decline than to close.
+Balance testing
+All six species are tested in all four situations, across at least three reputation tiers and three leverage levels.
+15. Final Implementation Process
+The complete deal-metric process is:
+1. Generate and store Ask Price, Hard Floor, species capacity, situation capacity, reputation, memory, morality, leverage, red lines, and permitted terms.
+2. Initialize Species Progress, Situation Progress, patience, and Deal Momentum gauge.
+3. Process each player message into validated intent, tactics, and explicit terms.
+4. Update species and situation progress using authored weights and repetition rules.
+5. Value the current offer, including deferred and non-cash terms.
+6. Recalculate unlocked discount and current acceptable economic value.
+7. Recalculate Deal Momentum from persistent modifiers, conversation movement, offer quality, discovery, and penalties.
+8. Apply red lines and patience checks.
+9. Select Continue, Counter, Ready to Close, Reject, or Walk Away.
+10. Allow the AI to express that engine-selected result in character.
+11. Execute only when the player presses Close Deal, then apply money, ownership, contract, memory, promise, reputation, and future-cost effects.
+Definition of the revised system  Ask Price defines the starting anchor. Species and Situation define bounded discount lanes. Reputation, Memory, Morality, and Leverage define starting willingness. Conversation unlocks those lanes and moves the gauge. Offer economics determine whether the terms are acceptable. The rules engine decides the result; the AI performs the character.
+END OF SPECIFICATION

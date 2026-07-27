@@ -1,0 +1,82 @@
+SPECIES
+Motto: what is always on their mind
+Persona: real life nearest proffesion that relates to this personality
+Likes: what they can connect to and hope to hear
+Don't: what the player should not do, the NPC feels repelled by this
+Offer: what entinces the NPC to take offers other than cash
+Modifier Range: asked amount can move in favor of player by this % depending on negotiation performance
+Upside: what makes it worthwhile to negotiate instead of buying directly
+Downside: what makes the negotiation risky or not worth it
+
+-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+PIG
+Motto: What else do I gain?
+Persona: Political candidate
+Likes: Clear numbers, confidence with credibility, be in position for future own gain
+Don't: be hasty, talk emotions, focus only on price
+Offer: exclusivity, shares, information
+Modifier Range: 10-20%, trust +3
+Upside: Bigger margin on their businesses
+Downside: Deal can eat out from players profit (shares, exclusivity)
+
+DONKEY
+Motto: I can't trust you
+Persona: Auditor
+Likes: Evidence of past succeses, risk sharing, warranties, inspection rights
+Don't: Rush, numbers with no evidence, exaggerated forecast, lowball
+Offer: negotiation based on in-context numbers, contracts, realistic numbers
+Modifier Range: 5-10%, trust +1
+Upside: Problem free bussines - 75% less urgencies
+Downside: Lenghty negotiations
+
+SHEEP
+Motto: Do I know you?
+Persona: Influencer
+Likes: Reputation and testimonials, references, quick deals
+Don't: Talk only numbers, dry conversation
+Offer: Comparable deals history, based on reputation
+Modifier Range: 15-30%, trust +5
+Upside: Great discounts
+Downside: based on reputation
+
+GOAT
+Motto: How much can I squeeze?
+Persona: Director
+Likes: The haggle, test and be tested, confidence
+Don't: talk emotion, react negatively to tests
+Offer: One thing to compensate for other, stay your ground and wait
+Modifier Range: 10-20%, trust +4
+Upside: Side bonuses (discount in other business he has, more volume)
+Downside: Concede something
+
+-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+
+SITUATION
+Need Money/Failing business: up to 15% if cash upfront
+Retiring owner: up to 10% off if respecting legacy
+Entrepreneur: up to 10% off if promising more business - (next encounter with them cashes in those promises- up to 10% more expensive)
+Stable business: Movement up to 25% reduced
+
+RELATIONSHIP
+Memory: up to -25/+25 depending on previous encounters
+Morality(not yet built in): up to -30/+30 depending on moral compatibility
+
+HORSE
+Motto: How much do I like you?
+Persona: Pops
+Likes: Continuity of legacy, treatment of employees, small talk
+Don't: focus on money, rush deal
+Offer: care for employees, continuity of vision
+Modifier Range: 20-25%, trust +5
+Upside: easy to negotiate
+Downside: low margin businesses
+
+HEN
+Motto: I don't want to be here
+Persona: nervous mom
+Likes: Direct deals, warm chat tone
+Don't: Aggresive numbers, complicated deals
+Offer: A smile, big upfront money comfort
+Modifier Range: 5-35%, trust +2
+Upside: Can reach great discounts
+Downside: Easily scared

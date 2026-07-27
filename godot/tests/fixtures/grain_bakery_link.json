@@ -1,0 +1,53 @@
+{
+  "seed": 424242,
+  "mode": "arcade",
+  "turn": 1,
+  "maxTurns": 30,
+  "cash": 25000,
+  "reputation": 12,
+  "actionPoints": 2,
+  "marketState": {
+    "interestRates": "stable",
+    "creditAvailability": "normal",
+    "consumerDemand": "stable",
+    "businessConfidence": "neutral",
+    "inflation": "moderate",
+    "sectorMomentum": {}
+  },
+  "portfolio": {
+    "businesses": [
+      {
+        "id": "grain01",
+        "templateId": "grain_farm",
+        "name": "Oak Ridge Grain Farm",
+        "revenuePerTurn": 18000,
+        "operatingCosts": 13200,
+        "industry": "farm_food",
+        "layer": "primary_production",
+        "crisisMult": 1.0,
+        "purchasePrice": 85000,
+        "markedValue": 85000
+      },
+      {
+        "id": "bakery01",
+        "templateId": "bakery",
+        "name": "Millstone Bakery",
+        "revenuePerTurn": 28000,
+        "operatingCosts": 22400,
+        "industry": "farm_food",
+        "layer": "processing",
+        "crisisMult": 1.0,
+        "purchasePrice": 120000,
+        "markedValue": 120000
+      }
+    ],
+    "realEstate": [],
+    "securities": []
+  },
+  "loans": [],
+  "strategicEdges": [],
+  "opportunities": [],
+  "supplyPolicies": {},
+  "gameOver": null,
+  "log": []
+}

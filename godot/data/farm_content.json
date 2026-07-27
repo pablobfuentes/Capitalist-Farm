@@ -1,0 +1,963 @@
+{
+  "version": 1,
+  "source": "js/farm-supply-chain.js",
+  "exportedAt": "2026-07-23T15:48:07.247Z",
+  "templates": [
+    {
+      "id": "grain_farm",
+      "name": "Grain Farm",
+      "layer": "primary_production",
+      "layer_label": "Upstream production",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 4,
+      "capacity_units": 75,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.42,
+      "demand_export_weight": 0.35,
+      "marketing_eligible": true,
+      "input_tags": [
+        "seed",
+        "fertilizer",
+        "equipment_service",
+        "bulk_transport"
+      ],
+      "output_tags": [
+        "grain",
+        "corn",
+        "wheat"
+      ],
+      "risk_tags": [
+        "weather",
+        "commodity_price",
+        "machinery"
+      ],
+      "blurb": "Primary grain production — weather and commodity exposure, foundational for the feed and bakery chains.",
+      "price_range": [
+        55000,
+        120000
+      ],
+      "rev_range": [
+        12000,
+        22000
+      ],
+      "margin_range": [
+        0.18,
+        0.3
+      ],
+      "owner_dep": 0.5,
+      "cust_conc": [
+        0.08,
+        0.22
+      ]
+    },
+    {
+      "id": "vegetable_farm",
+      "name": "Vegetable Farm",
+      "layer": "primary_production",
+      "layer_label": "Upstream production",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 3,
+      "capacity_units": 70,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.4,
+      "demand_export_weight": 0.4,
+      "marketing_eligible": true,
+      "input_tags": [
+        "seed",
+        "water",
+        "equipment_service",
+        "cold_transport"
+      ],
+      "output_tags": [
+        "vegetables",
+        "herbs"
+      ],
+      "risk_tags": [
+        "weather",
+        "spoilage",
+        "labor"
+      ],
+      "blurb": "Seasonal produce for restaurant and retail — freshness, spoilage, and irrigation risk.",
+      "price_range": [
+        60000,
+        130000
+      ],
+      "rev_range": [
+        14000,
+        26000
+      ],
+      "margin_range": [
+        0.16,
+        0.28
+      ],
+      "owner_dep": 0.55,
+      "cust_conc": [
+        0.1,
+        0.28
+      ]
+    },
+    {
+      "id": "dairy_barn",
+      "name": "Dairy Barn",
+      "layer": "primary_production",
+      "layer_label": "Upstream production",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 2,
+      "capacity_units": 80,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.38,
+      "demand_export_weight": 0.3,
+      "marketing_eligible": true,
+      "input_tags": [
+        "animal_feed",
+        "equipment_service",
+        "cold_transport"
+      ],
+      "output_tags": [
+        "milk",
+        "cream",
+        "butter",
+        "cheese"
+      ],
+      "risk_tags": [
+        "animal_health",
+        "cold_chain",
+        "feed_price"
+      ],
+      "blurb": "Milk and dairy goods — feed costs, animal health, and cold-chain dependence.",
+      "price_range": [
+        90000,
+        180000
+      ],
+      "rev_range": [
+        18000,
+        34000
+      ],
+      "margin_range": [
+        0.14,
+        0.26
+      ],
+      "owner_dep": 0.58,
+      "cust_conc": [
+        0.12,
+        0.3
+      ]
+    },
+    {
+      "id": "poultry_coop",
+      "name": "Poultry Coop",
+      "layer": "primary_production",
+      "layer_label": "Upstream production",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 3,
+      "capacity_units": 78,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.38,
+      "demand_export_weight": 0.3,
+      "marketing_eligible": true,
+      "input_tags": [
+        "animal_feed",
+        "equipment_service",
+        "cold_transport"
+      ],
+      "output_tags": [
+        "eggs",
+        "poultry"
+      ],
+      "risk_tags": [
+        "animal_health",
+        "cold_chain",
+        "feed_price",
+        "biosecurity"
+      ],
+      "blurb": "Eggs and poultry — biosecurity, feed inflation, and refrigerated logistics.",
+      "price_range": [
+        50000,
+        110000
+      ],
+      "rev_range": [
+        13000,
+        25000
+      ],
+      "margin_range": [
+        0.15,
+        0.27
+      ],
+      "owner_dep": 0.52,
+      "cust_conc": [
+        0.1,
+        0.26
+      ]
+    },
+    {
+      "id": "feed_mill",
+      "name": "Feed Mill",
+      "layer": "processing",
+      "layer_label": "Processing",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 4,
+      "capacity_units": 72,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.36,
+      "demand_export_weight": 0.2,
+      "marketing_eligible": true,
+      "input_tags": [
+        "grain",
+        "equipment_service",
+        "bulk_transport"
+      ],
+      "output_tags": [
+        "animal_feed"
+      ],
+      "risk_tags": [
+        "commodity_price",
+        "machinery",
+        "contamination"
+      ],
+      "blurb": "Converts grain into animal feed — the hinge between crops and livestock.",
+      "price_range": [
+        80000,
+        160000
+      ],
+      "rev_range": [
+        16000,
+        30000
+      ],
+      "margin_range": [
+        0.16,
+        0.28
+      ],
+      "owner_dep": 0.45,
+      "cust_conc": [
+        0.15,
+        0.35
+      ]
+    },
+    {
+      "id": "equipment_repair",
+      "name": "Equipment & Repair Shed",
+      "layer": "infrastructure",
+      "layer_label": "Infrastructure",
+      "industry": "farm_services",
+      "asset_class": "real_estate",
+      "autopilot": 3,
+      "capacity_units": 88,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.28,
+      "demand_export_weight": 0,
+      "marketing_eligible": false,
+      "input_tags": [
+        "skilled_labor",
+        "spare_parts"
+      ],
+      "output_tags": [
+        "equipment_service",
+        "maintenance_capacity"
+      ],
+      "risk_tags": [
+        "skilled_labor",
+        "parts_shortage"
+      ],
+      "blurb": "Yard, bays, and workshop — appreciates like real estate while enabling the whole farm.",
+      "price_range": [
+        70000,
+        140000
+      ],
+      "rev_range": [
+        14000,
+        28000
+      ],
+      "margin_range": [
+        0.22,
+        0.34
+      ],
+      "owner_dep": 0.6,
+      "cust_conc": [
+        0.12,
+        0.32
+      ]
+    },
+    {
+      "id": "bakery",
+      "name": "Bakery",
+      "layer": "processing",
+      "layer_label": "Processing",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 2,
+      "capacity_units": 68,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.35,
+      "demand_export_weight": 0.25,
+      "marketing_eligible": true,
+      "input_tags": [
+        "grain",
+        "dairy",
+        "eggs",
+        "cold_transport"
+      ],
+      "output_tags": [
+        "bread",
+        "pastries",
+        "packaged_food"
+      ],
+      "risk_tags": [
+        "spoilage",
+        "demand",
+        "energy",
+        "labor"
+      ],
+      "blurb": "Turns grain, dairy, and eggs into higher-margin baked goods for restaurant and retail.",
+      "price_range": [
+        85000,
+        170000
+      ],
+      "rev_range": [
+        20000,
+        38000
+      ],
+      "margin_range": [
+        0.14,
+        0.24
+      ],
+      "owner_dep": 0.55,
+      "cust_conc": [
+        0.08,
+        0.22
+      ]
+    },
+    {
+      "id": "farmhouse_restaurant",
+      "name": "Farmhouse Restaurant",
+      "layer": "consumer_channel",
+      "layer_label": "Consumer channel",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 1,
+      "capacity_units": null,
+      "consumer_capacity_units": 82,
+      "baseline_capacity_frac": 0.55,
+      "demand_export_weight": 0.85,
+      "marketing_eligible": true,
+      "input_tags": [
+        "vegetables",
+        "dairy",
+        "eggs",
+        "poultry",
+        "bread",
+        "cold_transport"
+      ],
+      "output_tags": [
+        "prepared_food",
+        "hospitality_demand"
+      ],
+      "risk_tags": [
+        "reputation",
+        "demand",
+        "food_safety",
+        "supplier_concentration"
+      ],
+      "blurb": "Premium hospitality margins — captures the top of the food chain, with high fixed costs.",
+      "price_range": [
+        110000,
+        240000
+      ],
+      "rev_range": [
+        35000,
+        70000
+      ],
+      "margin_range": [
+        0.1,
+        0.2
+      ],
+      "owner_dep": 0.62,
+      "cust_conc": [
+        0.05,
+        0.15
+      ]
+    },
+    {
+      "id": "general_store",
+      "name": "General Store & Market",
+      "layer": "consumer_channel",
+      "layer_label": "Consumer channel",
+      "industry": "farm_food",
+      "asset_class": null,
+      "autopilot": 2,
+      "capacity_units": null,
+      "consumer_capacity_units": 88,
+      "baseline_capacity_frac": 0.5,
+      "demand_export_weight": 0.9,
+      "marketing_eligible": true,
+      "input_tags": [
+        "vegetables",
+        "dairy",
+        "eggs",
+        "poultry",
+        "bread",
+        "packaged_food",
+        "cold_transport"
+      ],
+      "output_tags": [
+        "retail_channel",
+        "consumer_data"
+      ],
+      "risk_tags": [
+        "demand",
+        "inventory_waste",
+        "labor"
+      ],
+      "blurb": "Retail shelf access and consumer demand data for nearly every farm product.",
+      "price_range": [
+        95000,
+        190000
+      ],
+      "rev_range": [
+        24000,
+        48000
+      ],
+      "margin_range": [
+        0.12,
+        0.22
+      ],
+      "owner_dep": 0.48,
+      "cust_conc": [
+        0.04,
+        0.12
+      ]
+    },
+    {
+      "id": "delivery_cold_storage",
+      "name": "Delivery & Cold Storage",
+      "layer": "infrastructure",
+      "layer_label": "Infrastructure",
+      "industry": "farm_services",
+      "asset_class": "real_estate",
+      "autopilot": 3,
+      "capacity_units": 95,
+      "consumer_capacity_units": null,
+      "baseline_capacity_frac": 0.3,
+      "demand_export_weight": 0,
+      "marketing_eligible": false,
+      "input_tags": [
+        "fuel",
+        "equipment_service",
+        "route_demand"
+      ],
+      "output_tags": [
+        "bulk_transport",
+        "cold_transport",
+        "storage_capacity"
+      ],
+      "risk_tags": [
+        "fuel",
+        "cold_chain",
+        "machinery",
+        "route_concentration"
+      ],
+      "blurb": "Warehouses, docks, and cold rooms — property-style growth with logistics rents across the farm.",
+      "price_range": [
+        100000,
+        210000
+      ],
+      "rev_range": [
+        20000,
+        40000
+      ],
+      "margin_range": [
+        0.16,
+        0.28
+      ],
+      "owner_dep": 0.5,
+      "cust_conc": [
+        0.1,
+        0.28
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "grain_to_feed",
+      "supplier": "grain_farm",
+      "customer": "feed_mill",
+      "flow": "Grain",
+      "effects": {
+        "customerCostReduction": 0.15,
+        "customerReliabilityBonus": 0.15,
+        "supplierDemandStability": 0.1
+      },
+      "risk_links": [
+        "weather",
+        "commodity_price"
+      ],
+      "vulnerability_label": "Weather / commodity shock hits both crop and feed."
+    },
+    {
+      "id": "grain_to_bakery",
+      "supplier": "grain_farm",
+      "customer": "bakery",
+      "flow": "Wheat / flour-grade grain",
+      "effects": {
+        "customerCostReduction": 0.12,
+        "customerRevenueBonus": 0.04
+      },
+      "risk_links": [
+        "weather"
+      ],
+      "vulnerability_label": "Crop quality can lower bakery output quality."
+    },
+    {
+      "id": "grain_to_store",
+      "supplier": "grain_farm",
+      "customer": "general_store",
+      "flow": "Packaged grain",
+      "effects": {
+        "supplierRevenueBonus": 0.05,
+        "customerRevenueBonus": 0.03,
+        "supplierDemandStability": 0.1
+      },
+      "risk_links": [
+        "demand"
+      ],
+      "vulnerability_label": "Retail inventory may accumulate when demand is weak."
+    },
+    {
+      "id": "veg_to_restaurant",
+      "supplier": "vegetable_farm",
+      "customer": "farmhouse_restaurant",
+      "flow": "Vegetables and herbs",
+      "effects": {
+        "customerCostReduction": 0.1,
+        "customerRevenueBonus": 0.05
+      },
+      "risk_links": [
+        "weather",
+        "spoilage"
+      ],
+      "vulnerability_label": "Spoilage and weather become restaurant risks."
+    },
+    {
+      "id": "veg_to_store",
+      "supplier": "vegetable_farm",
+      "customer": "general_store",
+      "flow": "Retail produce",
+      "effects": {
+        "customerRevenueBonus": 0.06,
+        "supplierDemandStability": 0.1
+      },
+      "risk_links": [
+        "spoilage",
+        "demand"
+      ],
+      "vulnerability_label": "Waste rises when consumer demand is weak."
+    },
+    {
+      "id": "feed_to_dairy",
+      "supplier": "feed_mill",
+      "customer": "dairy_barn",
+      "flow": "Animal feed",
+      "effects": {
+        "customerCostReduction": 0.14,
+        "customerReliabilityBonus": 0.15
+      },
+      "risk_links": [
+        "contamination",
+        "feed_price"
+      ],
+      "vulnerability_label": "Feed quality failure harms animal productivity."
+    },
+    {
+      "id": "feed_to_poultry",
+      "supplier": "feed_mill",
+      "customer": "poultry_coop",
+      "flow": "Animal feed",
+      "effects": {
+        "customerCostReduction": 0.14,
+        "customerReliabilityBonus": 0.15
+      },
+      "risk_links": [
+        "contamination",
+        "animal_health"
+      ],
+      "vulnerability_label": "Flock loss leaves unused mill capacity."
+    },
+    {
+      "id": "dairy_to_bakery",
+      "supplier": "dairy_barn",
+      "customer": "bakery",
+      "flow": "Milk, cream, butter",
+      "effects": {
+        "customerCostReduction": 0.1,
+        "customerRevenueBonus": 0.05
+      },
+      "risk_links": [
+        "cold_chain",
+        "animal_health"
+      ],
+      "vulnerability_label": "Cold-chain failure damages both dairy and bakery."
+    },
+    {
+      "id": "dairy_to_restaurant",
+      "supplier": "dairy_barn",
+      "customer": "farmhouse_restaurant",
+      "flow": "Dairy products",
+      "effects": {
+        "customerCostReduction": 0.08,
+        "customerRevenueBonus": 0.04
+      },
+      "risk_links": [
+        "animal_health",
+        "cold_chain"
+      ],
+      "vulnerability_label": "Animal-health shock reaches restaurant margins."
+    },
+    {
+      "id": "dairy_to_store",
+      "supplier": "dairy_barn",
+      "customer": "general_store",
+      "flow": "Milk, cheese, butter",
+      "effects": {
+        "customerRevenueBonus": 0.06,
+        "supplierDemandStability": 0.1
+      },
+      "risk_links": [
+        "spoilage",
+        "cold_chain"
+      ],
+      "vulnerability_label": "Perishable inventory risk at retail."
+    },
+    {
+      "id": "poultry_to_bakery",
+      "supplier": "poultry_coop",
+      "customer": "bakery",
+      "flow": "Eggs",
+      "effects": {
+        "customerCostReduction": 0.08,
+        "customerReliabilityBonus": 0.1
+      },
+      "risk_links": [
+        "animal_health",
+        "biosecurity"
+      ],
+      "vulnerability_label": "Disease shock disrupts bakery output."
+    },
+    {
+      "id": "poultry_to_restaurant",
+      "supplier": "poultry_coop",
+      "customer": "farmhouse_restaurant",
+      "flow": "Eggs and poultry",
+      "effects": {
+        "customerCostReduction": 0.09,
+        "customerReliabilityBonus": 0.1
+      },
+      "risk_links": [
+        "food_safety",
+        "animal_health"
+      ],
+      "vulnerability_label": "Food-safety event damages restaurant reputation."
+    },
+    {
+      "id": "poultry_to_store",
+      "supplier": "poultry_coop",
+      "customer": "general_store",
+      "flow": "Eggs and poultry",
+      "effects": {
+        "customerRevenueBonus": 0.06,
+        "supplierDemandStability": 0.1
+      },
+      "risk_links": [
+        "cold_chain",
+        "spoilage"
+      ],
+      "vulnerability_label": "Refrigeration and waste exposure."
+    },
+    {
+      "id": "bakery_to_restaurant",
+      "supplier": "bakery",
+      "customer": "farmhouse_restaurant",
+      "flow": "Bread and desserts",
+      "effects": {
+        "customerCostReduction": 0.06,
+        "customerRevenueBonus": 0.04
+      },
+      "risk_links": [
+        "reputation",
+        "spoilage"
+      ],
+      "vulnerability_label": "Quality problems affect both brands."
+    },
+    {
+      "id": "bakery_to_store",
+      "supplier": "bakery",
+      "customer": "general_store",
+      "flow": "Packaged bakery goods",
+      "effects": {
+        "supplierRevenueBonus": 0.15,
+        "customerRevenueBonus": 0.05
+      },
+      "risk_links": [
+        "spoilage",
+        "demand"
+      ],
+      "vulnerability_label": "Unsold short-life inventory."
+    },
+    {
+      "id": "restaurant_to_store",
+      "supplier": "farmhouse_restaurant",
+      "customer": "general_store",
+      "flow": "Brand traffic",
+      "effects": {
+        "customerRevenueBonus": 0.05,
+        "supplierRevenueBonus": 0.04
+      },
+      "risk_links": [
+        "reputation",
+        "demand"
+      ],
+      "vulnerability_label": "Shared reputation creates correlated downside."
+    },
+    {
+      "id": "equip_to_grain",
+      "supplier": "equipment_repair",
+      "customer": "grain_farm",
+      "flow": "Maintenance service",
+      "effects": {
+        "customerCostReduction": 0.2,
+        "customerReliabilityBonus": 0.25
+      },
+      "risk_links": [
+        "skilled_labor",
+        "machinery"
+      ],
+      "vulnerability_label": "Repair capacity depends on technician availability."
+    },
+    {
+      "id": "equip_to_veg",
+      "supplier": "equipment_repair",
+      "customer": "vegetable_farm",
+      "flow": "Irrigation and machinery service",
+      "effects": {
+        "customerCostReduction": 0.12,
+        "customerReliabilityBonus": 0.2
+      },
+      "risk_links": [
+        "parts_shortage",
+        "machinery"
+      ],
+      "vulnerability_label": "Parts shortage can delay harvest."
+    },
+    {
+      "id": "equip_to_dairy",
+      "supplier": "equipment_repair",
+      "customer": "dairy_barn",
+      "flow": "Milking / cooling maintenance",
+      "effects": {
+        "customerReliabilityBonus": 0.25,
+        "customerCostReduction": 0.1
+      },
+      "risk_links": [
+        "machinery",
+        "cold_chain"
+      ],
+      "vulnerability_label": "A single cooling failure can still cause large loss."
+    },
+    {
+      "id": "equip_to_poultry",
+      "supplier": "equipment_repair",
+      "customer": "poultry_coop",
+      "flow": "Ventilation / processing maintenance",
+      "effects": {
+        "customerReliabilityBonus": 0.2,
+        "customerCostReduction": 0.08
+      },
+      "risk_links": [
+        "biosecurity",
+        "parts_shortage"
+      ],
+      "vulnerability_label": "Specialized parts required."
+    },
+    {
+      "id": "equip_to_feed",
+      "supplier": "equipment_repair",
+      "customer": "feed_mill",
+      "flow": "Mill machinery service",
+      "effects": {
+        "customerReliabilityBonus": 0.25,
+        "customerRevenueBonus": 0.05
+      },
+      "risk_links": [
+        "machinery",
+        "skilled_labor"
+      ],
+      "vulnerability_label": "High utilization may strain repair capacity."
+    },
+    {
+      "id": "equip_to_bakery",
+      "supplier": "equipment_repair",
+      "customer": "bakery",
+      "flow": "Oven and refrigeration service",
+      "effects": {
+        "customerCostReduction": 0.05,
+        "customerReliabilityBonus": 0.2
+      },
+      "risk_links": [
+        "skilled_labor",
+        "energy"
+      ],
+      "vulnerability_label": "Skilled technician concentration."
+    },
+    {
+      "id": "delivery_to_veg",
+      "supplier": "delivery_cold_storage",
+      "customer": "vegetable_farm",
+      "flow": "Cold transport / storage",
+      "effects": {
+        "customerCostReduction": 0.12,
+        "supplierDemandStability": 0.08,
+        "customerRevenueBonus": 0.15
+      },
+      "risk_links": [
+        "fuel",
+        "cold_chain",
+        "spoilage"
+      ],
+      "vulnerability_label": "Fuel and refrigeration shocks."
+    },
+    {
+      "id": "delivery_to_dairy",
+      "supplier": "delivery_cold_storage",
+      "customer": "dairy_barn",
+      "flow": "Cold transport",
+      "effects": {
+        "customerCostReduction": 0.14,
+        "customerRevenueBonus": 0.15
+      },
+      "risk_links": [
+        "cold_chain",
+        "fuel"
+      ],
+      "vulnerability_label": "Cold-chain failure causes severe loss."
+    },
+    {
+      "id": "delivery_to_poultry",
+      "supplier": "delivery_cold_storage",
+      "customer": "poultry_coop",
+      "flow": "Refrigerated transport",
+      "effects": {
+        "customerCostReduction": 0.12,
+        "customerReliabilityBonus": 0.15
+      },
+      "risk_links": [
+        "cold_chain",
+        "food_safety"
+      ],
+      "vulnerability_label": "Food-safety exposure along the route."
+    },
+    {
+      "id": "delivery_to_feed",
+      "supplier": "delivery_cold_storage",
+      "customer": "feed_mill",
+      "flow": "Bulk transport",
+      "effects": {
+        "customerCostReduction": 0.08,
+        "customerRevenueBonus": 0.1
+      },
+      "risk_links": [
+        "fuel",
+        "route_concentration"
+      ],
+      "vulnerability_label": "Route dependence."
+    },
+    {
+      "id": "delivery_to_bakery",
+      "supplier": "delivery_cold_storage",
+      "customer": "bakery",
+      "flow": "Route distribution",
+      "effects": {
+        "customerRevenueBonus": 0.15,
+        "customerReliabilityBonus": 0.1
+      },
+      "risk_links": [
+        "fuel",
+        "demand"
+      ],
+      "vulnerability_label": "Overcapacity if sales fall."
+    },
+    {
+      "id": "delivery_to_restaurant",
+      "supplier": "delivery_cold_storage",
+      "customer": "farmhouse_restaurant",
+      "flow": "Reliable ingredient delivery",
+      "effects": {
+        "customerReliabilityBonus": 0.25,
+        "customerCostReduction": 0.08
+      },
+      "risk_links": [
+        "fuel",
+        "cold_chain"
+      ],
+      "vulnerability_label": "Restaurant becomes dependent on logistics uptime."
+    },
+    {
+      "id": "delivery_to_store",
+      "supplier": "delivery_cold_storage",
+      "customer": "general_store",
+      "flow": "Warehousing and routes",
+      "effects": {
+        "customerCostReduction": 0.1,
+        "customerRevenueBonus": 0.1
+      },
+      "risk_links": [
+        "demand",
+        "fuel"
+      ],
+      "vulnerability_label": "Storage cost and demand mismatch."
+    }
+  ],
+  "connection_demand": {
+    "grain_to_feed": 38,
+    "grain_to_bakery": 28,
+    "grain_to_store": 22,
+    "veg_to_restaurant": 45,
+    "veg_to_store": 30,
+    "feed_to_dairy": 42,
+    "feed_to_poultry": 40,
+    "dairy_to_bakery": 25,
+    "dairy_to_restaurant": 22,
+    "dairy_to_store": 20,
+    "poultry_to_bakery": 22,
+    "poultry_to_restaurant": 24,
+    "poultry_to_store": 20,
+    "bakery_to_restaurant": 30,
+    "bakery_to_store": 28,
+    "restaurant_to_store": 18,
+    "equip_to_grain": 16,
+    "equip_to_veg": 14,
+    "equip_to_dairy": 18,
+    "equip_to_poultry": 16,
+    "equip_to_feed": 18,
+    "equip_to_bakery": 14,
+    "delivery_to_veg": 14,
+    "delivery_to_dairy": 18,
+    "delivery_to_poultry": 16,
+    "delivery_to_feed": 12,
+    "delivery_to_bakery": 14,
+    "delivery_to_restaurant": 20,
+    "delivery_to_store": 16
+  },
+  "customer_alloc_priority": {
+    "feed_mill": 5,
+    "bakery": 4,
+    "dairy_barn": 4,
+    "poultry_coop": 4,
+    "farmhouse_restaurant": 3,
+    "general_store": 2,
+    "grain_farm": 1,
+    "vegetable_farm": 1
+  }
+}

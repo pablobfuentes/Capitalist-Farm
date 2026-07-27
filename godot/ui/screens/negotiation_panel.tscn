@@ -1,0 +1,253 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_negotiation_panel"]
+
+[ext_resource type="Script" path="res://ui/screens/negotiation_panel.gd" id="1_neg"]
+
+[node name="NegotiationPanel" type="Window"]
+initial_position = 1
+size = Vector2i(920, 560)
+min_size = Vector2i(720, 400)
+script = ExtResource("1_neg")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="RootVBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="MainHBox" type="HBoxContainer" parent="Margin/RootVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="LeftColumn" type="VBoxContainer" parent="Margin/RootVBox/MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
+theme_override_constants/separation = 8
+
+[node name="HeaderLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+autowrap_mode = 3
+text = "Listing"
+
+[node name="MetaLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+text = "Ask price"
+
+[node name="GaugeRow" type="HBoxContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="GaugeLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/GaugeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Deal Momentum: Listening"
+
+[node name="GaugeBar" type="ProgressBar" parent="Margin/RootVBox/MainHBox/LeftColumn/GaugeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 18)
+layout_mode = 2
+max_value = 100.0
+show_percentage = false
+value = 50.0
+
+[node name="EconomicHintLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.72, 0.68, 0.58, 1)
+text = "No offer"
+
+[node name="ProgressPanel" type="VBoxContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="RapportLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.68, 0.78, 0.72, 1)
+text = ""
+
+[node name="DiscountLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.72, 0.82, 0.68, 1)
+text = ""
+
+[node name="SituationProgressLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.66, 0.7, 0.74, 1)
+text = ""
+
+[node name="CoachTipLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.62, 0.66, 0.58, 1)
+text = ""
+
+[node name="RivalBarLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.48, 0.23, 0.54, 1)
+text = ""
+
+[node name="CompareLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+text = ""
+
+[node name="IntelScroll" type="ScrollContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+size_flags_vertical = 0
+horizontal_scroll_mode = 0
+
+[node name="IntelLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/IntelScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+text = ""
+
+[node name="AiStatusLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.45, 0.55, 0.45, 1)
+text = "AI connecting…"
+
+[node name="DataScroll" type="ScrollContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="DataLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/DataScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.68, 0.66, 0.62, 1)
+text = ""
+
+[node name="RightColumn" type="VBoxContainer" parent="Margin/RootVBox/MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
+theme_override_constants/separation = 6
+
+[node name="ConversationHeader" type="Label" parent="Margin/RootVBox/MainHBox/RightColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Conversation"
+
+[node name="MessagesEdit" type="TextEdit" parent="Margin/RootVBox/MainHBox/RightColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 13
+editable = false
+wrap_mode = 1
+selecting_enabled = true
+text = ""
+
+[node name="FooterPanel" type="PanelContainer" parent="Margin/RootVBox"]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="FooterVBox" type="VBoxContainer" parent="Margin/RootVBox/FooterPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="StatusLabel" type="Label" parent="Margin/RootVBox/FooterPanel/FooterVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+text = "Status"
+
+[node name="InputRow" type="HBoxContainer" parent="Margin/RootVBox/FooterPanel/FooterVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MessageInput" type="LineEdit" parent="Margin/RootVBox/FooterPanel/FooterVBox/InputRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Type your offer..."
+
+[node name="SendButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/InputRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Send"
+
+[node name="ButtonRow" type="HBoxContainer" parent="Margin/RootVBox/FooterPanel/FooterVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CopyTranscriptButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Copy debug log"
+
+[node name="SaveLogButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save log"
+
+[node name="WalkButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Walk away"
+
+[node name="CloseDealButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+text = "Close Deal"
+
+[node name="CloseButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"

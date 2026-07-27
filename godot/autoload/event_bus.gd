@@ -1,0 +1,21 @@
+# Global typed signals — UI and systems subscribe without tight coupling.
+extends Node
+
+@warning_ignore("unused_signal")
+signal turn_advanced(state: RunState)
+@warning_ignore("unused_signal")
+signal command_applied(command_name: String, state: RunState)
+@warning_ignore("unused_signal")
+signal run_started(state: RunState)
+@warning_ignore("unused_signal")
+signal run_loaded(state: RunState)
+@warning_ignore("unused_signal")
+signal asset_acquired(asset_type: String, asset_id: String)
+@warning_ignore("unused_signal")
+signal negotiation_started(state: RunState)
+@warning_ignore("unused_signal")
+signal negotiation_ended(state: RunState)
+@warning_ignore("unused_signal")
+signal negotiation_updated(state: RunState)
+@warning_ignore("unused_signal")
+signal run_ended(state: RunState)

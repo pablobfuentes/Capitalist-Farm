@@ -1,0 +1,90 @@
+[gd_scene load_steps=3 format=3 uid="uid://econgame_run_report"]
+
+[ext_resource type="Script" path="res://ui/screens/run_report.gd" id="1_rr"]
+[ext_resource type="Script" path="res://ui/components/progress_graph.gd" id="2_graph"]
+
+[node name="RunReport" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_rr")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.06, 0.09, 0.08, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Root" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Margin/Root"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Run Report"
+
+[node name="SummaryLabel" type="Label" parent="Margin/Root"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="StatsLabel" type="Label" parent="Margin/Root"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Graph" type="Control" parent="Margin/Root"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+script = ExtResource("2_graph")
+
+[node name="ExtrasLabel" type="Label" parent="Margin/Root"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NewRunButton" type="Button" parent="Margin/Root/Buttons"]
+layout_mode = 2
+text = "Start New Run"
+
+[node name="ExportButton" type="Button" parent="Margin/Root/Buttons"]
+layout_mode = 2
+text = "Export Stats JSON"
+
+[node name="FieldGuideButton" type="Button" parent="Margin/Root/Buttons"]
+layout_mode = 2
+text = "Field Guide"
+
+[node name="MenuButton" type="Button" parent="Margin/Root/Buttons"]
+layout_mode = 2
+text = "Main Menu"
+
+[connection signal="pressed" from="Margin/Root/Buttons/NewRunButton" to="." method="_on_new_run_pressed"]
+[connection signal="pressed" from="Margin/Root/Buttons/ExportButton" to="." method="_on_export_pressed"]
+[connection signal="pressed" from="Margin/Root/Buttons/FieldGuideButton" to="." method="_on_field_guide_pressed"]
+[connection signal="pressed" from="Margin/Root/Buttons/MenuButton" to="." method="_on_menu_pressed"]

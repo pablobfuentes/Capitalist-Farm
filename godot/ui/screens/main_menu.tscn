@@ -1,0 +1,64 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_main_menu"]
+
+[ext_resource type="Script" path="res://ui/screens/main_menu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.12, 0.1, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Center/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "EconGame"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Center/VBox"]
+layout_mode = 2
+text = "Capital Farm — Godot port"
+horizontal_alignment = 1
+
+[node name="CapitalFarmButton" type="Button" parent="Center/VBox"]
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "New Capital Farm Run"
+
+[node name="LoadButton" type="Button" parent="Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Load Saved Game"
+
+[node name="SmokeTestButton" type="Button" parent="Center/VBox"]
+custom_minimum_size = Vector2(280, 36)
+layout_mode = 2
+text = "Run Smoke Test"
+
+[connection signal="pressed" from="Center/VBox/CapitalFarmButton" to="." method="_on_capital_farm_pressed"]
+[connection signal="pressed" from="Center/VBox/LoadButton" to="." method="_on_load_pressed"]
+[connection signal="pressed" from="Center/VBox/SmokeTestButton" to="." method="_on_smoke_test_pressed"]

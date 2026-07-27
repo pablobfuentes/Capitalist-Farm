@@ -1,0 +1,75 @@
+{
+  "archetypes": [
+    {
+      "id": "desperate_seller",
+      "name": "Desperate Seller",
+      "primary_motivator": "emotion",
+      "urgency": 0.8,
+      "trust": 0.4,
+      "risk_tolerance": 0.3,
+      "concession_style": "fast",
+      "responds_to": ["fast closing", "credible funding", "simple terms"],
+      "flavor": "anxious to close quickly",
+      "tips": [
+        "They need this done fast — a quick, certain closing timeline will move them more than squeezing the price.",
+        "Because they're anxious, staying calm and unhurried can quietly pull the number down.",
+        "Don't drag this out with lowball haggling — someone else's clean offer could win it out from under you."
+      ]
+    },
+    {
+      "id": "proud_founder",
+      "name": "Proud Founder",
+      "primary_motivator": "emotion",
+      "urgency": 0.35,
+      "trust": 0.5,
+      "risk_tolerance": 0.25,
+      "concession_style": "slow",
+      "responds_to": ["respect", "continuity", "employee retention"],
+      "flavor": "emotionally attached to the business and staff",
+      "tips": [
+        "This is personal to them. Ask about the business's history before you talk numbers.",
+        "They care what happens to the people who work here. A credible plan for the staff buys room on price.",
+        "Aggressive undercutting will make them dig in. Patient, respectful framing works better than pressure."
+      ]
+    },
+    {
+      "id": "relationship_owner",
+      "name": "Relationship-Oriented Owner",
+      "primary_motivator": "relationship",
+      "urgency": 0.3,
+      "trust": 0.6,
+      "risk_tolerance": 0.3,
+      "concession_style": "medium",
+      "responds_to": ["reliability", "fair dealing", "long-term commitment"],
+      "flavor": "values trust over isolated economics",
+      "tips": [
+        "They value the relationship itself — reliability lands harder than an aggressive first offer.",
+        "Framing this as a long-term commitment, not a one-time transaction, is genuinely persuasive.",
+        "They remember if you've been transactional before. Consistency is real leverage."
+      ]
+    },
+    {
+      "id": "corporate_seller",
+      "name": "Corporate Divestment Committee",
+      "primary_motivator": "greed",
+      "urgency": 0.2,
+      "trust": 0.25,
+      "risk_tolerance": 0.15,
+      "concession_style": "slow",
+      "responds_to": ["data", "governance", "clean structure"],
+      "flavor": "an institutional seller, unmoved by personal appeals, focused on process and defensible valuation",
+      "tips": [
+        "They don't respond to personal rapport — lead with clean numbers and a defensible valuation.",
+        "Process matters more than warmth. A clear, well-structured offer moves faster than a friendly one.",
+        "They will not move off their walk-away number for sentimental reasons."
+      ]
+    }
+  ],
+  "species": {
+    "hen": {"utility_bonus_certainty": 4.0},
+    "horse": {"utility_bonus_continuity": 6.0},
+    "pig": {"utility_bonus_structure": 8.0},
+    "donkey": {"utility_bonus_evidence": 8.0},
+    "goat": {"utility_bonus_terms_count": 5.0}
+  }
+}

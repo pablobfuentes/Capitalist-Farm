@@ -1,0 +1,231 @@
+[gd_scene load_steps=3 format=3 uid="uid://econgame_dashboard"]
+
+[ext_resource type="Script" path="res://ui/screens/dashboard.gd" id="1_dash"]
+[ext_resource type="Script" path="res://ui/components/progress_graph.gd" id="2_graph"]
+
+[node name="Dashboard" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_dash")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.06, 0.09, 0.08, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="Root" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TopBar" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="TurnLabel" type="Label" parent="Margin/Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Turn 1 / 30"
+
+[node name="CashLabel" type="Label" parent="Margin/Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Cash: $0"
+
+[node name="NetWorthLabel" type="Label" parent="Margin/Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Net worth: $0"
+
+[node name="DebtLabel" type="Label" parent="Margin/Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Debt: $0"
+
+[node name="ActionPointsLabel" type="Label" parent="Margin/Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "AP: 2"
+
+[node name="ReputationLabel" type="Label" parent="Margin/Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Rep: 12"
+
+[node name="Spacer" type="Control" parent="Margin/Root/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SaveButton" type="Button" parent="Margin/Root/TopBar"]
+layout_mode = 2
+text = "Save"
+
+[node name="DiagramButton" type="Button" parent="Margin/Root/TopBar"]
+layout_mode = 2
+text = "Diagram"
+
+[node name="HintButton" type="Button" parent="Margin/Root/TopBar"]
+layout_mode = 2
+text = "Hint"
+
+[node name="MenuButton" type="Button" parent="Margin/Root/TopBar"]
+layout_mode = 2
+text = "Menu"
+
+[node name="DebriefCard" type="PanelContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="DebriefVBox" type="VBoxContainer" parent="Margin/Root/DebriefCard"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DebriefToggle" type="Button" parent="Margin/Root/DebriefCard/DebriefVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+flat = true
+text = "▶ Last quarter debrief"
+alignment = 0
+
+[node name="DebriefBody" type="VBoxContainer" parent="Margin/Root/DebriefCard/DebriefVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="DebriefLabel" type="Label" parent="Margin/Root/DebriefCard/DebriefVBox/DebriefBody"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Welcome to Capital Farm."
+
+[node name="DebriefSummary" type="Label" parent="Margin/Root/DebriefCard/DebriefVBox/DebriefBody"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="GraphPanel" type="PanelContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="GraphVBox" type="VBoxContainer" parent="Margin/Root/GraphPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="GraphTitle" type="Label" parent="Margin/Root/GraphPanel/GraphVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Progress"
+
+[node name="ProgressGraph" type="Control" parent="Margin/Root/GraphPanel/GraphVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("2_graph")
+
+[node name="Columns" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 20
+
+[node name="PortfolioPanel" type="PanelContainer" parent="Margin/Root/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="PortfolioVBox" type="VBoxContainer" parent="Margin/Root/Columns/PortfolioPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PortfolioTitle" type="Label" parent="Margin/Root/Columns/PortfolioPanel/PortfolioVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Portfolio"
+
+[node name="PortfolioScroll" type="ScrollContainer" parent="Margin/Root/Columns/PortfolioPanel/PortfolioVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PortfolioList" type="VBoxContainer" parent="Margin/Root/Columns/PortfolioPanel/PortfolioVBox/PortfolioScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="OpportunitiesPanel" type="PanelContainer" parent="Margin/Root/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="OpportunitiesVBox" type="VBoxContainer" parent="Margin/Root/Columns/OpportunitiesPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="OpportunitiesTitle" type="Label" parent="Margin/Root/Columns/OpportunitiesPanel/OpportunitiesVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Opportunities"
+
+[node name="OpportunitiesScroll" type="ScrollContainer" parent="Margin/Root/Columns/OpportunitiesPanel/OpportunitiesVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="OpportunitiesList" type="VBoxContainer" parent="Margin/Root/Columns/OpportunitiesPanel/OpportunitiesVBox/OpportunitiesScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="SupplyChainPanel" type="PanelContainer" parent="Margin/Root/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="SupplyChainVBox" type="VBoxContainer" parent="Margin/Root/Columns/SupplyChainPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SupplyChainTitle" type="Label" parent="Margin/Root/Columns/SupplyChainPanel/SupplyChainVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Supply Chain"
+
+[node name="SupplyChainScroll" type="ScrollContainer" parent="Margin/Root/Columns/SupplyChainPanel/SupplyChainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SupplyChainList" type="VBoxContainer" parent="Margin/Root/Columns/SupplyChainPanel/SupplyChainVBox/SupplyChainScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="AdvanceButton" type="Button" parent="Margin/Root"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Advance Turn"
+
+[connection signal="pressed" from="Margin/Root/TopBar/SaveButton" to="." method="_on_save_pressed"]
+[connection signal="pressed" from="Margin/Root/TopBar/DiagramButton" to="." method="_on_supply_chain_pressed"]
+[connection signal="pressed" from="Margin/Root/TopBar/HintButton" to="." method="_on_field_guide_pressed"]
+[connection signal="pressed" from="Margin/Root/TopBar/MenuButton" to="." method="_on_menu_pressed"]
+[connection signal="pressed" from="Margin/Root/AdvanceButton" to="." method="_on_advance_pressed"]

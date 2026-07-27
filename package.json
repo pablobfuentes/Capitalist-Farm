@@ -6,13 +6,16 @@
   "scripts": {
     "start": "node ai-proxy/server.js",
     "proxy": "node ai-proxy/server.js",
-    "test": "node scripts/regression-phase8.js && node scripts/regression-upgrades.js && node scripts/regression-upgrades-phase5.js && node scripts/regression-upgrades-phase6.js && node scripts/regression-negotiation-close.js && node scripts/regression-acquisition-balance.js",
+    "test": "node scripts/run-godot-tests.js",
+    "test:gut": "node scripts/run-godot-tests.js",
+    "test:legacy": "node scripts/regression-phase8.js && node scripts/regression-upgrades.js && node scripts/regression-upgrades-phase5.js && node scripts/regression-upgrades-phase6.js && node scripts/regression-negotiation-close.js && node scripts/regression-acquisition-balance.js",
     "test:phase8": "node scripts/regression-phase8.js",
     "test:upgrades": "node scripts/regression-upgrades.js",
     "test:upgrades-phase5": "node scripts/regression-upgrades-phase5.js",
     "test:upgrades-phase6": "node scripts/regression-upgrades-phase6.js",
     "test:negotiation-close": "node scripts/regression-negotiation-close.js",
-    "test:acquisition-balance": "node scripts/regression-acquisition-balance.js"
+    "test:acquisition-balance": "node scripts/regression-acquisition-balance.js",
+    "export:farm-content": "node scripts/export-farm-content.js"
   },
   "engines": {
     "node": ">=18"

@@ -1,0 +1,62 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_field_guide"]
+
+[ext_resource type="Script" path="res://ui/screens/field_guide_modal.gd" id="1_fg"]
+
+[node name="FieldGuideModal" type="Window"]
+oversampling_override = 1.0
+initial_position = 1
+size = Vector2i(560, 420)
+script = ExtResource("1_fg")
+
+[node name="Root" type="VBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Title"
+
+[node name="SubtitleLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Subtitle"
+
+[node name="BodyLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+autowrap_mode = 3
+text = "Body"
+
+[node name="Footer" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PrevButton" type="Button" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Prev"
+
+[node name="PageLabel" type="Label" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Page 1 / 5"
+
+[node name="NextButton" type="Button" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Next"
+
+[node name="CloseButton" type="Button" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"

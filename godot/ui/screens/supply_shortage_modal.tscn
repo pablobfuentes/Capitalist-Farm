@@ -1,0 +1,53 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_supply_shortage_modal"]
+
+[ext_resource type="Script" path="res://ui/screens/supply_shortage_modal.gd" id="1_modal"]
+
+[node name="SupplyShortageModal" type="Window"]
+title = "Supply capacity shortage"
+initial_position = 1
+size = Vector2i(620, 480)
+min_size = Vector2i(480, 320)
+script = ExtResource("1_modal")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="RootVBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="IntroLabel" type="Label" parent="Margin/RootVBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Set allocation policy — 0 AP · required before advancing turn."
+
+[node name="ShortagesScroll" type="ScrollContainer" parent="Margin/RootVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ShortagesList" type="VBoxContainer" parent="Margin/RootVBox/ShortagesScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="ConfirmButton" type="Button" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Confirm allocation & advance turn"
+
+[node name="CancelButton" type="Button" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Cancel"

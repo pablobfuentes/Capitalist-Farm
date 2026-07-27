@@ -1,0 +1,53 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_re_improve_panel"]
+
+[ext_resource type="Script" path="res://ui/screens/real_estate_improve_panel.gd" id="1_panel"]
+
+[node name="RealEstateImprovePanel" type="Window"]
+title = "Improve Property"
+initial_position = 1
+size = Vector2i(640, 480)
+min_size = Vector2i(480, 320)
+script = ExtResource("1_panel")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PropertyName" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Property"
+
+[node name="MetaLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Infrastructure property improvements"
+
+[node name="ImprovementsScroll" type="ScrollContainer" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ImprovementsList" type="VBoxContainer" parent="Margin/VBox/ImprovementsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="CloseButton" type="Button" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"

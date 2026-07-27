@@ -1,0 +1,108 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_turn_debrief_modal"]
+
+[ext_resource type="Script" path="res://ui/screens/turn_debrief_modal.gd" id="1_modal"]
+
+[node name="TurnDebriefModal" type="Window"]
+title = "Quarter debrief"
+initial_position = 1
+size = Vector2i(640, 560)
+min_size = Vector2i(520, 420)
+unresizable = true
+script = ExtResource("1_modal")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="RootVBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Turn Debrief"
+
+[node name="SubtitleLabel" type="Label" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.65, 0.6, 1)
+text = "Start of turn → End of turn"
+
+[node name="HeaderRow" type="HBoxContainer" parent="Margin/RootVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MetricHeader" type="Label" parent="Margin/RootVBox/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.55, 0.55, 0.5, 1)
+theme_override_font_sizes/font_size = 11
+text = "METRIC"
+
+[node name="BeforeHeader" type="Label" parent="Margin/RootVBox/HeaderRow"]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.55, 0.5, 1)
+theme_override_font_sizes/font_size = 11
+text = "BEFORE"
+horizontal_alignment = 2
+
+[node name="AfterHeader" type="Label" parent="Margin/RootVBox/HeaderRow"]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.55, 0.5, 1)
+theme_override_font_sizes/font_size = 11
+text = "AFTER"
+horizontal_alignment = 2
+
+[node name="ChangeHeader" type="Label" parent="Margin/RootVBox/HeaderRow"]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.55, 0.5, 1)
+theme_override_font_sizes/font_size = 11
+text = "CHANGE"
+horizontal_alignment = 2
+
+[node name="RowsScroll" type="ScrollContainer" parent="Margin/RootVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="RowsList" type="VBoxContainer" parent="Margin/RootVBox/RowsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="HighlightsLabel" type="Label" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.72, 0.55, 1)
+autowrap_mode = 3
+
+[node name="SupplyChainLabel" type="Label" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.62, 0.28, 1)
+autowrap_mode = 3
+
+[node name="SummaryLabel" type="Label" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="ContinueButton" type="Button" parent="Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Continue →"

@@ -1,0 +1,39 @@
+[gd_scene load_steps=3 format=3 uid="uid://econgame_supply_chain_view"]
+
+[ext_resource type="Script" path="res://ui/screens/supply_chain_view.gd" id="1_scv"]
+[ext_resource type="Script" path="res://ui/screens/supply_chain_diagram.gd" id="2_diag"]
+
+[node name="SupplyChainView" type="Window"]
+oversampling_override = 1.0
+initial_position = 1
+size = Vector2i(920, 680)
+script = ExtResource("1_scv")
+
+[node name="Root" type="VBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+theme_override_constants/separation = 10
+
+[node name="Diagram" type="Control" parent="Root"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(860, 560)
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("2_diag")
+
+[node name="DetailLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="CloseButton" type="Button" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[connection signal="pressed" from="Root/CloseButton" to="." method="hide"]

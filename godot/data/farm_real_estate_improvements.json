@@ -1,0 +1,58 @@
+{
+  "improvements": [
+    {
+      "id": "gate",
+      "name": "New Yard Gate & Fence",
+      "cost_pct": 0.04,
+      "val_boost": 0.06,
+      "rent_boost": 0.03,
+      "note": "Stops tractors from wandering and tenants from \"forgetting\" the lease boundary.",
+      "templates": ["equipment_repair"]
+    },
+    {
+      "id": "bay",
+      "name": "Extra Service / Loading Bay",
+      "cost_pct": 0.09,
+      "val_boost": 0.12,
+      "rent_boost": 0.07,
+      "note": "Another bay means another invoice — capacity tenants will actually pay for.",
+      "templates": ["delivery_cold_storage"]
+    },
+    {
+      "id": "cold",
+      "name": "Cold-Room Expansion",
+      "cost_pct": 0.08,
+      "val_boost": 0.10,
+      "rent_boost": 0.08,
+      "note": "More cubic feet of cold air; fewer cubic words about spoilage.",
+      "templates": ["delivery_cold_storage"]
+    },
+    {
+      "id": "solar",
+      "name": "Solar & Energy Retrofit",
+      "cost_pct": 0.06,
+      "val_boost": 0.07,
+      "rent_boost": 0.05,
+      "note": "Panels on the roof — lower utility burn, higher ESG small talk.",
+      "templates": ["delivery_cold_storage", "equipment_repair"]
+    },
+    {
+      "id": "fleet",
+      "name": "Fleet Parking & Fuel Pad",
+      "cost_pct": 0.05,
+      "val_boost": 0.05,
+      "rent_boost": 0.06,
+      "note": "Organized staging beats trucks idling in the mud — tenants notice.",
+      "templates": ["delivery_cold_storage", "equipment_repair"]
+    },
+    {
+      "id": "security",
+      "name": "Yard Camera & Access Control",
+      "cost_pct": 0.03,
+      "val_boost": 0.04,
+      "rent_boost": 0.02,
+      "note": "Cameras for tools, gates for drama — cheap peace of mind.",
+      "templates": ["delivery_cold_storage", "equipment_repair"]
+    }
+  ]
+}
