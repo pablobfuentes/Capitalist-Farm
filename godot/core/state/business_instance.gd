@@ -50,9 +50,9 @@ static func from_dict(d: Dictionary) -> BusinessInstance:
 	b.last_care_turn = int(d.get("lastCareTurn", d.get("last_care_turn", 0)))
 	b.acquired_turn = int(d.get("acquiredTurn", d.get("acquired_turn", 0)))
 	b.over_cap_penalty_turn = int(d.get("overCapPenaltyTurn", d.get("over_cap_penalty_turn", -1)))
-	b.upgrades = d.get("upgrades", d.get("upgradeTiers", {}))
-	b.upgrade_stats = d.get("upgradeStats", d.get("upgrade_stats", {}))
-	b.manager_drift = d.get("managerDrift", d.get("manager_drift", {}))
+	b.upgrades = (d.get("upgrades", d.get("upgradeTiers", {})) as Dictionary).duplicate(true)
+	b.upgrade_stats = (d.get("upgradeStats", d.get("upgrade_stats", {})) as Dictionary).duplicate(true)
+	b.manager_drift = (d.get("managerDrift", d.get("manager_drift", {})) as Dictionary).duplicate(true)
 	return b
 
 

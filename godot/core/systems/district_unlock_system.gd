@@ -59,6 +59,7 @@ static func try_unlock(state: RunState, district_id: String, region: Dictionary 
 	state.unlocked_districts.append(district_id)
 	state.active_district_id = district_id
 	ParcelOwnershipSystem.seed_district(state, _World.load_district_from_entry(entry))
+	OpportunitySystem.spawn_for_unlocked_districts(state, [district_id])
 	ParcelOwnershipSystem.sync_from_state(state, _World.load_district_from_entry(entry))
 	state.run_log.append("Unlocked district: %s" % str(_World.load_district_from_entry(entry).get("name", district_id)))
 	return {"ok": true, "districtId": district_id}
@@ -76,6 +77,7 @@ static func unlock_all_for_testing(state: RunState, region: Dictionary = {}) -> 
 		if district_id_value not in state.unlocked_districts:
 			state.unlocked_districts.append(district_id_value)
 		ParcelOwnershipSystem.seed_district(state, _World.load_district_from_entry(entry))
+	OpportunitySystem.spawn_for_unlocked_districts(state, state.unlocked_districts.duplicate())
 	ParcelOwnershipSystem.sync_from_state(state)
 
 
@@ -87,9 +89,10 @@ static func lock_all_except_starter(state: RunState) -> void:
 	state.active_district_id = STARTER_DISTRICT
 
 
-static func refresh_auto_unlocks(state: RunState, region: Dictionary = {}) -> void:
+static func refresh_auto_unlocks(state: RunState, region: Dictionary = {}) -> Array:
+	var newly_unlocked: Array = []
 	if not applies_to(state) or state.district_unlock_dev_bypass:
-		return
+		return newly_unlocked
 	if region.is_empty():
 		region = _World.load_region()
 	var net_worth := FinanceSystem.net_worth(state)
@@ -101,3 +104,5 @@ static func refresh_auto_unlocks(state: RunState, region: Dictionary = {}) -> vo
 		if net_worth >= unlock_requirement(state, entry):
 			state.unlocked_districts.append(district_id_value)
 			ParcelOwnershipSystem.seed_district(state, _World.load_district_from_entry(entry))
+			newly_unlocked.append(district_id_value)
+	return newly_unlocked

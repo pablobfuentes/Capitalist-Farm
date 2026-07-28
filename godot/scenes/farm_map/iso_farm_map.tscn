@@ -50,11 +50,14 @@ mouse_filter = 2
 script = ExtResource("4_ui")
 
 [node name="TopBar" type="PanelContainer" parent="UI/Hud"]
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
 offset_left = 16.0
 offset_top = 16.0
-offset_right = 980.0
+offset_right = -16.0
 offset_bottom = 72.0
+grow_horizontal = 2
 
 [node name="Row" type="HBoxContainer" parent="UI/Hud/TopBar"]
 layout_mode = 2
@@ -79,6 +82,12 @@ horizontal_alignment = 2
 unique_name_in_owner = true
 layout_mode = 2
 text = "Overview"
+
+[node name="AdvanceButton" type="Button" parent="UI/Hud/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "Advance Turn"
 
 [node name="UnlockAllButton" type="Button" parent="UI/Hud/TopBar/Row"]
 unique_name_in_owner = true
@@ -106,7 +115,7 @@ offset_bottom = -12.0
 grow_vertical = 0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.88, 0.85)
-text = "Overview: all districts · Click district/lot to zoom · Yellow blink = for sale · Test unlock buttons in top bar"
+text = "Overview: all districts · Click lot to inspect (left) · Info panel on right · Close to zoom back out"
 
 [node name="ParcelBusinessPanel" parent="UI/Hud" instance=ExtResource("5_panel")]
 unique_name_in_owner = true
@@ -115,7 +124,7 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -316.0
-offset_top = 96.0
+offset_top = 88.0
 offset_right = -16.0
 offset_bottom = 360.0
 grow_horizontal = 0
@@ -123,3 +132,4 @@ grow_vertical = 0
 mouse_filter = 2
 
 [connection signal="pressed" from="UI/Hud/TopBar/Row/BackButton" to="." method="_on_back_pressed"]
+[connection signal="pressed" from="UI/Hud/TopBar/Row/AdvanceButton" to="." method="_on_advance_pressed"]

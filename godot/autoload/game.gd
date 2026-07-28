@@ -87,17 +87,28 @@ func apply_command(command: Dictionary) -> Dictionary:
 
 	match command_name:
 		GameCommand.ADVANCE_TURN:
+			_emit_turn_pipeline_events(result.get("events", []))
 			EventBus.turn_advanced.emit(state)
 			if state.game_over != null:
 				EventBus.run_ended.emit(state)
-		GameCommand.ACQUIRE_BUSINESS:
+		GameCommand.ACQUIRE_BUSINESS, GameCommand.ACQUIRE_REAL_ESTATE:
 			var biz: Variant = result.get("business")
 			if biz is BusinessInstance:
 				EventBus.asset_acquired.emit("business", (biz as BusinessInstance).id)
+			elif command_name == GameCommand.ACQUIRE_REAL_ESTATE:
+				var re: Variant = result.get("realEstate")
+				if re is Dictionary:
+					EventBus.asset_acquired.emit("realestate", str((re as Dictionary).get("id", "")))
 		GameCommand.APPLY_UPGRADE:
 			var upgraded: Variant = result.get("business")
 			if upgraded is BusinessInstance:
 				EventBus.asset_acquired.emit("upgrade", (upgraded as BusinessInstance).id)
+		GameCommand.SELL_ASSET:
+			_emit_map_state_if_2d()
+		GameCommand.TAKE_BANK_LOAN, GameCommand.BUY_SECURITY_TICKER:
+			_emit_map_state_if_2d()
+		GameCommand.INVESTIGATE:
+			_emit_map_state_if_2d()
 		GameCommand.START_NEGOTIATION:
 			EventBus.negotiation_started.emit(state)
 		GameCommand.SEND_NEGOTIATION_MESSAGE:
@@ -109,8 +120,51 @@ func apply_command(command: Dictionary) -> Dictionary:
 		GameCommand.END_NEGOTIATION:
 			EventBus.negotiation_ended.emit(state)
 
+	if command_name != GameCommand.ADVANCE_TURN:
+		_try_emit_district_unlocks()
+
 	EventBus.command_applied.emit(command_name, state)
 	return result
+
+
+func _emit_turn_pipeline_events(events: Variant) -> void:
+	if typeof(events) != TYPE_ARRAY:
+		return
+	for ev_variant in events:
+		if typeof(ev_variant) != TYPE_DICTIONARY:
+			continue
+		var ev: Dictionary = ev_variant
+		match str(ev.get("type", "")):
+			TurnPipeline.EVENT_TURN_DEBRIEF_READY:
+				EventBus.turn_debrief_ready.emit(state, ev.get("debrief", {}))
+			TurnPipeline.EVENT_MILESTONE_REACHED:
+				EventBus.milestone_reached.emit(state, str(ev.get("milestoneId", "")))
+			TurnPipeline.EVENT_EDGE_CHOICES_PENDING:
+				EventBus.edge_choices_pending.emit(state, ev.get("choices", []))
+			TurnPipeline.EVENT_SUPPLY_SHORTAGE_DETECTED:
+				EventBus.supply_shortage_detected.emit(state, ev.get("shortages", []))
+			TurnPipeline.EVENT_DISTRICTS_UNLOCKED:
+				var district_ids: Array = ev.get("districtIds", [])
+				EventBus.districts_unlocked.emit(state, district_ids)
+				EventBus.map_state_changed.emit(state)
+
+
+func _try_emit_district_unlocks() -> void:
+	if state == null or not DistrictUnlockSystem.applies_to(state):
+		return
+	var newly: Array = DistrictUnlockSystem.refresh_auto_unlocks(state)
+	if newly.is_empty():
+		return
+	OpportunitySystem.spawn_for_unlocked_districts(state, newly)
+	ParcelOwnershipSystem.sync_from_state(state)
+	EventBus.districts_unlocked.emit(state, newly)
+	EventBus.map_state_changed.emit(state)
+
+
+func _emit_map_state_if_2d() -> void:
+	if state == null or not DistrictUnlockSystem.applies_to(state):
+		return
+	EventBus.map_state_changed.emit(state)
 
 
 func net_worth() -> int:
@@ -164,19 +218,22 @@ func send_negotiation_message_async(text: String, callback: Callable) -> void:
 		callback.call({"ok": false, "error": "Empty message"})
 		return
 
-	if not AiClient.ai_available:
-		callback.call(apply_command(GameCommand.send_negotiation_message(trimmed)))
-		return
+	var send_with_ai := func() -> void:
+		var append_result: Dictionary = apply_command(GameCommand.append_negotiation_player(trimmed))
+		if not bool(append_result.get("ok", false)):
+			callback.call(append_result)
+			return
+		EventBus.negotiation_updated.emit(state)
+		AiClient.request_negotiation(state, trimmed, func(ai_parsed: Dictionary, err: String) -> void:
+			var parsed: Dictionary = ai_parsed if err.is_empty() else {}
+			callback.call(apply_command(
+				GameCommand.send_negotiation_message(trimmed, parsed, true)
+			))
+		)
 
-	var append_result: Dictionary = apply_command(GameCommand.append_negotiation_player(trimmed))
-	if not bool(append_result.get("ok", false)):
-		callback.call(append_result)
-		return
-	EventBus.negotiation_updated.emit(state)
-
-	AiClient.request_negotiation(state, trimmed, func(ai_parsed: Dictionary, err: String) -> void:
-		var parsed: Dictionary = ai_parsed if err.is_empty() else {}
-		callback.call(apply_command(
-			GameCommand.send_negotiation_message(trimmed, parsed, true)
-		))
-	)
+	if AiClient.ai_available:
+		send_with_ai.call()
+	else:
+		AiClient.check_health(func(_available: bool, _model: String) -> void:
+			send_with_ai.call()
+		)

@@ -2,6 +2,7 @@ extends GutTest
 
 const _Ownership := preload("res://core/systems/parcel_ownership_system.gd")
 const _Layout := preload("res://scenes/farm_map/district_layout_data.gd")
+const _World := preload("res://scenes/farm_map/world_layout_data.gd")
 
 
 func before_all() -> void:
@@ -67,6 +68,51 @@ func test_opportunity_binds_to_matching_template_parcel() -> void:
 	var premium := _Ownership.resolve(state, _parcel_by_id(district, "mg_17"), district)
 	assert_eq(str(premium.get("state", "")), _Ownership.OWNER_OPPORTUNITY)
 	assert_eq(str(premium.get("opportunity_id", "")), "test-opp-dairy")
+	assert_eq(str(premium.get("operator_name", "")), "Premium Dairy Listing")
+
+
+func test_unlocked_district_gets_spawned_opportunities() -> void:
+	var state := _make_2d_state()
+	var entry: Dictionary = _World.find_entry_by_id(_World.load_region(), "northfield_heights")
+	var district: Dictionary = _World.load_district_from_entry(entry)
+	DistrictUnlockSystem.ensure_initialized(state)
+	state.unlocked_districts.append("northfield_heights")
+	ParcelOwnershipSystem.seed_district(state, district)
+
+	OpportunitySystem.spawn_for_unlocked_districts(state, ["northfield_heights"])
+	_Ownership.sync_from_state(state)
+
+	assert_gt(_Ownership.count_district_opportunities(state, district), 0)
+
+
+func test_opportunities_spread_across_unlocked_districts() -> void:
+	var state := _make_2d_state()
+	var region: Dictionary = _World.load_region()
+	DistrictUnlockSystem.ensure_initialized(state)
+	state.unlocked_districts.append("northfield_heights")
+	for entry_variant in _World.district_entries(region):
+		var entry: Dictionary = entry_variant
+		ParcelOwnershipSystem.seed_district(state, _World.load_district_from_entry(entry))
+
+	for idx in 8:
+		state.opportunities.append({
+			"id": "spread-opp-%d" % idx,
+			"assetType": "business",
+			"templateId": "grain_farm",
+			"name": "Spread Grain %d" % idx,
+			"price": 30000,
+			"expiresIn": 2,
+		})
+	_Ownership.sync_from_state(state)
+
+	var meadowgate: Dictionary = _Layout.load_district()
+	var northfield: Dictionary = _World.load_district_from_entry(
+		_World.find_entry_by_id(region, "northfield_heights")
+	)
+	var mg_count := _Ownership.count_district_opportunities(state, meadowgate)
+	var nh_count := _Ownership.count_district_opportunities(state, northfield)
+	assert_gt(mg_count, 0)
+	assert_gt(nh_count, 0)
 
 
 func test_business_acquisition_marks_player_owned_parcel() -> void:
@@ -76,8 +122,8 @@ func test_business_acquisition_marks_player_owned_parcel() -> void:
 	biz.id = "biz-grain-1"
 	biz.template_id = "grain_farm"
 	biz.name = "Player Grain Farm"
-	biz.revenue = 12000
-	biz.cost = 7000
+	biz.revenue_per_turn = 12000
+	biz.operating_costs = 7000
 	state.portfolio.businesses.append(biz)
 
 	_Ownership.on_business_acquired(state, biz, {"templateId": "grain_farm"})

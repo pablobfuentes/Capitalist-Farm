@@ -9,6 +9,9 @@ const _Security := preload("res://core/systems/security_system.gd")
 
 const REGULAR_OPP_CAP := 6
 const CHAIN_HINT_INTERVAL := 3
+const MIN_OPPS_PER_DISTRICT := 2
+
+const _World := preload("res://scenes/farm_map/world_layout_data.gd")
 
 const LEVEL_PRICE_MULT: Dictionary = {1: 1.0, 2: 2.3, 3: 5.0}
 const LEVEL_REVENUE_MULT: Dictionary = {1: 1.0, 2: 2.1, 3: 4.6}
@@ -79,6 +82,13 @@ static func advance_opportunities(state: RunState) -> void:
 	ParcelOwnershipSystem.sync_from_state(state)
 
 
+## Spawn listings on newly unlocked districts.
+static func spawn_for_unlocked_districts(state: RunState, district_ids: Array) -> void:
+	if not state.is_capital_farm() or district_ids.is_empty():
+		return
+	_spawn_district_opportunities(state, district_ids, true)
+
+
 static func find_opportunity(state: RunState, opportunity_id: String) -> Dictionary:
 	for opp_variant in state.opportunities:
 		if typeof(opp_variant) != TYPE_DICTIONARY:
@@ -87,6 +97,54 @@ static func find_opportunity(state: RunState, opportunity_id: String) -> Diction
 		if str(opp.get("id", "")) == opportunity_id:
 			return opp
 	return {}
+
+
+static func _spawn_district_opportunities(state: RunState, district_ids: Array, only_empty: bool) -> void:
+	var rng := SeededRng.new()
+	rng.set_rng_seed(state.run_seed + state.turn * 7919 + district_ids.size() * 131)
+	var region: Dictionary = _World.load_region()
+	for district_id_variant in district_ids:
+		var district_id := str(district_id_variant)
+		if district_id.is_empty() or not DistrictUnlockSystem.is_unlocked(state, district_id):
+			continue
+		var entry: Dictionary = _World.find_entry_by_id(region, district_id)
+		if entry.is_empty():
+			continue
+		var district: Dictionary = _World.load_district_from_entry(entry)
+		var existing := ParcelOwnershipSystem.count_district_opportunities(state, district)
+		if only_empty and existing > 0:
+			continue
+		var target := MIN_OPPS_PER_DISTRICT
+		var to_spawn := maxi(0, target - existing)
+		for _i in to_spawn:
+			var template_id := _pick_template_for_district(district, rng)
+			if template_id.is_empty():
+				continue
+			var opp := _make_business_opportunity(state, rng, {
+				"template_id": template_id,
+				"expires_in": rng.randi_range(2, 4),
+				"district_id": district_id,
+			})
+			if not opp.is_empty():
+				state.opportunities.append(opp)
+
+
+static func _pick_template_for_district(district: Dictionary, rng: SeededRng) -> String:
+	var candidates: Array = []
+	for parcel_variant in district.get("parcels", []):
+		if typeof(parcel_variant) != TYPE_DICTIONARY:
+			continue
+		var parcel: Dictionary = parcel_variant
+		var role := str(parcel.get("role", ""))
+		if role in ["civic", "competitive"]:
+			continue
+		var template_id := str(parcel.get("template_id", ""))
+		if template_id.is_empty():
+			continue
+		candidates.append(template_id)
+	if candidates.is_empty():
+		return ""
+	return str(candidates[rng.randi_range(0, candidates.size() - 1)])
 
 
 static func _generate_fresh_batch(state: RunState, include_starter: bool) -> Array:
@@ -213,6 +271,7 @@ static func _make_business_opportunity(state: RunState, rng: SeededRng, opts: Di
 	if bool(opts.get("starter_deal", false)):
 		blurb += " Motivated local seller — discounted first foothold for new farm operators."
 
+	var district_id := str(opts.get("district_id", ""))
 	return {
 		"id": MathUtil.uid(),
 		"kind": "acquisition",
@@ -220,6 +279,7 @@ static func _make_business_opportunity(state: RunState, rng: SeededRng, opts: Di
 		"templateId": tmpl.id,
 		"level": level,
 		"name": name,
+		"districtId": district_id,
 		"price": price,
 		"revenue": revenue,
 		"cost": cost,

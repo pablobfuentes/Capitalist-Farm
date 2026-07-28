@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://ui/screens/turn_debrief_modal.gd" id="1_modal"]
 
 [node name="TurnDebriefModal" type="Window"]
+visible = false
 title = "Quarter debrief"
 initial_position = 1
 size = Vector2i(640, 560)

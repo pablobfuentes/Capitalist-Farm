@@ -98,6 +98,19 @@ static func take_loan(state: RunState, opportunity_id: String) -> Dictionary:
 	if opp.is_empty() or str(opp.get("assetType", "")) != "loan":
 		return {"ok": false, "error": "Loan offer not found"}
 
+	return _draw_loan(state, opp, true)
+
+
+static func take_loan_from_offer(state: RunState, offer: Dictionary) -> Dictionary:
+	var ap: Dictionary = ActionPointsSystem.require(state, 1)
+	if not bool(ap.get("ok", false)):
+		return ap
+	if offer.is_empty() or int(offer.get("maxAmount", 0)) <= 0:
+		return {"ok": false, "error": "No credit available"}
+	return _draw_loan(state, offer, false)
+
+
+static func _draw_loan(state: RunState, opp: Dictionary, remove_opportunity: bool) -> Dictionary:
 	var amount: int = int(opp.get("maxAmount", 0))
 	var rate: float = float(opp.get("rate", 0.0))
 	var term: int = int(opp.get("termTurns", 10))
@@ -120,7 +133,10 @@ static func take_loan(state: RunState, opportunity_id: String) -> Dictionary:
 		"takenTurn": state.turn,
 	}
 	state.loans.append(loan)
-	_remove_opportunity(state, opportunity_id)
+	if remove_opportunity:
+		var opp_id := str(opp.get("id", ""))
+		if not opp_id.is_empty():
+			_remove_opportunity(state, opp_id)
 
 	state.run_log.append(
 		"Drew %s line of credit at %s/qtr — %s/qtr for %d quarters, %s total." % [

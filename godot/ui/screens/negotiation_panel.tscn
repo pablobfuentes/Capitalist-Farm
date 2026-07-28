@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://ui/screens/negotiation_panel.gd" id="1_neg"]
 
 [node name="NegotiationPanel" type="Window"]
+visible = false
 initial_position = 1
 size = Vector2i(920, 560)
 min_size = Vector2i(720, 400)
@@ -52,64 +53,15 @@ autowrap_mode = 3
 theme_override_font_sizes/font_size = 12
 text = "Ask price"
 
-[node name="GaugeRow" type="HBoxContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="GaugeLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/GaugeRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 12
-text = "Deal Momentum: Listening"
-
-[node name="GaugeBar" type="ProgressBar" parent="Margin/RootVBox/MainHBox/LeftColumn/GaugeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 18)
-layout_mode = 2
-max_value = 100.0
-show_percentage = false
-value = 50.0
-
-[node name="EconomicHintLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+[node name="ContextSummaryLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 12
-theme_override_colors/font_color = Color(0.72, 0.68, 0.58, 1)
-text = "No offer"
-
-[node name="ProgressPanel" type="VBoxContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="RapportLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-theme_override_colors/font_color = Color(0.68, 0.78, 0.72, 1)
+theme_override_colors/font_color = Color(0.72, 0.78, 0.72, 1)
 text = ""
 
-[node name="DiscountLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-theme_override_colors/font_color = Color(0.72, 0.82, 0.68, 1)
-text = ""
-
-[node name="SituationProgressLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.66, 0.7, 0.74, 1)
-text = ""
-
-[node name="CoachTipLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/ProgressPanel"]
+[node name="CoachTipLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
@@ -136,7 +88,7 @@ text = ""
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-size_flags_vertical = 0
+size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
 [node name="IntelLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/IntelScroll"]
@@ -155,21 +107,6 @@ theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(0.45, 0.55, 0.45, 1)
 text = "AI connecting…"
 
-[node name="DataScroll" type="ScrollContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="DataLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/DataScroll"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.68, 0.66, 0.62, 1)
-text = ""
-
 [node name="RightColumn" type="VBoxContainer" parent="Margin/RootVBox/MainHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -177,10 +114,25 @@ size_flags_vertical = 3
 size_flags_stretch_ratio = 1.0
 theme_override_constants/separation = 6
 
-[node name="ConversationHeader" type="Label" parent="Margin/RootVBox/MainHBox/RightColumn"]
+[node name="ConversationHeaderRow" type="HBoxContainer" parent="Margin/RootVBox/MainHBox/RightColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ConversationLabel" type="Label" parent="Margin/RootVBox/MainHBox/RightColumn/ConversationHeaderRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 text = "Conversation"
+
+[node name="GaugeBar" type="ProgressBar" parent="Margin/RootVBox/MainHBox/RightColumn/ConversationHeaderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 6)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+max_value = 100.0
+show_percentage = false
+value = 50.0
 
 [node name="MessagesEdit" type="TextEdit" parent="Margin/RootVBox/MainHBox/RightColumn"]
 unique_name_in_owner = true

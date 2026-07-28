@@ -4,6 +4,7 @@ var _page: int = 0
 
 
 func _ready() -> void:
+	visible = false
 	title = "Negotiation Field Guide"
 	size = Vector2i(560, 420)
 	close_requested.connect(hide)

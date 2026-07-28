@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://ui/screens/supply_chain_diagram.gd" id="2_diag"]
 
 [node name="SupplyChainView" type="Window"]
+visible = false
 oversampling_override = 1.0
 initial_position = 1
 size = Vector2i(920, 680)

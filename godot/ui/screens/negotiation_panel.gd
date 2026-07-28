@@ -2,7 +2,6 @@ extends Window
 
 signal closed
 
-const _Archetypes := preload("res://core/content/negotiation_archetypes.gd")
 const _Rival := preload("res://core/systems/rival_system.gd")
 const _Diligence := preload("res://core/systems/diligence_system.gd")
 const _V2 := preload("res://core/systems/negotiation_v2_engine.gd")
@@ -14,6 +13,7 @@ var _busy: bool = false
 
 
 func _ready() -> void:
+	visible = false
 	title = "Negotiate"
 	unresizable = false
 	close_requested.connect(_on_walk)
@@ -73,24 +73,16 @@ func _refresh() -> void:
 		return
 
 	var ctx: Dictionary = neg.get("context", {})
-	var cp: Dictionary = neg.get("counterparty", {})
-	var arch: Dictionary = _Archetypes.get_archetype(str(cp.get("archetypeId", "")))
 	var v2: Dictionary = neg.get("v2", {})
-	var situation_label := str(v2.get("situationLabel", arch.get("flavor", "Seller"))) if not v2.is_empty() else str(arch.get("flavor", ""))
 
 	%HeaderLabel.text = str(ctx.get("name", "Listing"))
-	%MetaLabel.text = "Ask %s · %s · %s (%s) · Round %d/%d · Leverage: %s" % [
+	%MetaLabel.text = "Ask %s · Round %d/%d" % [
 		MathUtil.fmt_money(int(ctx.get("price", 0))),
-		situation_label,
-		str(cp.get("speciesId", "—")).capitalize(),
-		str(cp.get("role", "seller")),
 		int(neg.get("round", 0)),
 		int(neg.get("maxRounds", 6)),
-		str(v2.get("leverageLabel", "Balanced")) if not v2.is_empty() else "Balanced",
 	]
-	_update_gauge_panel(neg)
-	_update_progress_panel(neg)
-	%EconomicHintLabel.text = str(neg.get("economicStatusHint", "No offer"))
+	_update_gauge_bar(neg)
+	_update_context_summary(neg)
 
 	var is_contest := str(neg.get("kind", "")) == "rival_contest"
 	title = "Three-Way Contest" if is_contest else "Negotiate"
@@ -130,7 +122,6 @@ func _refresh() -> void:
 	var ai_text := _update_ai_status(neg)
 	%AiStatusLabel.visible = not ai_text.is_empty()
 
-	%DataLabel.text = _Transcript.build_data_panel(neg)
 	%MessagesEdit.text = _Transcript.build_messages(neg)
 	%MessagesEdit.set_caret_line(maxi(0, %MessagesEdit.get_line_count() - 1))
 
@@ -164,8 +155,6 @@ func _refresh() -> void:
 func _sync_scroll_content_widths() -> void:
 	var intel_w := maxi(%IntelScroll.size.x - 12, 200)
 	%IntelLabel.custom_minimum_size.x = intel_w
-	var data_w := maxi(%DataScroll.size.x - 12, 200)
-	%DataLabel.custom_minimum_size.x = data_w
 
 
 func _scroll_messages_to_bottom() -> void:
@@ -174,27 +163,30 @@ func _scroll_messages_to_bottom() -> void:
 	%MessagesEdit.scroll_vertical = int(%MessagesEdit.get_v_scroll_bar().max_value) if %MessagesEdit.get_v_scroll_bar() else 0
 
 
-func _update_progress_panel(neg: Dictionary) -> void:
+func _update_context_summary(neg: Dictionary) -> void:
 	var v2: Dictionary = neg.get("v2", {})
-	if v2.is_empty():
-		%ProgressPanel.hide()
-		return
-	var panel: Dictionary = _V2Display.format_progress_panel(
+	var summary: Dictionary = _V2Display.format_context_summary(
 		v2,
 		neg.get("counterparty", {}),
-		bool(neg.get("readyToClose", false)),
-		_get_v2_preview(neg),
+		str(neg.get("economicStatusHint", "")),
 	)
-	if not bool(panel.get("visible", false)):
-		%ProgressPanel.hide()
-		return
-	%ProgressPanel.show()
-	%RapportLabel.text = str(panel.get("rapportLine", ""))
-	%DiscountLabel.text = str(panel.get("discountLine", ""))
-	var situation_line := str(panel.get("situationLine", ""))
-	%SituationProgressLabel.text = situation_line
-	%SituationProgressLabel.visible = not situation_line.is_empty()
-	%CoachTipLabel.text = str(panel.get("coachLine", ""))
+	if not bool(summary.get("visible", false)):
+		%ContextSummaryLabel.hide()
+	else:
+		%ContextSummaryLabel.show()
+		%ContextSummaryLabel.text = str(summary.get("summaryLine", ""))
+
+	var coach := ""
+	if not v2.is_empty():
+		var panel: Dictionary = _V2Display.format_progress_panel(
+			v2,
+			neg.get("counterparty", {}),
+			bool(neg.get("readyToClose", false)),
+			_get_v2_preview(neg),
+		)
+		coach = str(panel.get("coachLine", ""))
+	%CoachTipLabel.text = coach
+	%CoachTipLabel.visible = not coach.is_empty()
 
 
 func _get_v2_preview(neg: Dictionary) -> Dictionary:
@@ -207,17 +199,14 @@ func _get_v2_preview(neg: Dictionary) -> Dictionary:
 	return {}
 
 
-func _update_gauge_panel(neg: Dictionary) -> void:
+func _update_gauge_bar(neg: Dictionary) -> void:
 	var v2: Dictionary = neg.get("v2", {})
 	if v2.is_empty():
-		%GaugeRow.hide()
+		%GaugeBar.hide()
 		return
-	%GaugeRow.show()
+	%GaugeBar.show()
 	var display: Dictionary = _V2.gauge_display(v2)
-	var gauge: int = int(display.get("gauge", 0))
-	var arrow: String = str(display.get("arrow", "→"))
-	%GaugeBar.value = gauge
-	%GaugeLabel.text = "Deal Momentum: %s %s" % [str(display.get("zoneLabel", "Listening")), arrow]
+	%GaugeBar.value = int(display.get("gauge", 0))
 	var zone_id: String = str(display.get("zoneId", ""))
 	match zone_id:
 		"collapsing":
@@ -313,7 +302,7 @@ func _send_message(text: String) -> void:
 
 	_busy = true
 	_set_input_enabled(false)
-	%StatusLabel.text = "Waiting for AI reply…" if AiClient.ai_available else "Sending…"
+	%StatusLabel.text = "Waiting for AI reply…"
 	%MessageInput.text = ""
 
 	Game.send_negotiation_message_async(trimmed, _on_negotiation_result)

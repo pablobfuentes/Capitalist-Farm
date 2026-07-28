@@ -5,6 +5,7 @@ extends Window
 
 
 func _ready() -> void:
+	visible = false
 	title = "Supply Chain Diagram"
 	size = Vector2i(920, 680)
 	close_requested.connect(hide)

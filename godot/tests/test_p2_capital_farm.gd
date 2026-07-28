@@ -57,9 +57,9 @@ func test_milestone_triggers_edge_choice_state() -> void:
 func test_level_up_opportunity_when_business_eligible() -> void:
 	var state: RunState = _farm_state()
 	var biz := _add_business(state, "bakery")
-	biz.upgrades = {"hire": 2, "marketing": 2, "automation": 2, "care": 2, "manager": false}
+	biz.upgrades = {"hire": 1, "marketing": 1, "automation": 1, "care": 1, "manager": false}
 	UpgradeSystem.recompute_upgrade_stats(biz)
-	assert_true(UpgradeSystem.is_eligible_for_major_upgrade(biz))
+	assert_true(LevelUpSystem.is_eligible_for_level_up(biz))
 	var opps: Array = LevelUpSystem.generate_level_up_opportunities(state)
 	assert_gt(opps.size(), 0, "Eligible matured business should get a level-up listing")
 	var found := false

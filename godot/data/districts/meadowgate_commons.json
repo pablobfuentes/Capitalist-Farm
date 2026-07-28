@@ -28,7 +28,7 @@
     { "id": "mg_17", "parcel_x": 2, "parcel_y": 3, "label": "Premium Dairy Exchange", "template_id": "dairy_barn", "role": "premium" },
     { "id": "mg_18", "parcel_x": 3, "parcel_y": 3, "label": "Vacant — Orchard Lane", "template_id": "", "role": "development" },
     { "id": "mg_19", "parcel_x": 4, "parcel_y": 3, "label": "Vacant — Mill Road", "template_id": "", "role": "development" },
-    { "id": "mg_20", "parcel_x": 5, "parcel_y": 3, "label": "Market Hall", "template_id": "", "role": "civic" },
+    { "id": "mg_20", "parcel_x": 5, "parcel_y": 3, "label": "Capital Farm Bank", "template_id": "", "role": "bank" },
     { "id": "mg_21", "parcel_x": 1, "parcel_y": 4, "label": "Vacant — South Meadow", "template_id": "", "role": "development" },
     { "id": "mg_22", "parcel_x": 2, "parcel_y": 4, "label": "Town Commons", "template_id": "", "role": "civic" },
     { "id": "mg_23", "parcel_x": 3, "parcel_y": 4, "label": "Rival Feed & Supply", "template_id": "feed_mill", "role": "competitive" },

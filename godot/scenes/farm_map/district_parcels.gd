@@ -38,7 +38,7 @@ func _ready() -> void:
 	add_child(_overlay_layer)
 	_overlay_layer.set_script(_OverlayLayer)
 	_static_layer.configure(_region, _region_offset, ThemeDB.fallback_font)
-	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles())
+	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles(), ThemeDB.fallback_font)
 	_rebuild_pick_cache()
 	_update_blink_process()
 
@@ -57,7 +57,7 @@ func set_view_context(view_mode: String, focus_district_id: String) -> void:
 func set_region_offset(offset: Vector2) -> void:
 	_region_offset = offset
 	_static_layer.configure(_region, _region_offset, ThemeDB.fallback_font)
-	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles())
+	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles(), ThemeDB.fallback_font)
 	_rebuild_pick_cache()
 
 
@@ -90,6 +90,23 @@ func pick_at_world_pos(world_point: Vector2) -> Dictionary:
 			best_y = y
 			best = hit
 	return best
+
+
+func get_parcel_frame(hit: Dictionary) -> Dictionary:
+	if typeof(hit) != TYPE_DICTIONARY or hit.is_empty():
+		return {}
+	var district: Dictionary = hit.get("_district", {})
+	var entry: Dictionary = hit.get("_region_entry", {})
+	if district.is_empty() or entry.is_empty():
+		return {}
+	var lot_rect := _Layout.lot_rect_for_entry(hit, district)
+	var origin := _World.world_tile_origin(entry)
+	var world_rect := Rect2i(lot_rect.position + origin, lot_rect.size)
+	return {
+		"center": _Grid.tile_rect_center(world_rect, _region_offset),
+		"bounds": _Grid.tile_rect_bounds(world_rect, _region_offset),
+		"world_rect": world_rect,
+	}
 
 
 func get_selection() -> Dictionary:

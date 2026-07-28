@@ -16,12 +16,16 @@ var _report: Dictionary = {}
 
 
 func _ready() -> void:
+	visible = false
 	close_requested.connect(_on_continue)
 	_continue_button.pressed.connect(_on_continue)
 
 
 func open_with_report(report: Dictionary) -> void:
 	_report = report if typeof(report) == TYPE_DICTIONARY else {}
+	if _report.is_empty():
+		hide()
+		return
 	_refresh()
 	popup_centered_ratio(0.72)
 

@@ -13,6 +13,7 @@ const ROLE_COLORS := {
 	"premium": Color(0.98, 0.88, 0.55, 0.94),
 	"development": Color(0.88, 0.90, 0.94, 0.88),
 	"civic": Color(0.82, 0.88, 0.98, 0.92),
+	"bank": Color(0.88, 0.92, 0.62, 0.94),
 }
 
 const BUILDING_COLOR := Color(0.72, 0.58, 0.38, 0.85)
@@ -24,8 +25,11 @@ const OPPORTUNITY_OUTLINE := Color(1.0, 0.92, 0.12, 1.0)
 const CONTESTED_OUTLINE := Color(1.0, 0.72, 0.18, 1.0)
 const OPPORTUNITY_BLINK_MIN_ALPHA := 0.22
 const OPPORTUNITY_BLINK_MAX_ALPHA := 1.0
+const LABEL_COLOR := Color(0.98, 0.97, 0.92, 0.96)
+const LABEL_SHADOW := Color(0.08, 0.12, 0.08, 0.75)
 
 var _region_offset := Vector2.ZERO
+var _font: Font
 var _view_mode := "overview"
 var _focus_district_id := ""
 var _selected: Dictionary = {}
@@ -35,8 +39,9 @@ var _district_bundles: Array = []
 var _opportunity_entries: Array = []
 
 
-func configure(region_offset: Vector2, district_bundles: Array) -> void:
+func configure(region_offset: Vector2, district_bundles: Array, font: Font = null) -> void:
 	_region_offset = region_offset
+	_font = font if font != null else ThemeDB.fallback_font
 	_district_bundles = district_bundles
 	_rebuild_opportunity_entries()
 	queue_redraw()
@@ -129,7 +134,7 @@ func _draw_opportunity_item(item: Dictionary) -> void:
 	var origin: Vector2i = item.get("origin", Vector2i.ZERO)
 	var lot_color: Color = _outline_color(owner_state, role)
 	_draw_dashed_outline(_Grid.tile_rect_outline(lot_rect, _region_offset), lot_color, 2.0, 7.0, 5.0)
-	if role not in ["development", "civic"]:
+	if role not in ["development", "civic", "bank"]:
 		var parcel: Dictionary = item.get("hit", {})
 		var lot_tiles: int = int(district.get("lot_tiles", _Layout.LOT_TILES))
 		var building_tiles: int = int(district.get("building_tiles", _Layout.BUILDING_TILES))
@@ -138,6 +143,11 @@ func _draw_opportunity_item(item: Dictionary) -> void:
 		var build_color := BUILDING_COLOR
 		build_color.a = lot_color.a
 		_draw_dashed_outline(_Grid.tile_rect_outline(building_rect, _region_offset), build_color, 1.5, 5.0, 4.0)
+		var resolved := _Ownership.resolve(Game.state, parcel, district)
+		var label := str(resolved.get("operator_name", ""))
+		if label.is_empty():
+			label = str(parcel.get("label", ""))
+		_draw_parcel_label(label, lot_rect)
 
 
 func _outline_color(owner_state: String, role: String) -> Color:
@@ -249,3 +259,14 @@ func _draw_dashed_segment(from: Vector2, to: Vector2, color: Color, width: float
 			draw_line(from + dir * traveled, from + dir * end_dist, color, width, true)
 		traveled = end_dist
 		drawing = not drawing
+
+
+func _draw_parcel_label(text: String, lot_rect: Rect2i) -> void:
+	if text.is_empty() or _font == null:
+		return
+	var center := _Grid.tile_rect_center(lot_rect, _region_offset)
+	var font_size := 11
+	var text_size := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	var pos := center - Vector2(text_size.x * 0.5, text_size.y * 0.5 + 8.0)
+	draw_string(_font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, LABEL_SHADOW)
+	draw_string(_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, LABEL_COLOR)

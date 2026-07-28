@@ -214,11 +214,10 @@ static func upgrade_tier_sum(biz: BusinessInstance) -> int:
 
 
 static func is_eligible_for_major_upgrade(biz: BusinessInstance) -> bool:
-	if biz == null:
+	if biz == null or biz.level >= 3:
 		return false
-	var u: Dictionary = normalize_upgrades(biz)
-	var sum: int = tier_point_sum(biz)
-	return sum >= 8 or (bool(u.get("manager", false)) and sum >= 6)
+	var required := 4 if biz.level == 1 else (10 if biz.level == 2 else 0)
+	return required > 0 and upgrade_tier_sum(biz) >= required
 
 
 static func reset_upgrades_for_level(biz: BusinessInstance) -> void:

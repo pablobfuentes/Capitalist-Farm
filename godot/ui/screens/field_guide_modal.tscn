@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://ui/screens/field_guide_modal.gd" id="1_fg"]
 
 [node name="FieldGuideModal" type="Window"]
+visible = false
 oversampling_override = 1.0
 initial_position = 1
 size = Vector2i(560, 420)

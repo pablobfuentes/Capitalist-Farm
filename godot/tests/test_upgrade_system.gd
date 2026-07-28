@@ -45,6 +45,20 @@ func test_manager_bundle_mult() -> void:
 	assert_almost_eq(float(b.upgrade_stats.get("capacityMult", 0.0)), 1.24 * 1.03, 0.01)
 
 
+func test_compute_upgrade_preview_does_not_mutate_upgrades() -> void:
+	var state := _arcade_state()
+	var b := _grain_biz()
+	state.portfolio.businesses.append(b)
+	var before: Dictionary = b.upgrades.duplicate(true)
+	for track_id: String in ["hire", "marketing", "automation", "care", "manager"]:
+		UpgradeSystem.compute_upgrade_preview(state, b.id, track_id)
+	assert_eq(int(b.upgrades.get("hire", 0)), int(before.get("hire", 0)))
+	assert_eq(int(b.upgrades.get("marketing", 0)), int(before.get("marketing", 0)))
+	assert_eq(int(b.upgrades.get("automation", 0)), int(before.get("automation", 0)))
+	assert_eq(int(b.upgrades.get("care", 0)), int(before.get("care", 0)))
+	assert_eq(bool(b.upgrades.get("manager", false)), bool(before.get("manager", false)))
+
+
 func test_apply_upgrade_command_spends_cash() -> void:
 	var state := _arcade_state()
 	var b := _grain_biz()

@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://ui/screens/supply_shortage_modal.gd" id="1_modal"]
 
 [node name="SupplyShortageModal" type="Window"]
+visible = false
 title = "Supply capacity shortage"
 initial_position = 1
 size = Vector2i(620, 480)

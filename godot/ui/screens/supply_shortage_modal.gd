@@ -9,12 +9,16 @@ var _shortages: Array = []
 
 
 func _ready() -> void:
+	visible = false
 	close_requested.connect(_on_cancel)
 	%CancelButton.pressed.connect(_on_cancel)
 	%ConfirmButton.pressed.connect(_on_confirm)
 
 
 func open_with_shortages(shortages: Array) -> void:
+	if shortages.is_empty():
+		hide()
+		return
 	_shortages = shortages
 	_refresh()
 	_fit_to_viewport()

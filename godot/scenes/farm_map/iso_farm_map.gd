@@ -2,6 +2,7 @@ extends Control
 
 const _World := preload("res://scenes/farm_map/world_layout_data.gd")
 const _Unlock := preload("res://core/systems/district_unlock_system.gd")
+const _Bank := preload("res://core/systems/bank_system.gd")
 
 @onready var _camera: Camera2D = $World/Camera2D
 @onready var _world: Node2D = $World
@@ -12,6 +13,7 @@ const _Unlock := preload("res://core/systems/district_unlock_system.gd")
 @onready var _title: Label = $UI/Hud/TopBar/Row/Title
 @onready var _run_stats: Label = %RunStats
 @onready var _overview_button: Button = %OverviewButton
+@onready var _advance_button: Button = %AdvanceButton
 @onready var _unlock_all_button: Button = %UnlockAllButton
 @onready var _enforce_locks_button: Button = %EnforceLocksButton
 @onready var _parcel_panel: PanelContainer = %ParcelBusinessPanel
@@ -22,12 +24,21 @@ const PAN_SPEED := 520.0
 const OVERVIEW_ZOOM := 0.30
 const DISTRICT_ZOOM := 0.92
 const CAMERA_LERP := 7.0
+const PARCEL_FOCUS_FILL := 0.88
+const PARCEL_FOCUS_SIDE_MARGIN := 24.0
 
 var _region: Dictionary = {}
 var _view_mode := "overview"
 var _focus_district_id := "meadowgate_commons"
+var _camera_mode := "district"
 var _camera_target_pos := Vector2.ZERO
 var _camera_target_zoom := Vector2(OVERVIEW_ZOOM, OVERVIEW_ZOOM)
+var _improve_panel: Window = null
+var _negotiation_panel: Window = null
+var _edge_modal: Window = null
+var _shortage_modal: Window = null
+var _turn_debrief_modal: Window = null
+var _bank_modal: Window = null
 
 
 func _ready() -> void:
@@ -36,21 +47,153 @@ func _ready() -> void:
 		return
 	_region = _World.load_region()
 	_Unlock.ensure_initialized(Game.state)
+	_Unlock.refresh_auto_unlocks(Game.state, _region)
 	resized.connect(_center_world)
 	_camera.make_current()
 	_center_world()
 	_lots.selection_cleared.connect(_on_selection_cleared)
 	_parcel_panel.closed.connect(_on_panel_closed)
-	EventBus.command_applied.connect(_on_run_state_changed)
-	EventBus.turn_advanced.connect(_on_turn_advanced)
-	EventBus.run_loaded.connect(_on_run_loaded)
-	EventBus.asset_acquired.connect(_on_asset_acquired)
+	_connect_parcel_panel_actions()
+	_edge_modal = preload("res://ui/components/edge_choice_modal.gd").new()
+	add_child(_edge_modal)
+	_edge_modal.edge_chosen.connect(_on_edge_chosen)
+	_edge_modal.skipped.connect(_on_edge_skipped)
+
+	_shortage_modal = preload("res://ui/screens/supply_shortage_modal.tscn").instantiate()
+	add_child(_shortage_modal)
+	_shortage_modal.confirmed.connect(_on_shortage_confirmed)
+	_shortage_modal.cancelled.connect(_on_shortage_cancelled)
+
+	_turn_debrief_modal = preload("res://ui/screens/turn_debrief_modal.tscn").instantiate()
+	add_child(_turn_debrief_modal)
+	_turn_debrief_modal.continued.connect(_on_turn_debrief_continued)
+
+	_bank_modal = preload("res://ui/screens/bank_modal.tscn").instantiate()
+	add_child(_bank_modal)
+	_bank_modal.closed.connect(_on_bank_modal_closed)
+
+	_wire_map_events()
 	_overview_button.pressed.connect(_on_overview_pressed)
 	_unlock_all_button.pressed.connect(_on_unlock_all_pressed)
 	_enforce_locks_button.pressed.connect(_on_enforce_locks_pressed)
 	_apply_view_context()
 	_go_to_overview(false)
-	_refresh_map_state()
+	_bootstrap_map()
+	_maybe_show_edge_choices()
+
+
+func _wire_map_events() -> void:
+	EventBus.run_started.connect(_on_run_bootstrap)
+	EventBus.run_loaded.connect(_on_run_bootstrap)
+	EventBus.turn_advanced.connect(_on_turn_advanced)
+	EventBus.turn_debrief_ready.connect(_on_turn_debrief_ready)
+	EventBus.edge_choices_pending.connect(_on_edge_choices_pending)
+	EventBus.districts_unlocked.connect(_on_districts_unlocked)
+	EventBus.map_state_changed.connect(_on_map_state_changed)
+	EventBus.asset_acquired.connect(_on_asset_acquired)
+	EventBus.run_ended.connect(_on_run_ended)
+
+
+func _connect_parcel_panel_actions() -> void:
+	_improve_panel = preload("res://ui/screens/improve_panel.tscn").instantiate()
+	add_child(_improve_panel)
+	_improve_panel.closed.connect(_on_modal_closed_refresh_parcels)
+	_improve_panel.level_up.connect(_on_improve_level_up)
+	_improve_panel.negotiate.connect(_on_parcel_negotiate)
+
+	_negotiation_panel = preload("res://ui/screens/negotiation_panel.tscn").instantiate()
+	add_child(_negotiation_panel)
+	_negotiation_panel.closed.connect(_on_modal_closed_refresh_parcels)
+
+	_parcel_panel.improve_business.connect(_on_parcel_improve)
+	_parcel_panel.sell_business.connect(_on_parcel_sell)
+	_parcel_panel.buy_opportunity.connect(_on_parcel_buy)
+	_parcel_panel.investigate_opportunity.connect(_on_parcel_investigate)
+	_parcel_panel.negotiate_opportunity.connect(_on_parcel_negotiate)
+
+
+func _on_parcel_improve(business_id: String) -> void:
+	_improve_panel.open_for_business(business_id)
+
+
+func _on_improve_level_up(_opportunity_id: String) -> void:
+	_refresh_hud()
+	_lots.refresh_ownership()
+	_refresh_selected_parcel()
+
+
+func _on_parcel_sell(business_id: String) -> void:
+	Game.apply_command(GameCommand.sell_asset("business", business_id))
+
+
+func _on_parcel_buy(opportunity_id: String) -> void:
+	Game.apply_command(GameCommand.acquire_business(opportunity_id))
+
+
+func _on_parcel_investigate(opportunity_id: String) -> void:
+	Game.apply_command(GameCommand.investigate(opportunity_id))
+
+
+func _on_parcel_negotiate(opportunity_id: String) -> void:
+	_negotiation_panel.open_for_opportunity(opportunity_id)
+
+
+func _on_edge_choices_pending(_state: RunState, _choices: Array) -> void:
+	_maybe_show_edge_choices()
+
+
+func _maybe_show_edge_choices() -> void:
+	var s: RunState = Game.state
+	if s == null or s.edge_choices_pending.is_empty() or s.game_over != null:
+		if _edge_modal != null and _edge_modal.visible:
+			_edge_modal.close_modal()
+		return
+	if _edge_modal != null and _edge_modal.visible:
+		return
+	_edge_modal.open_with_choices(s.edge_choices_pending)
+
+
+func _on_edge_chosen(edge_id: String) -> void:
+	Game.apply_command(GameCommand.choose_edge(edge_id))
+
+
+func _on_edge_skipped() -> void:
+	Game.apply_command(GameCommand.skip_edge())
+
+
+func _on_advance_pressed() -> void:
+	var result: Dictionary = Game.apply_command(GameCommand.advance_turn())
+	if bool(result.get("requires_supply_policy", false)):
+		_shortage_modal.open_with_shortages(result.get("shortages", []))
+		return
+	if not bool(result.get("ok", false)):
+		push_warning("Turn failed: %s" % str(result.get("error", "unknown")))
+
+
+func _on_shortage_confirmed() -> void:
+	_refresh_hud()
+	var result: Dictionary = Game.apply_command(GameCommand.advance_turn())
+	if bool(result.get("requires_supply_policy", false)):
+		_shortage_modal.open_with_shortages(result.get("shortages", []))
+	elif not bool(result.get("ok", false)):
+		push_warning("Turn failed: %s" % str(result.get("error", "unknown")))
+
+
+func _on_shortage_cancelled() -> void:
+	pass
+
+
+func _on_turn_debrief_continued() -> void:
+	Game.apply_command(GameCommand.dismiss_turn_debrief())
+
+
+func _maybe_show_turn_debrief() -> void:
+	var s: RunState = Game.state
+	if s == null or s.pending_turn_debrief.is_empty() or s.game_over != null:
+		return
+	if _turn_debrief_modal.visible:
+		return
+	_turn_debrief_modal.open_with_report(s.pending_turn_debrief)
 
 
 func _center_world() -> void:
@@ -58,6 +201,11 @@ func _center_world() -> void:
 		return
 	_world.position = get_viewport_rect().size * 0.5
 	_position_parcel_panel()
+	if _camera_mode == "parcel" and _lots != null:
+		var selected: Dictionary = _lots.get_selection()
+		if not selected.is_empty():
+			_focus_parcel(selected)
+			return
 	_update_camera_targets()
 
 
@@ -65,10 +213,17 @@ func _position_parcel_panel() -> void:
 	if _parcel_panel == null:
 		return
 	var view_size := get_viewport_rect().size
-	_parcel_panel.offset_top = 96.0
-	_parcel_panel.offset_bottom = minf(view_size.y - 24.0, 420.0)
-	_parcel_panel.offset_right = -16.0
-	_parcel_panel.offset_left = maxf(16.0, view_size.x - 316.0)
+	var top_y := _top_bar_bottom_y()
+	var side_margin := 16.0
+	var panel_width := 300.0
+	var bottom_margin := 24.0
+	var panel_height := maxf(160.0, view_size.y - top_y - bottom_margin)
+	_parcel_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_parcel_panel.offset_left = -panel_width - side_margin
+	_parcel_panel.offset_right = -side_margin
+	_parcel_panel.offset_top = top_y
+	_parcel_panel.offset_bottom = top_y + panel_height
+	_parcel_panel.custom_minimum_size = Vector2(panel_width, 0)
 
 
 func _world_mouse() -> Vector2:
@@ -144,7 +299,13 @@ func _handle_map_click() -> void:
 			_parcel_panel.hide_panel()
 			return
 		_lots.set_selection(hit)
-		_parcel_panel.show_parcel(hit, _lots.get_district_for_hit(hit))
+		if _Bank.is_bank_parcel(hit):
+			_parcel_panel.hide_panel()
+			_bank_modal.open_bank()
+		else:
+			_parcel_panel.show_parcel(hit, _lots.get_district_for_hit(hit))
+			_position_parcel_panel()
+			_focus_parcel(hit)
 		return
 
 	var district_entry: Dictionary = _World.find_district_at_point(_region, _world_mouse(), _lots.get_region_offset())
@@ -177,11 +338,13 @@ func _show_locked_district(entry: Dictionary) -> void:
 		net_worth,
 		_Unlock.can_unlock(Game.state, entry)
 	)
+	_position_parcel_panel()
 
 
 func _focus_district(district_id: String) -> void:
 	if district_id.is_empty() or not _Unlock.is_unlocked(Game.state, district_id):
 		return
+	_camera_mode = "district"
 	_view_mode = "district"
 	_focus_district_id = district_id
 	if Game.state != null:
@@ -192,6 +355,7 @@ func _focus_district(district_id: String) -> void:
 
 
 func _go_to_overview(animate: bool = true) -> void:
+	_camera_mode = "district"
 	_view_mode = "overview"
 	_apply_view_context()
 	_update_camera_targets()
@@ -222,6 +386,44 @@ func _update_camera_targets() -> void:
 	_camera_target_pos = _World.district_center_screen(entry, district, region_offset)
 
 
+func _top_bar_bottom_y() -> float:
+	if _top_bar != null:
+		return _top_bar.offset_top + _top_bar.size.y + 12.0
+	return 88.0
+
+
+func _focus_parcel(hit: Dictionary) -> void:
+	if hit.is_empty() or _view_mode != "district" or _lots == null:
+		return
+	var frame: Dictionary = _lots.get_parcel_frame(hit)
+	if frame.is_empty():
+		return
+
+	var center: Vector2 = frame.get("center", Vector2.ZERO)
+	var bounds: Rect2 = frame.get("bounds", Rect2())
+	var view_size := get_viewport_rect().size
+	var viewport_center := view_size * 0.5
+	var top_y := _top_bar_bottom_y()
+	var left_half_w := view_size.x * 0.5 - PARCEL_FOCUS_SIDE_MARGIN
+	var usable_h := view_size.y - top_y - PARCEL_FOCUS_SIDE_MARGIN
+	var bounds_w := maxf(bounds.size.x, 1.0)
+	var bounds_h := maxf(bounds.size.y, 1.0)
+	var zoom_val := minf(left_half_w / bounds_w, usable_h / bounds_h) * PARCEL_FOCUS_FILL
+	zoom_val = clampf(zoom_val, MIN_ZOOM, MAX_ZOOM)
+
+	var screen_target := Vector2(view_size.x * 0.25, top_y + usable_h * 0.5)
+	_camera_mode = "parcel"
+	_camera_target_zoom = Vector2(zoom_val, zoom_val)
+	_camera_target_pos = center - (screen_target - viewport_center) / zoom_val
+
+
+func _restore_district_camera() -> void:
+	if _camera_mode != "parcel":
+		return
+	_camera_mode = "district"
+	_update_camera_targets()
+
+
 func _refresh_title() -> void:
 	if _view_mode == "overview":
 		_title.text = "Capital Farm Valley — Overview"
@@ -233,6 +435,7 @@ func _refresh_title() -> void:
 
 func _on_selection_cleared() -> void:
 	_parcel_panel.hide_panel()
+	_restore_district_camera()
 
 
 func _on_panel_closed() -> void:
@@ -248,57 +451,111 @@ func _on_overview_pressed() -> void:
 
 func _on_unlock_all_pressed() -> void:
 	_Unlock.unlock_all_for_testing(Game.state, _region)
-	_refresh_map_state()
+	_bootstrap_map()
 
 
 func _on_enforce_locks_pressed() -> void:
 	_Unlock.lock_all_except_starter(Game.state)
 	if not _Unlock.is_unlocked(Game.state, _focus_district_id):
 		_go_to_overview()
-	_refresh_map_state()
+	_bootstrap_map()
 
 
-func _on_run_state_changed(_command_name: String = "", _state: RunState = null) -> void:
-	_refresh_map_state()
+func _on_run_bootstrap(_state: RunState) -> void:
+	_bootstrap_map()
 
 
 func _on_turn_advanced(_state: RunState) -> void:
-	_refresh_map_state()
+	_refresh_hud()
+	_refresh_parcels()
+	_refresh_selected_parcel()
 
 
-func _on_run_loaded(_state: RunState) -> void:
-	_refresh_map_state()
+func _on_turn_debrief_ready(_state: RunState, _debrief: Dictionary) -> void:
+	_maybe_show_turn_debrief()
+
+
+func _on_districts_unlocked(_state: RunState, _district_ids: Array) -> void:
+	_refresh_terrain()
+	_refresh_parcels()
+
+
+func _on_map_state_changed(_state: RunState) -> void:
+	_refresh_parcels()
+	_refresh_selected_parcel()
 
 
 func _on_asset_acquired(_asset_type: String = "", _asset_id: String = "") -> void:
-	_refresh_map_state()
+	_refresh_hud()
+	_refresh_parcels()
+	_refresh_selected_parcel()
 
 
-func _refresh_map_state() -> void:
+func _on_run_ended(_state: RunState) -> void:
+	_refresh_hud()
+	Game.go_to_run_report()
+
+
+func _on_bank_modal_closed() -> void:
+	_refresh_hud()
+
+
+func _on_modal_closed_refresh_parcels() -> void:
+	_refresh_hud()
+	_refresh_parcels()
+	_refresh_selected_parcel()
+
+
+func _bootstrap_map() -> void:
+	if Game.state != null:
+		_Unlock.refresh_auto_unlocks(Game.state, _region)
+	_refresh_all()
+
+
+func _refresh_all() -> void:
 	if _lots == null:
 		return
-	_Unlock.refresh_auto_unlocks(Game.state, _region)
+	_refresh_parcels()
+	_refresh_terrain()
+	_refresh_hud()
+	_refresh_title()
+	_refresh_selected_parcel()
+
+
+func _refresh_parcels() -> void:
+	if _lots == null:
+		return
 	_lots.refresh_ownership()
+
+
+func _refresh_terrain() -> void:
 	if _terrain != null and _terrain.has_method("refresh_map"):
 		_terrain.refresh_map()
-	_refresh_run_hud()
-	_refresh_title()
-	if _parcel_panel.visible:
-		var selected: Dictionary = _lots.get_selection()
-		if not selected.is_empty():
-			_parcel_panel.show_parcel(selected, _lots.get_district_for_hit(selected))
 
 
-func _refresh_run_hud() -> void:
+func _refresh_selected_parcel() -> void:
+	if _parcel_panel == null or not _parcel_panel.visible or _lots == null:
+		return
+	var selected: Dictionary = _lots.get_selection()
+	if selected.is_empty():
+		return
+	_parcel_panel.show_parcel(selected, _lots.get_district_for_hit(selected))
+	_position_parcel_panel()
+	_focus_parcel(selected)
+
+
+func _refresh_hud() -> void:
 	if _run_stats == null or Game.state == null:
 		return
-	var s: RunState = Game.state
+	var stats: Dictionary = RunView.header_stats(Game.state)
 	_run_stats.text = "Turn %d · %s · NW %s · %d AP" % [
-		s.turn,
-		MathUtil.fmt_money(s.cash),
-		MathUtil.fmt_money(FinanceSystem.net_worth(s)),
-		s.action_points,
+		int(stats.get("turn", 0)),
+		MathUtil.fmt_money(int(stats.get("cash", 0))),
+		MathUtil.fmt_money(int(stats.get("netWorth", 0))),
+		int(stats.get("actionPoints", 0)),
 	]
+	if _advance_button != null:
+		_advance_button.disabled = Game.state.game_over != null
 
 
 func _process(delta: float) -> void:

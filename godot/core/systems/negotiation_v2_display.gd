@@ -6,6 +6,52 @@ const _Data := preload("res://core/systems/negotiation_v2_data.gd")
 const _NpcSpecies := preload("res://core/systems/npc_species_system.gd")
 
 
+static func format_context_summary(
+	v2: Dictionary,
+	counterparty: Dictionary,
+	economic_hint: String,
+) -> Dictionary:
+	if v2.is_empty():
+		var hint := economic_hint.strip_edges()
+		if hint.is_empty():
+			hint = "No offer yet"
+		return {"visible": true, "summaryLine": hint, "coachLine": ""}
+
+	var species_id := str(v2.get("speciesId", counterparty.get("speciesId", "")))
+	var role := str(counterparty.get("role", "seller"))
+	var situation_label := str(v2.get("situationLabel", ""))
+	var leverage := str(v2.get("leverageLabel", "Balanced"))
+	var species_progress: float = float(v2.get("speciesProgress", 0.0))
+	var situation_progress: float = float(v2.get("situationProgress", 0.0))
+	var discount_pct: float = float(v2.get("unlockedDiscount", 0.0)) * 100.0
+	var ask: int = int(v2.get("askPrice", 0))
+	var acceptable: int = int(v2.get("acceptableValue", ask))
+	var stable: bool = bool(v2.get("stablePosition", false))
+
+	var parts: PackedStringArray = [
+		"%s (%s)" % [species_id.capitalize(), role],
+	]
+	if not situation_label.is_empty():
+		parts.append(situation_label)
+	parts.append("Leverage %s" % leverage)
+	parts.append("Rapport %s" % _rapport_label(species_progress))
+	if not stable:
+		parts.append("Situation %s" % _rapport_label(situation_progress))
+	var discount_part := "%.1f%% off" % discount_pct
+	if ask > 0 and acceptable < ask:
+		discount_part += " → ~%s" % MathUtil.fmt_money(acceptable)
+	parts.append(discount_part)
+	var hint := economic_hint.strip_edges()
+	if not hint.is_empty():
+		parts.append(hint)
+
+	return {
+		"visible": true,
+		"summaryLine": " · ".join(parts),
+		"coachLine": "",
+	}
+
+
 static func format_progress_panel(
 	v2: Dictionary,
 	counterparty: Dictionary,

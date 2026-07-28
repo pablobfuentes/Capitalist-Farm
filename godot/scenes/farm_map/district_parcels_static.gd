@@ -4,6 +4,7 @@ const _Grid := preload("res://scenes/farm_map/iso_grid_math.gd")
 const _Layout := preload("res://scenes/farm_map/district_layout_data.gd")
 const _World := preload("res://scenes/farm_map/world_layout_data.gd")
 const _Ownership := preload("res://core/systems/parcel_ownership_system.gd")
+const _Bank := preload("res://core/systems/bank_system.gd")
 const _Unlock := preload("res://core/systems/district_unlock_system.gd")
 
 const ROLE_COLORS := {
@@ -12,11 +13,13 @@ const ROLE_COLORS := {
 	"competitive": Color(0.96, 0.82, 0.72, 0.92),
 	"premium": Color(0.98, 0.88, 0.55, 0.94),
 	"development": Color(0.88, 0.90, 0.94, 0.88),
-	"civic": Color(0.82, 0.88, 0.98, 0.92),
-	"plaza": Color(0.78, 0.92, 0.68, 0.92),
+		"civic": Color(0.82, 0.88, 0.98, 0.92),
+		"bank": Color(0.88, 0.92, 0.62, 0.94),
+		"plaza": Color(0.78, 0.92, 0.68, 0.92),
 }
 
 const BUILDING_COLOR := Color(0.72, 0.58, 0.38, 0.85)
+const PLAYER_OUTLINE := Color(0.20, 0.72, 1.0, 1.0)
 const LABEL_COLOR := Color(0.98, 0.97, 0.92, 0.96)
 const LABEL_SHADOW := Color(0.08, 0.12, 0.08, 0.75)
 const LOCKED_SILHOUETTE := Color(0.22, 0.24, 0.28, 0.55)
@@ -27,6 +30,7 @@ const OWNER_TINTS := {
 	"npc": Color(0.52, 0.46, 0.40, 0.16),
 	"vacant": Color(0.62, 0.66, 0.72, 0.24),
 	"civic": Color(0.42, 0.54, 0.82, 0.18),
+	"bank": Color(0.62, 0.78, 0.42, 0.24),
 }
 
 var _region: Dictionary = {}
@@ -112,20 +116,25 @@ func _draw_district(entry: Dictionary, district: Dictionary, origin: Vector2i, d
 		var owner_state := _owner_state_for_entry(parcel, district)
 		if owner_state in [_Ownership.OWNER_OPPORTUNITY, _Ownership.OWNER_CONTESTED]:
 			continue
-		var lot_color: Color = ROLE_COLORS.get(role, ROLE_COLORS["core"])
+		var lot_color: Color = PLAYER_OUTLINE if owner_state == _Ownership.OWNER_PLAYER else ROLE_COLORS.get(role, ROLE_COLORS["core"])
 		lot_color.a *= alpha_mult
 		_draw_solid_outline(_Grid.tile_rect_outline(lot_rect, _region_offset), lot_color, 2.0)
 
 		var building_rect := Rect2i()
-		if role not in ["development", "civic"]:
+		if role not in ["development", "civic", "bank"]:
 			building_rect = _world_building_rect(parcel, district, origin, lot_tiles, building_tiles, road_gap)
-			var build_color := BUILDING_COLOR
+			var build_color := PLAYER_OUTLINE if owner_state == _Ownership.OWNER_PLAYER else BUILDING_COLOR
 			build_color.a *= alpha_mult
 			_draw_solid_outline(_Grid.tile_rect_outline(building_rect, _region_offset), build_color, 1.5)
 
 		if not dimmed:
 			_draw_ownership_tint(lot_rect, building_rect, role, owner_state)
-			_draw_parcel_label(str(parcel.get("label", "")), lot_rect)
+			var label := str(parcel.get("label", ""))
+			if owner_state == _Ownership.OWNER_PLAYER:
+				label = str(_Ownership.resolve(Game.state, parcel, district).get("operator_name", label))
+			elif role == "bank":
+				label = str(parcel.get("label", _Bank.BANK_LABEL))
+			_draw_parcel_label(label, lot_rect)
 
 	for plaza_variant in district.get("plazas", []):
 		if typeof(plaza_variant) != TYPE_DICTIONARY:
@@ -202,7 +211,7 @@ func _draw_ownership_tint(
 	var tint: Color = OWNER_TINTS.get(owner_state, Color(0.0, 0.0, 0.0, 0.0))
 	if tint.a <= 0.01:
 		return
-	var target_rect := lot_rect if role in ["development", "civic", "plaza"] else building_rect
+	var target_rect := lot_rect if role in ["development", "civic", "bank", "plaza"] else building_rect
 	var poly := _Grid.tile_rect_outline(target_rect, _region_offset)
 	if poly.size() < 3:
 		return

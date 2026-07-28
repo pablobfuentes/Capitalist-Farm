@@ -3,16 +3,13 @@ extends RefCounted
 
 const _UpgradeSystem := preload("res://core/systems/upgrade_system.gd")
 const _NegotiationSystem := preload("res://core/systems/negotiation_system.gd")
-const _Rival := preload("res://core/systems/rival_system.gd")
 const _Diligence := preload("res://core/systems/diligence_system.gd")
 const _SupplyPolicy := preload("res://core/systems/supply_policy_system.gd")
 const _LoanSystem := preload("res://core/systems/loan_system.gd")
 const _Urgent := preload("res://core/systems/urgent_system.gd")
 const _LevelUp := preload("res://core/systems/level_up_system.gd")
 const _Progression := preload("res://core/systems/progression_system.gd")
-const _Market := preload("res://core/systems/market_system.gd")
 const _Security := preload("res://core/systems/security_system.gd")
-const _RunStats := preload("res://core/systems/run_stats_system.gd")
 const _RealEstate := preload("res://core/systems/real_estate_system.gd")
 
 static func apply(state: RunState, command: Dictionary) -> Dictionary:
@@ -50,6 +47,8 @@ static func apply(state: RunState, command: Dictionary) -> Dictionary:
 			return _confirm_supply_shortage(state)
 		GameCommand.TAKE_LOAN:
 			return _LoanSystem.take_loan(state, str(command.get("opportunity_id", "")))
+		GameCommand.TAKE_BANK_LOAN:
+			return BankSystem.take_loan(state)
 		GameCommand.PAYOFF_LOAN:
 			return _LoanSystem.payoff_loan(state, str(command.get("loan_id", "")))
 		GameCommand.ACQUIRE_REAL_ESTATE:
@@ -66,6 +65,8 @@ static func apply(state: RunState, command: Dictionary) -> Dictionary:
 			return _Urgent.start_urgent_negotiation(state, str(command.get("problem_id", "")))
 		GameCommand.BUY_SECURITY:
 			return _Security.buy_security(state, str(command.get("opportunity_id", "")), int(command.get("quantity", 10)))
+		GameCommand.BUY_SECURITY_TICKER:
+			return BankSystem.buy_shares(state, str(command.get("ticker", "")), int(command.get("quantity", 10)))
 		GameCommand.SELL_SECURITY:
 			return _Security.sell_security(state, str(command.get("ticker", "")))
 		GameCommand.DISMISS_TURN_DEBRIEF:
@@ -81,42 +82,7 @@ static func apply(state: RunState, command: Dictionary) -> Dictionary:
 
 
 static func _advance_turn(state: RunState) -> Dictionary:
-	if not state.negotiation.is_empty() and bool(state.negotiation.get("active", false)):
-		return {"ok": false, "error": "Close the current negotiation before advancing turn"}
-
-	if state.is_capital_farm():
-		var shortages: Array = SynergySystem.detect_supply_shortages(state)
-		if not shortages.is_empty() and state.supply_shortage_ack_turn != state.turn:
-			return {
-				"ok": false,
-				"error": "Supply capacity shortage — set allocation policy before advancing",
-				"requires_supply_policy": true,
-				"shortages": shortages,
-			}
-
-	_Rival.resolve_uncontested_contests(state)
-
-	if state.is_capital_farm():
-		_Urgent.apply_unresolved_rep_penalty(state)
-
-	var resolver := TurnResolver.new()
-	var next: RunState = resolver.advance_turn(state)
-	if next.game_over == null:
-		OpportunitySystem.advance_opportunities(next)
-		_Rival.apply_contest_to_turn(next)
-		if next.is_capital_farm():
-			_Urgent.update_relationship_health(next)
-			for neglect_note: Dictionary in SynergySystem.apply_neglect_pressure(next):
-				next.run_log.append("%s: neglected %d turns — %s" % [
-					str(neglect_note.get("name", "Business")),
-					int(neglect_note.get("turns", 0)),
-					str(neglect_note.get("label", "relationship health slipping")),
-				])
-			_UpgradeSystem.apply_manager_passive_drift(next)
-			next.urgent_problems = _Urgent.generate_urgent_problems(next)
-		_RunStats.snapshot_turn(next, next.last_advance_report)
-	next.supply_shortage_ack_turn = -1
-	return {"ok": true, "state": next}
+	return TurnPipeline.advance_turn(state)
 
 
 static func _acquire_business(state: RunState, command: Dictionary) -> Dictionary:
@@ -164,4 +130,7 @@ static func _confirm_supply_shortage(state: RunState) -> Dictionary:
 static func _apply_upgrade(state: RunState, command: Dictionary) -> Dictionary:
 	var business_id: String = str(command.get("business_id", ""))
 	var track_id: String = str(command.get("track_id", ""))
-	return _UpgradeSystem.apply_upgrade_command(state, business_id, track_id)
+	var result: Dictionary = _UpgradeSystem.apply_upgrade_command(state, business_id, track_id)
+	if bool(result.get("ok", false)):
+		_LevelUp.ensure_opportunity_for_business(state, business_id)
+	return result

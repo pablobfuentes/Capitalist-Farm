@@ -8,6 +8,7 @@ var _asset_id: String = ""
 
 
 func _ready() -> void:
+	visible = false
 	close_requested.connect(_on_close)
 	%CloseButton.pressed.connect(_on_close)
 

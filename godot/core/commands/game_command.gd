@@ -13,6 +13,7 @@ const APPEND_NEGOTIATION_PLAYER := "append_negotiation_player"
 const INVESTIGATE := "investigate"
 const CONFIRM_SUPPLY_SHORTAGE := "confirm_supply_shortage"
 const TAKE_LOAN := "take_loan"
+const TAKE_BANK_LOAN := "take_bank_loan"
 const PAYOFF_LOAN := "payoff_loan"
 const ACQUIRE_REAL_ESTATE := "acquire_real_estate"
 const SELL_ASSET := "sell_asset"
@@ -21,6 +22,7 @@ const CHOOSE_EDGE := "choose_edge"
 const SKIP_EDGE := "skip_edge"
 const START_URGENT_NEGOTIATION := "start_urgent_negotiation"
 const BUY_SECURITY := "buy_security"
+const BUY_SECURITY_TICKER := "buy_security_ticker"
 const SELL_SECURITY := "sell_security"
 const DISMISS_TURN_DEBRIEF := "dismiss_turn_debrief"
 const IMPROVE_REAL_ESTATE := "improve_real_estate"
@@ -90,6 +92,10 @@ static func take_loan(opportunity_id: String) -> Dictionary:
 	return {"type": TAKE_LOAN, "opportunity_id": opportunity_id}
 
 
+static func take_bank_loan() -> Dictionary:
+	return {"type": TAKE_BANK_LOAN}
+
+
 static func payoff_loan(loan_id: String) -> Dictionary:
 	return {"type": PAYOFF_LOAN, "loan_id": loan_id}
 
@@ -127,6 +133,10 @@ static func start_urgent_negotiation(problem_id: String) -> Dictionary:
 
 static func buy_security(opportunity_id: String, quantity: int = 10) -> Dictionary:
 	return {"type": BUY_SECURITY, "opportunity_id": opportunity_id, "quantity": quantity}
+
+
+static func buy_security_ticker(ticker: String, quantity: int = 10) -> Dictionary:
+	return {"type": BUY_SECURITY_TICKER, "ticker": ticker, "quantity": quantity}
 
 
 static func sell_security(ticker: String) -> Dictionary:

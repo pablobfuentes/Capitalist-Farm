@@ -14,10 +14,10 @@ static func from_dict(d: Dictionary) -> Portfolio:
 			p.businesses.append(BusinessInstance.from_dict(raw_variant))
 	for re_variant in d.get("realEstate", d.get("real_estate", [])):
 		if typeof(re_variant) == TYPE_DICTIONARY:
-			p.real_estate.append(re_variant)
+			p.real_estate.append((re_variant as Dictionary).duplicate(true))
 	for sec_variant in d.get("securities", []):
 		if typeof(sec_variant) == TYPE_DICTIONARY:
-			p.securities.append(sec_variant)
+			p.securities.append((sec_variant as Dictionary).duplicate(true))
 	return p
 
 

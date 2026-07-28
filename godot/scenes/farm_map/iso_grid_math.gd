@@ -52,6 +52,18 @@ static func tile_rect_center(tile_rect: Rect2i, offset: Vector2 = Vector2.ZERO) 
 	return grid_to_screen(int(round(cx)), int(round(cy))) + offset
 
 
+static func tile_rect_bounds(tile_rect: Rect2i, offset: Vector2 = Vector2.ZERO) -> Rect2:
+	var outline := tile_rect_outline(tile_rect, offset)
+	if outline.is_empty():
+		return Rect2()
+	var min_v := outline[0]
+	var max_v := outline[0]
+	for point: Vector2 in outline:
+		min_v = min_v.min(point)
+		max_v = max_v.max(point)
+	return Rect2(min_v, max_v - min_v)
+
+
 static func lot_outline(lot: Rect2i, offset: Vector2 = Vector2.ZERO) -> PackedVector2Array:
 	return tile_rect_outline(lot, offset)
 

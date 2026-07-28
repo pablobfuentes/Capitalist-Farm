@@ -129,7 +129,7 @@ static func collect_tile_sets(district: Dictionary) -> Dictionary:
 			for i in lot_rect.size.x:
 				var key := "%d,%d" % [lot_rect.position.x + i, lot_rect.position.y + j]
 				parcel_tiles[key] = role
-		if role not in ["development", "civic"]:
+		if role not in ["development", "civic", "bank"]:
 			var build_rect := building_tile_rect(
 				int(parcel.get("parcel_x", 0)),
 				int(parcel.get("parcel_y", 0)),

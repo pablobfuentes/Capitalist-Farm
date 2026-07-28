@@ -67,19 +67,10 @@ static func format_intel_block(preview: Dictionary, ask_price: int = 0) -> Strin
 	if preview.is_empty():
 		return ""
 
-	var ask: int = ask_price if ask_price > 0 else int(preview.get("askPrice", 0))
-	var discount_pct: float = float(preview.get("openingDiscountPct", 0.0)) * 100.0
 	var floor: int = int(preview.get("hardFloor", 0))
-	var acceptable: int = int(preview.get("openingAcceptable", ask))
-	var species_label := str(preview.get("speciesLabel", "Seller"))
-	var situation_label := str(preview.get("situationLabel", ""))
-
 	var lines: PackedStringArray = [
 		"NEGOTIATION ECONOMICS",
-		"%s · %s" % [species_label, situation_label] if not situation_label.is_empty() else species_label,
-		"Opening discount unlocked: %.1f%%" % discount_pct,
 		"Hard floor (minimum risk-adjusted value): %s" % MathUtil.fmt_money(floor),
-		"Opening workable target: ~%s" % MathUtil.fmt_money(acceptable),
 		"",
 		"Phrases that unlock progress (use in your pitch):",
 	]

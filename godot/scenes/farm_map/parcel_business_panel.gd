@@ -1,13 +1,17 @@
 extends PanelContainer
 
 signal closed
-
-const _Ownership := preload("res://core/systems/parcel_ownership_system.gd")
+signal improve_business(business_id: String)
+signal sell_business(business_id: String)
+signal buy_opportunity(opportunity_id: String)
+signal investigate_opportunity(opportunity_id: String)
+signal negotiate_opportunity(opportunity_id: String)
 
 @onready var _title_label: Label = %TitleLabel
 @onready var _role_label: Label = %RoleLabel
 @onready var _details_label: Label = %DetailsLabel
 @onready var _ownership_label: Label = %StubLabel
+@onready var _actions_row: HBoxContainer = %ActionsRow
 @onready var _close_button: Button = %CloseButton
 
 
@@ -18,37 +22,21 @@ func _ready() -> void:
 
 
 func show_parcel(entry: Dictionary, district: Dictionary) -> void:
-	if typeof(entry) != TYPE_DICTIONARY or entry.is_empty():
+	var view: Dictionary = RunView.parcel_panel(Game.state, entry, district)
+	if view.is_empty():
 		hide_panel()
 		return
-	_title_label.text = str(entry.get("label", "Parcel"))
-	_role_label.text = _format_role(str(entry.get("role", "")))
-	_details_label.text = _build_details(entry, district)
-	_apply_ownership(entry, district)
-	visible = true
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	_apply_view(view)
 
 
 func show_locked_district(district_name: String, requirement: int, net_worth: int, can_unlock: bool) -> void:
-	_title_label.text = district_name
-	_role_label.text = "District locked"
-	var lines: PackedStringArray = []
-	lines.append("Reach net worth %s to unlock." % MathUtil.fmt_money(requirement))
-	lines.append("Your net worth: %s" % MathUtil.fmt_money(net_worth))
-	if can_unlock:
-		lines.append("Requirement met — unlocking will happen automatically on next refresh.")
-	else:
-		lines.append("Keep growing portfolio value to access this district.")
-	_details_label.text = "\n".join(lines)
-	_ownership_label.text = "Locked · progress by net worth"
-	_ownership_label.add_theme_color_override("font_color", Color(0.78, 0.82, 0.88, 1.0))
-	visible = true
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	_apply_view(RunView.locked_district_panel(district_name, requirement, net_worth, can_unlock))
 
 
 func hide_panel() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clear_actions()
 
 
 func _on_close_pressed() -> void:
@@ -56,71 +44,84 @@ func _on_close_pressed() -> void:
 	closed.emit()
 
 
-func _apply_ownership(entry: Dictionary, district: Dictionary) -> void:
-	var state: RunState = Game.state
-	var resolved: Dictionary = _Ownership.resolve(state, entry, district)
-	var owner_state := str(resolved.get("state", _Ownership.OWNER_NPC))
-	var headline := str(resolved.get("headline", _Ownership.ownership_label(owner_state)))
-	var detail := str(resolved.get("detail", ""))
-	var lines: PackedStringArray = []
-	lines.append("%s · %s" % [_Ownership.ownership_label(owner_state), headline])
-	if not detail.is_empty():
-		lines.append(detail)
-	_ownership_label.text = "\n".join(lines)
-	_ownership_label.add_theme_color_override(
-		"font_color",
-		_ownership_color(owner_state)
-	)
+func _apply_view(view: Dictionary) -> void:
+	_title_label.text = str(view.get("title", "Parcel"))
+	_role_label.text = str(view.get("roleLine", ""))
+	_details_label.text = str(view.get("details", ""))
+	_ownership_label.text = str(view.get("ownershipLine", ""))
+	_ownership_label.add_theme_color_override("font_color", view.get("ownershipColor", Color.WHITE))
+	_populate_actions(view.get("actions", {}))
+	_sync_details_scroll_width()
+	visible = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
 
 
-func _ownership_color(owner_state: String) -> Color:
-	match owner_state:
-		_Ownership.OWNER_PLAYER:
-			return Color(0.62, 0.92, 0.68, 1.0)
-		_Ownership.OWNER_OPPORTUNITY:
-			return Color(0.98, 0.84, 0.42, 1.0)
-		_Ownership.OWNER_CONTESTED:
-			return Color(0.98, 0.62, 0.48, 1.0)
-		_Ownership.OWNER_VACANT:
-			return Color(0.78, 0.82, 0.88, 1.0)
-		_Ownership.OWNER_CIVIC:
-			return Color(0.72, 0.80, 0.98, 1.0)
-		_:
-			return Color(0.82, 0.78, 0.72, 1.0)
+func _sync_details_scroll_width() -> void:
+	var scroll: ScrollContainer = %DetailsScroll
+	if scroll == null or _details_label == null:
+		return
+	await get_tree().process_frame
+	var scroll_w := maxi(int(scroll.size.x) - 8, 200)
+	_details_label.custom_minimum_size.x = scroll_w
 
 
-func _format_role(role: String) -> String:
-	match role:
-		"core":
-			return "Core business · Level 1 pad"
-		"specialization":
-			return "Specialization duplicate"
-		"competitive":
-			return "Competitive / rival slot"
-		"premium":
-			return "Premium opportunity"
-		"development":
-			return "Vacant · development lot"
-		"civic":
-			return "Civic / landmark"
-		"plaza":
-			return "District plaza"
-		_:
-			return role.capitalize()
+func _populate_actions(actions: Variant) -> void:
+	_clear_actions()
+	if typeof(actions) != TYPE_DICTIONARY:
+		return
+	var action_map: Dictionary = actions
+	if action_map.is_empty():
+		return
+
+	var kind: String = str(action_map.get("kind", ""))
+	match kind:
+		"business":
+			var business_id := str(action_map.get("businessId", ""))
+			if action_map.has("canImprove"):
+				_add_action_button(
+					str(action_map.get("improveLabel", "Improve (1 AP)")),
+					func() -> void: improve_business.emit(business_id),
+					not bool(action_map.get("canImprove", false)),
+				)
+			if action_map.has("canSell"):
+				_add_action_button(
+					str(action_map.get("sellLabel", "Sell (1 AP)")),
+					func() -> void: sell_business.emit(business_id),
+					not bool(action_map.get("canSell", false)),
+				)
+		"opportunity":
+			var opportunity_id := str(action_map.get("opportunityId", ""))
+			if action_map.has("canBuy"):
+				_add_action_button(
+					str(action_map.get("buyLabel", "Buy Now (1 AP)")),
+					func() -> void: buy_opportunity.emit(opportunity_id),
+					not bool(action_map.get("canBuy", false)),
+				)
+			if action_map.has("canInvestigate"):
+				_add_action_button(
+					"Investigate (1 AP)",
+					func() -> void: investigate_opportunity.emit(opportunity_id),
+					not bool(action_map.get("canInvestigate", false)),
+				)
+			if action_map.has("canNegotiate"):
+				var label: String = str(action_map.get("negotiateLabel", "Negotiate (1 AP)"))
+				_add_action_button(
+					label,
+					func() -> void: negotiate_opportunity.emit(opportunity_id),
+					not bool(action_map.get("canNegotiate", false)),
+				)
 
 
-func _build_details(entry: Dictionary, district: Dictionary) -> String:
-	var lines: PackedStringArray = []
-	lines.append("District: %s" % str(district.get("name", "Unknown")))
-	lines.append("Parcel: (%d, %d)" % [int(entry.get("parcel_x", 0)), int(entry.get("parcel_y", 0))])
-	var template_id := str(entry.get("template_id", ""))
-	if not template_id.is_empty():
-		var tmpl := Content.get_template(template_id)
-		if tmpl != null:
-			lines.append("Template: %s" % tmpl.name)
-			lines.append("Layer: %s" % tmpl.layer_label)
-		else:
-			lines.append("Template: %s" % template_id)
-	else:
-		lines.append("Template: —")
-	return "\n".join(lines)
+func _add_action_button(label: String, callback: Callable, disabled: bool = false) -> void:
+	var btn := Button.new()
+	btn.text = label
+	btn.disabled = disabled
+	btn.pressed.connect(callback)
+	_actions_row.add_child(btn)
+
+
+func _clear_actions() -> void:
+	if _actions_row == null:
+		return
+	for child in _actions_row.get_children():
+		child.queue_free()

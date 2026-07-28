@@ -10,6 +10,7 @@ const OWNER_VACANT := "vacant"
 const OWNER_OPPORTUNITY := "opportunity"
 const OWNER_CONTESTED := "contested"
 const OWNER_CIVIC := "civic"
+const OWNER_BANK := "bank"
 
 const DEFAULT_DISTRICT_ID := "meadowgate_commons"
 
@@ -96,14 +97,45 @@ static func sync_from_state(state: RunState, district: Dictionary = {}) -> void:
 		return
 	ensure_seeded(state, district)
 	var region: Dictionary = _World.load_region()
+	var district_bundles: Array = []
 	for entry_variant in _World.district_entries(region):
 		var entry: Dictionary = entry_variant
 		if not DistrictUnlockSystem.is_unlocked(state, _World.district_id(entry)):
 			continue
 		var district_data: Dictionary = _World.load_district_from_entry(entry)
 		_sync_district(state, district_data)
+		district_bundles.append({
+			"district_id": _World.district_id(entry),
+			"district": district_data,
+		})
 	if typeof(district) == TYPE_DICTIONARY and not district.is_empty():
-		_sync_district(state, district)
+		var extra_id := str(district.get("id", ""))
+		var found := false
+		for bundle_variant in district_bundles:
+			if str((bundle_variant as Dictionary).get("district_id", "")) == extra_id:
+				found = true
+				break
+		if not found:
+			_sync_district(state, district)
+			district_bundles.append({
+				"district_id": extra_id,
+				"district": district,
+			})
+	_sync_opportunity_bindings(state, district_bundles)
+
+
+static func count_district_opportunities(state: RunState, district: Dictionary) -> int:
+	var count := 0
+	for parcel_variant in district.get("parcels", []):
+		if typeof(parcel_variant) != TYPE_DICTIONARY:
+			continue
+		var parcel_id := str((parcel_variant as Dictionary).get("id", ""))
+		if parcel_id.is_empty():
+			continue
+		var assignment: Dictionary = state.parcel_assignments.get(parcel_id, {})
+		if str(assignment.get("opportunity_id", "")) != "":
+			count += 1
+	return count
 
 
 static func _sync_district(state: RunState, district: Dictionary) -> void:
@@ -131,6 +163,9 @@ static func _sync_district(state: RunState, district: Dictionary) -> void:
 		if OpportunitySystem.find_opportunity(state, opportunity_id).is_empty():
 			_clear_opportunity_binding(state, district, parcel_id)
 
+
+static func _sync_opportunity_bindings(state: RunState, district_bundles: Array) -> void:
+	var unbound: Array = []
 	for opp_variant in state.opportunities:
 		if typeof(opp_variant) != TYPE_DICTIONARY:
 			continue
@@ -140,9 +175,51 @@ static func _sync_district(state: RunState, district: Dictionary) -> void:
 		var opportunity_id := str(opp.get("id", ""))
 		if opportunity_id.is_empty() or _opportunity_has_parcel(state, opportunity_id):
 			continue
+		unbound.append(opp)
+
+	for opp: Dictionary in unbound:
+		var bundle := _pick_district_bundle_for_opportunity(state, district_bundles, opp)
+		if bundle.is_empty():
+			continue
+		var district: Dictionary = bundle.get("district", {})
 		var parcel_id := _pick_parcel_for_opportunity(state, district, opp)
-		if not parcel_id.is_empty():
-			_bind_opportunity(state, district, parcel_id, opp)
+		if parcel_id.is_empty():
+			continue
+		_bind_opportunity(state, district, parcel_id, opp, str(bundle.get("district_id", "")))
+
+
+static func _pick_district_bundle_for_opportunity(
+	state: RunState,
+	district_bundles: Array,
+	opp: Dictionary
+) -> Dictionary:
+	var preferred := str(opp.get("districtId", ""))
+	if not preferred.is_empty():
+		for bundle_variant in district_bundles:
+			var bundle: Dictionary = bundle_variant
+			if str(bundle.get("district_id", "")) != preferred:
+				continue
+			var district: Dictionary = bundle.get("district", {})
+			if not _pick_parcel_for_opportunity(state, district, opp).is_empty():
+				return bundle
+
+	var candidates: Array = []
+	for bundle_variant in district_bundles:
+		var bundle: Dictionary = bundle_variant
+		var district: Dictionary = bundle.get("district", {})
+		if _pick_parcel_for_opportunity(state, district, opp).is_empty():
+			continue
+		candidates.append(bundle)
+
+	if candidates.is_empty():
+		return {}
+
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var district_a: Dictionary = a.get("district", {})
+		var district_b: Dictionary = b.get("district", {})
+		return count_district_opportunities(state, district_a) < count_district_opportunities(state, district_b)
+	)
+	return candidates[0] as Dictionary
 
 
 static func resolve(state: RunState, parcel: Dictionary, district: Dictionary = {}) -> Dictionary:
@@ -156,6 +233,9 @@ static func resolve(state: RunState, parcel: Dictionary, district: Dictionary = 
 		return _fallback_resolve(parcel)
 
 	ensure_seeded(state, district)
+	if BankSystem.is_bank_parcel(parcel):
+		return _resolve_bank(parcel, district)
+
 	var assignment: Dictionary = state.parcel_assignments.get(parcel_id, _default_assignment_for_parcel(parcel))
 
 	var business_id := str(assignment.get("business_id", ""))
@@ -167,8 +247,8 @@ static func resolve(state: RunState, parcel: Dictionary, district: Dictionary = 
 				"headline": "You operate this lot",
 				"detail": "%s · Rev %s / Cost %s" % [
 					biz.name,
-					MathUtil.fmt_money(biz.revenue),
-					MathUtil.fmt_money(biz.cost),
+					MathUtil.fmt_money(biz.revenue_per_turn),
+					MathUtil.fmt_money(biz.operating_costs),
 				],
 				"business_id": biz.id,
 				"opportunity_id": "",
@@ -243,6 +323,8 @@ static func ownership_label(state: String) -> String:
 			return "Contested opportunity"
 		OWNER_CIVIC:
 			return "Civic"
+		OWNER_BANK:
+			return "Bank branch"
 		_:
 			return state.capitalize()
 
@@ -284,6 +366,13 @@ static func _default_assignment_for_parcel(parcel: Dictionary) -> Dictionary:
 				"opportunity_id": "",
 				"npc_label": str(parcel.get("label", "")),
 			}
+		"bank":
+			return {
+				"owner": OWNER_BANK,
+				"business_id": "",
+				"opportunity_id": "",
+				"npc_label": str(parcel.get("label", BankSystem.BANK_LABEL)),
+			}
 		"competitive":
 			return {
 				"owner": OWNER_NPC,
@@ -300,6 +389,17 @@ static func _default_assignment_for_parcel(parcel: Dictionary) -> Dictionary:
 			}
 
 
+static func _resolve_bank(parcel: Dictionary, district: Dictionary) -> Dictionary:
+	return {
+		"state": OWNER_BANK,
+		"headline": "Capital Farm Bank",
+		"detail": "Draw a line of credit or buy fund shares · %s" % str(district.get("name", "District")),
+		"business_id": "",
+		"opportunity_id": "",
+		"operator_name": str(parcel.get("label", BankSystem.BANK_LABEL)),
+	}
+
+
 static func _fallback_resolve(parcel: Dictionary) -> Dictionary:
 	var role := str(parcel.get("role", "core"))
 	match role:
@@ -307,6 +407,8 @@ static func _fallback_resolve(parcel: Dictionary) -> Dictionary:
 			return {"state": OWNER_VACANT, "headline": "Vacant development lot", "detail": "", "business_id": "", "opportunity_id": "", "operator_name": ""}
 		"civic", "plaza":
 			return {"state": OWNER_CIVIC, "headline": "Civic space", "detail": "", "business_id": "", "opportunity_id": "", "operator_name": str(parcel.get("label", ""))}
+		"bank":
+			return {"state": OWNER_BANK, "headline": "Bank branch", "detail": "Loans and fund shares always available", "business_id": "", "opportunity_id": "", "operator_name": str(parcel.get("label", BankSystem.BANK_LABEL))}
 		"competitive":
 			return {"state": OWNER_NPC, "headline": "NPC-operated", "detail": "", "business_id": "", "opportunity_id": "", "operator_name": str(parcel.get("label", ""))}
 		_:
@@ -330,7 +432,13 @@ static func _clear_opportunity_binding(state: RunState, district: Dictionary, pa
 	_reset_parcel_to_default(state, district, parcel_id)
 
 
-static func _bind_opportunity(state: RunState, district: Dictionary, parcel_id: String, opp: Dictionary) -> void:
+static func _bind_opportunity(
+	state: RunState,
+	district: Dictionary,
+	parcel_id: String,
+	opp: Dictionary,
+	district_id: String = ""
+) -> void:
 	var parcel := _find_parcel_by_id(district, parcel_id)
 	var contested := bool(opp.get("rivalContest", false))
 	state.parcel_assignments[parcel_id] = {
@@ -340,6 +448,10 @@ static func _bind_opportunity(state: RunState, district: Dictionary, parcel_id: 
 		"npc_label": str(parcel.get("label", "")),
 	}
 	opp["parcelId"] = parcel_id
+	if district_id.is_empty():
+		district_id = str(district.get("id", ""))
+	if not district_id.is_empty():
+		opp["districtId"] = district_id
 
 
 static func _assign_business_to_best_parcel(state: RunState, district: Dictionary, business: BusinessInstance) -> void:

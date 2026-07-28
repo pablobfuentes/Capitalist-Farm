@@ -2,6 +2,30 @@ class_name PortfolioSystem
 extends RefCounted
 
 
+static func business_market_value(state: RunState, biz: BusinessInstance) -> int:
+	if UpgradeSystem.is_active(state):
+		UpgradeSystem.ensure_business_upgrades(biz)
+	if biz.marked_value > 0:
+		return biz.marked_value
+	return ValuationSystem.valuate_business(biz, state)
+
+
+static func estimate_business_sell_proceeds(state: RunState, biz: BusinessInstance) -> int:
+	# Midpoint estimate; actual sale randomizes ±8% around market value.
+	return business_market_value(state, biz)
+
+
+static func real_estate_market_value(asset: Dictionary) -> int:
+	return int(asset.get("markedValue", asset.get("marked_value", asset.get("valuation", 0))))
+
+
+static func estimate_real_estate_sell_proceeds(asset: Dictionary) -> int:
+	var valuation: int = real_estate_market_value(asset)
+	if valuation > 0:
+		return valuation
+	return int(asset.get("purchasePrice", asset.get("purchase_price", 0)))
+
+
 static func sell_asset(state: RunState, asset_kind: String, asset_id: String) -> Dictionary:
 	var ap: Dictionary = ActionPointsSystem.require(state, 1)
 	if not bool(ap.get("ok", false)):
@@ -14,7 +38,7 @@ static func sell_asset(state: RunState, asset_kind: String, asset_id: String) ->
 		var biz := _find_business(state, asset_id)
 		if biz == null:
 			return {"ok": false, "error": "Business not found"}
-		var valuation: int = biz.marked_value if biz.marked_value > 0 else ValuationSystem.valuate_business(biz, state)
+		var valuation: int = business_market_value(state, biz)
 		var price: int = int(round(float(valuation) * rng.randf_range(0.92, 1.08)))
 		state.cash += price
 		state.portfolio.businesses = state.portfolio.businesses.filter(func(b: BusinessInstance) -> bool:

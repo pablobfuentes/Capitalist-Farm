@@ -46,6 +46,7 @@ var active_district_id: String = "meadowgate_commons"
 var parcel_assignments: Dictionary = {}
 var unlocked_districts: Array = []
 var district_unlock_dev_bypass: bool = false
+var bank_loan_drawn_turn: int = -1
 
 
 static func create_new(run_mode: String = CAPITAL_FARM_MODE) -> RunState:
@@ -114,6 +115,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.parcel_assignments = d.get("parcelAssignments", d.get("parcel_assignments", {}))
 	s.unlocked_districts = d.get("unlockedDistricts", d.get("unlocked_districts", []))
 	s.district_unlock_dev_bypass = bool(d.get("districtUnlockDevBypass", d.get("district_unlock_dev_bypass", false)))
+	s.bank_loan_drawn_turn = int(d.get("bankLoanDrawnTurn", d.get("bank_loan_drawn_turn", -1)))
 	return s
 
 
@@ -160,6 +162,7 @@ func to_dict() -> Dictionary:
 		"parcelAssignments": parcel_assignments,
 		"unlockedDistricts": unlocked_districts,
 		"districtUnlockDevBypass": district_unlock_dev_bypass,
+		"bankLoanDrawnTurn": bank_loan_drawn_turn,
 	}
 
 

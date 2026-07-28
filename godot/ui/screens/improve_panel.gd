@@ -1,8 +1,11 @@
 extends Window
 
 signal closed
+signal level_up(opportunity_id: String)
+signal negotiate(opportunity_id: String)
 
 var _business_id: String = ""
+var _pending_level_up_opp_id: String = ""
 
 
 func open_for_business(business_id: String) -> void:
@@ -12,9 +15,12 @@ func open_for_business(business_id: String) -> void:
 
 
 func _ready() -> void:
+	visible = false
 	title = "Improve Business"
 	close_requested.connect(_on_close)
 	%CloseButton.pressed.connect(_on_close)
+	%LevelUpInvestButton.pressed.connect(_on_level_up_invest_pressed)
+	%LevelUpNegotiateButton.pressed.connect(_on_level_up_negotiate_pressed)
 
 
 func _on_close() -> void:
@@ -29,13 +35,21 @@ func _refresh() -> void:
 		return
 	%BusinessName.text = biz.name
 	var tmpl := Content.get_template(biz.template_id)
-	%MetaLabel.text = "%s · AP %s · Cap ×%.2f · Dem ×%.2f · Opex ×%.2f" % [
+	var current_value: int = PortfolioSystem.business_market_value(Game.state, biz)
+	var growth := RunView.business_value_growth_line(biz, current_value)
+	var val_part := "Val %s" % MathUtil.fmt_money(current_value)
+	if not growth.is_empty():
+		val_part += " (%s)" % growth
+	%MetaLabel.text = "%s · %s · AP %s · Cap ×%.2f · Dem ×%.2f · Opex ×%.2f" % [
+		val_part,
 		tmpl.layer_label if tmpl else biz.layer,
 		UpgradeSystem.autopilot_display(biz),
 		float(biz.upgrade_stats.get("capacityMult", 1.0)),
 		float(biz.upgrade_stats.get("demandMult", 1.0)),
 		float(biz.upgrade_stats.get("opexMult", 1.0)),
 	]
+	%LevelProgressLabel.text = LevelUpSystem.progress_label(biz)
+	_refresh_level_up_section(biz)
 	%GhostPreviewLabel.text = ""
 
 	for child in %TracksList.get_children():
@@ -89,6 +103,55 @@ func _add_track_row(biz: BusinessInstance, track_id: String) -> void:
 	row.add_child(apply_btn)
 
 	%TracksList.add_child(row)
+
+
+func _refresh_level_up_section(biz: BusinessInstance) -> void:
+	var view: Dictionary = LevelUpSystem.improve_panel_view(Game.state, biz)
+	if not bool(view.get("visible", false)):
+		%LevelUpSection.hide()
+		return
+	%LevelUpSection.show()
+	if not bool(view.get("ready", false)):
+		%LevelUpSection.hide()
+		return
+	%LevelUpTitle.text = "Level %d ready — %s" % [
+		int(view.get("targetLevel", biz.level + 1)),
+		str(view.get("title", "Level up")),
+	]
+	%LevelUpBlurb.text = str(view.get("blurb", ""))
+	%LevelUpReward.text = "%s · Cost %s" % [
+		str(view.get("rewardLine", "")),
+		MathUtil.fmt_money(int(view.get("price", 0))),
+	]
+	%LevelUpActions.show()
+	_pending_level_up_opp_id = str(view.get("opportunityId", ""))
+	var price: int = int(view.get("price", 0))
+	if bool(view.get("requiresNegotiation", false)):
+		%LevelUpInvestButton.hide()
+		%LevelUpNegotiateButton.show()
+		%LevelUpNegotiateButton.disabled = not bool(view.get("canNegotiate", false))
+	else:
+		%LevelUpNegotiateButton.hide()
+		%LevelUpInvestButton.show()
+		%LevelUpInvestButton.text = "Level up · %s (1 AP)" % MathUtil.fmt_money(price)
+		%LevelUpInvestButton.disabled = not bool(view.get("canInvest", false))
+
+
+func _on_level_up_invest_pressed() -> void:
+	if _pending_level_up_opp_id.is_empty():
+		return
+	var result: Dictionary = Game.apply_command(GameCommand.do_level_up(_pending_level_up_opp_id))
+	if bool(result.get("ok", false)):
+		_refresh()
+		level_up.emit(_pending_level_up_opp_id)
+	else:
+		%LevelUpReward.text = "Failed: %s" % str(result.get("error", "unknown"))
+
+
+func _on_level_up_negotiate_pressed() -> void:
+	if _pending_level_up_opp_id.is_empty():
+		return
+	negotiate.emit(_pending_level_up_opp_id)
 
 
 func _on_track_hover(preview: Dictionary, track_id: String) -> void:

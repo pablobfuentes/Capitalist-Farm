@@ -164,6 +164,17 @@ static func buy_security(state: RunState, opportunity_id: String, quantity: int 
 		return {"ok": false, "error": "Not a security listing"}
 	var ticker: String = str(opp.get("ticker", ""))
 	var price: int = int(opp.get("price", current_price(state, ticker)))
+	var result: Dictionary = _purchase_shares(state, ticker, price, quantity)
+	if bool(result.get("ok", false)):
+		_remove_opportunity(state, opportunity_id)
+	return result
+
+
+static func purchase_shares(state: RunState, ticker: String, price: int, quantity: int) -> Dictionary:
+	return _purchase_shares(state, ticker, price, quantity)
+
+
+static func _purchase_shares(state: RunState, ticker: String, price: int, quantity: int) -> Dictionary:
 	var qty: int = maxi(MIN_SHARE_LOT, int(round(float(quantity) / float(MIN_SHARE_LOT))) * MIN_SHARE_LOT)
 	var cost: int = qty * price
 	if state.cash < cost:
@@ -184,7 +195,6 @@ static func buy_security(state: RunState, opportunity_id: String, quantity: int 
 		holding["shares"] = old_shares + qty
 		holding["costBasis"] = int(round(float(old_basis * old_shares + cost) / float(old_shares + qty)))
 		holding["price"] = price
-	_remove_opportunity(state, opportunity_id)
 	state.run_log.append("Bought %d shares of %s for %s." % [qty, ticker, MathUtil.fmt_money(cost)])
 	return {"ok": true, "state": state, "ticker": ticker, "shares": qty, "cost": cost}
 

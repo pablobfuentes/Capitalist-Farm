@@ -64,7 +64,6 @@ func test_intel_panel_shows_v2_economics_when_unlocked() -> void:
 	}
 	var text: String = _Diligence.format_intel_panel(neg, state)
 	assert_true(text.contains("NEGOTIATION ECONOMICS"))
-	assert_true(text.contains("Opening discount unlocked"))
 	assert_true(text.contains("Hard floor"))
 	assert_true(text.contains("Phrases that unlock progress"))
 

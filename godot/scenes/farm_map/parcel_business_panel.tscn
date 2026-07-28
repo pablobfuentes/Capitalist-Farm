@@ -6,11 +6,11 @@
 visible = false
 custom_minimum_size = Vector2(300, 0)
 offset_left = -316.0
-offset_top = 96.0
+offset_top = 88.0
 offset_right = -16.0
 offset_bottom = 360.0
 grow_horizontal = 0
-grow_vertical = 2
+grow_vertical = 0
 mouse_filter = 0
 script = ExtResource("1_panel")
 
@@ -23,6 +23,7 @@ theme_override_constants/margin_bottom = 12
 
 [node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_constants/separation = 10
 
 [node name="TitleLabel" type="Label" parent="Margin/VBox"]
@@ -37,12 +38,23 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.78, 0.82, 0.74, 1)
 text = "Role"
 
-[node name="DetailsLabel" type="Label" parent="Margin/VBox"]
+[node name="DetailsScroll" type="ScrollContainer" parent="Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="DetailsLabel" type="Label" parent="Margin/VBox/DetailsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
 text = "Details"
+
+[node name="ActionsRow" type="HBoxContainer" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="StubLabel" type="Label" parent="Margin/VBox"]
 unique_name_in_owner = true
