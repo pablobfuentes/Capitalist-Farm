@@ -9,6 +9,7 @@ const _Layout := preload("res://scenes/farm_map/district_layout_data.gd")
 const _World := preload("res://scenes/farm_map/world_layout_data.gd")
 const _Unlock := preload("res://core/systems/district_unlock_system.gd")
 const _StaticLayer := preload("res://scenes/farm_map/district_parcels_static.gd")
+const _BuildingLayer := preload("res://scenes/farm_map/district_parcel_buildings.gd")
 const _OverlayLayer := preload("res://scenes/farm_map/district_parcels_overlay.gd")
 
 const OPPORTUNITY_BLINK_SPEED := 2.8
@@ -22,6 +23,7 @@ var _focus_district_id := ""
 var _view_mode := "overview"
 var _pick_cache: Array = []
 var _static_layer: Node2D
+var _building_layer: Node2D
 var _overlay_layer: Node2D
 
 
@@ -30,14 +32,19 @@ func _ready() -> void:
 	_region_offset = _World.region_center_offset(_region)
 	_static_layer = Node2D.new()
 	_static_layer.name = "StaticParcels"
-	add_child(_static_layer)
 	_static_layer.set_script(_StaticLayer)
+	add_child(_static_layer)
+	_building_layer = Node2D.new()
+	_building_layer.name = "BuildingArt"
+	_building_layer.set_script(_BuildingLayer)
+	add_child(_building_layer)
 	_overlay_layer = Node2D.new()
 	_overlay_layer.name = "OverlayParcels"
 	_overlay_layer.z_index = 1
-	add_child(_overlay_layer)
 	_overlay_layer.set_script(_OverlayLayer)
+	add_child(_overlay_layer)
 	_static_layer.configure(_region, _region_offset, ThemeDB.fallback_font)
+	_building_layer.configure(_region, _region_offset, _static_layer.get_district_bundles())
 	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles(), ThemeDB.fallback_font)
 	_rebuild_pick_cache()
 	_update_blink_process()
@@ -47,6 +54,7 @@ func set_view_context(view_mode: String, focus_district_id: String) -> void:
 	_view_mode = view_mode
 	_focus_district_id = focus_district_id
 	_static_layer.set_view_context(view_mode, focus_district_id)
+	_building_layer.set_view_context(view_mode, focus_district_id)
 	_overlay_layer.set_view_context(view_mode, focus_district_id)
 	_rebuild_pick_cache()
 	var terrain = get_parent().get_node_or_null("Terrain")
@@ -57,6 +65,7 @@ func set_view_context(view_mode: String, focus_district_id: String) -> void:
 func set_region_offset(offset: Vector2) -> void:
 	_region_offset = offset
 	_static_layer.configure(_region, _region_offset, ThemeDB.fallback_font)
+	_building_layer.configure(_region, _region_offset, _static_layer.get_district_bundles())
 	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles(), ThemeDB.fallback_font)
 	_rebuild_pick_cache()
 
@@ -140,6 +149,7 @@ func set_hover(entry: Dictionary) -> void:
 
 func refresh_ownership() -> void:
 	_static_layer.refresh_ownership()
+	_building_layer.refresh_ownership()
 	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles())
 	_overlay_layer.refresh_ownership()
 	_rebuild_pick_cache()
@@ -151,6 +161,7 @@ func _process(delta: float) -> void:
 		return
 	_blink_phase += delta * OPPORTUNITY_BLINK_SPEED
 	_overlay_layer.set_blink_phase(_blink_phase)
+	_building_layer.set_blink_phase(_blink_phase)
 
 
 func _rebuild_pick_cache() -> void:

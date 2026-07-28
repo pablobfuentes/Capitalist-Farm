@@ -18,8 +18,7 @@ const ROLE_COLORS := {
 		"plaza": Color(0.78, 0.92, 0.68, 0.92),
 }
 
-const BUILDING_COLOR := Color(0.72, 0.58, 0.38, 0.85)
-const PLAYER_OUTLINE := Color(0.20, 0.72, 1.0, 1.0)
+const LOT_EDGE_ALPHA := 0.10
 const LABEL_COLOR := Color(0.98, 0.97, 0.92, 0.96)
 const LABEL_SHADOW := Color(0.08, 0.12, 0.08, 0.75)
 const LOCKED_SILHOUETTE := Color(0.22, 0.24, 0.28, 0.55)
@@ -114,18 +113,16 @@ func _draw_district(entry: Dictionary, district: Dictionary, origin: Vector2i, d
 		var lot_rect := _world_lot_rect(parcel, district, origin)
 		var role := str(parcel.get("role", "core"))
 		var owner_state := _owner_state_for_entry(parcel, district)
+		var lot_color: Color = ROLE_COLORS.get(role, ROLE_COLORS["core"])
+		lot_color.a = LOT_EDGE_ALPHA * alpha_mult
+		_draw_solid_outline(_Grid.tile_rect_outline(lot_rect, _region_offset), lot_color, 2.0)
+
 		if owner_state in [_Ownership.OWNER_OPPORTUNITY, _Ownership.OWNER_CONTESTED]:
 			continue
-		var lot_color: Color = PLAYER_OUTLINE if owner_state == _Ownership.OWNER_PLAYER else ROLE_COLORS.get(role, ROLE_COLORS["core"])
-		lot_color.a *= alpha_mult
-		_draw_solid_outline(_Grid.tile_rect_outline(lot_rect, _region_offset), lot_color, 2.0)
 
 		var building_rect := Rect2i()
 		if role not in ["development", "civic", "bank"]:
 			building_rect = _world_building_rect(parcel, district, origin, lot_tiles, building_tiles, road_gap)
-			var build_color := PLAYER_OUTLINE if owner_state == _Ownership.OWNER_PLAYER else BUILDING_COLOR
-			build_color.a *= alpha_mult
-			_draw_solid_outline(_Grid.tile_rect_outline(building_rect, _region_offset), build_color, 1.5)
 
 		if not dimmed:
 			_draw_ownership_tint(lot_rect, building_rect, role, owner_state)
@@ -142,7 +139,7 @@ func _draw_district(entry: Dictionary, district: Dictionary, origin: Vector2i, d
 		var plaza: Dictionary = plaza_variant
 		var plaza_rect := _world_plaza_rect(plaza, district, origin, lot_tiles, road_gap)
 		var plaza_color: Color = ROLE_COLORS["plaza"]
-		plaza_color.a *= alpha_mult
+		plaza_color.a = LOT_EDGE_ALPHA * alpha_mult
 		_draw_solid_outline(_Grid.tile_rect_outline(plaza_rect, _region_offset), plaza_color, 2.0)
 		if not dimmed:
 			var plaza_entry := _plaza_entry(district, plaza)

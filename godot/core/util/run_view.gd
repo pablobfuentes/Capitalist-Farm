@@ -530,7 +530,9 @@ static func _opportunity_parcel_details(_state: RunState, opp: Dictionary, opp_r
 
 	var intel_line := str(opp_row.get("intelLine", ""))
 	if not intel_line.is_empty():
-		lines.append(intel_line)
+		var detail_text := str(lines[lines.size() - 1]) if not lines.is_empty() else ""
+		if detail_text.is_empty() or not detail_text.contains(intel_line):
+			lines.append(intel_line)
 
 	var blurb := str(opp.get("blurb", "")).strip_edges()
 	if not blurb.is_empty():

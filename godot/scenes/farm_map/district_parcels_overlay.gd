@@ -16,15 +16,10 @@ const ROLE_COLORS := {
 	"bank": Color(0.88, 0.92, 0.62, 0.94),
 }
 
-const BUILDING_COLOR := Color(0.72, 0.58, 0.38, 0.85)
 const SELECT_FILL := Color(1.0, 0.92, 0.35, 0.22)
 const SELECT_OUTLINE := Color(1.0, 0.88, 0.20, 0.95)
 const HOVER_FILL := Color(1.0, 1.0, 1.0, 0.12)
 const HOVER_OUTLINE := Color(1.0, 1.0, 1.0, 0.55)
-const OPPORTUNITY_OUTLINE := Color(1.0, 0.92, 0.12, 1.0)
-const CONTESTED_OUTLINE := Color(1.0, 0.72, 0.18, 1.0)
-const OPPORTUNITY_BLINK_MIN_ALPHA := 0.22
-const OPPORTUNITY_BLINK_MAX_ALPHA := 1.0
 const LABEL_COLOR := Color(0.98, 0.97, 0.92, 0.96)
 const LABEL_SHADOW := Color(0.08, 0.12, 0.08, 0.75)
 
@@ -128,46 +123,13 @@ func _draw() -> void:
 
 func _draw_opportunity_item(item: Dictionary) -> void:
 	var lot_rect: Rect2i = item.get("lot_rect", Rect2i())
-	var owner_state: String = str(item.get("owner_state", ""))
-	var role: String = str(item.get("role", "core"))
+	var parcel: Dictionary = item.get("hit", {})
 	var district: Dictionary = item.get("district", {})
-	var origin: Vector2i = item.get("origin", Vector2i.ZERO)
-	var lot_color: Color = _outline_color(owner_state, role)
-	_draw_dashed_outline(_Grid.tile_rect_outline(lot_rect, _region_offset), lot_color, 2.0, 7.0, 5.0)
-	if role not in ["development", "civic", "bank"]:
-		var parcel: Dictionary = item.get("hit", {})
-		var lot_tiles: int = int(district.get("lot_tiles", _Layout.LOT_TILES))
-		var building_tiles: int = int(district.get("building_tiles", _Layout.BUILDING_TILES))
-		var road_gap: int = _Layout.road_gap_for(district)
-		var building_rect := _world_building_rect(parcel, district, origin, lot_tiles, building_tiles, road_gap)
-		var build_color := BUILDING_COLOR
-		build_color.a = lot_color.a
-		_draw_dashed_outline(_Grid.tile_rect_outline(building_rect, _region_offset), build_color, 1.5, 5.0, 4.0)
-		var resolved := _Ownership.resolve(Game.state, parcel, district)
-		var label := str(resolved.get("operator_name", ""))
-		if label.is_empty():
-			label = str(parcel.get("label", ""))
-		_draw_parcel_label(label, lot_rect)
-
-
-func _outline_color(owner_state: String, role: String) -> Color:
-	match owner_state:
-		_Ownership.OWNER_OPPORTUNITY:
-			var color: Color = OPPORTUNITY_OUTLINE
-			color.a = _opportunity_blink_alpha()
-			return color
-		_Ownership.OWNER_CONTESTED:
-			var color: Color = CONTESTED_OUTLINE
-			color.a = _opportunity_blink_alpha()
-			return color
-		_:
-			var color: Color = ROLE_COLORS.get(role, ROLE_COLORS["core"])
-			return color
-
-
-func _opportunity_blink_alpha() -> float:
-	var wave := 0.5 + 0.5 * sin(_blink_phase * TAU)
-	return lerpf(OPPORTUNITY_BLINK_MIN_ALPHA, OPPORTUNITY_BLINK_MAX_ALPHA, wave)
+	var resolved := _Ownership.resolve(Game.state, parcel, district)
+	var label := str(resolved.get("operator_name", ""))
+	if label.is_empty():
+		label = str(parcel.get("label", ""))
+	_draw_parcel_label(label, lot_rect)
 
 
 func _draw_hover() -> void:
@@ -215,50 +177,6 @@ func _owner_state_for_entry(entry: Dictionary, district: Dictionary) -> String:
 func _world_lot_rect(entry: Dictionary, district: Dictionary, origin: Vector2i) -> Rect2i:
 	var local := _Layout.lot_rect_for_entry(entry, district)
 	return Rect2i(local.position + origin, local.size)
-
-
-func _world_building_rect(
-	entry: Dictionary,
-	district: Dictionary,
-	origin: Vector2i,
-	lot_tiles: int,
-	building_tiles: int,
-	road_gap: int
-) -> Rect2i:
-	var local := _Layout.building_tile_rect(
-		int(entry.get("parcel_x", 0)),
-		int(entry.get("parcel_y", 0)),
-		lot_tiles,
-		building_tiles,
-		road_gap
-	)
-	return Rect2i(local.position + origin, local.size)
-
-
-func _draw_dashed_outline(outline: PackedVector2Array, color: Color, width: float, dash: float, gap: float) -> void:
-	for idx in outline.size() - 1:
-		_draw_dashed_segment(outline[idx], outline[idx + 1], color, width, dash, gap)
-
-
-func _draw_dashed_segment(from: Vector2, to: Vector2, color: Color, width: float, dash: float, gap: float) -> void:
-	var delta := to - from
-	var length := delta.length()
-	if length <= 0.001:
-		return
-	var dir := delta / length
-	var traveled := 0.0
-	var drawing := true
-	var dash_len := maxf(dash, 0.5)
-	var gap_len := maxf(gap, 0.5)
-	while traveled < length:
-		var segment_len := dash_len if drawing else gap_len
-		var end_dist := minf(traveled + segment_len, length)
-		if end_dist <= traveled:
-			break
-		if drawing:
-			draw_line(from + dir * traveled, from + dir * end_dist, color, width, true)
-		traveled = end_dist
-		drawing = not drawing
 
 
 func _draw_parcel_label(text: String, lot_rect: Rect2i) -> void:

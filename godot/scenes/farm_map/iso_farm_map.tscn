@@ -89,15 +89,10 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "Advance Turn"
 
-[node name="UnlockAllButton" type="Button" parent="UI/Hud/TopBar/Row"]
+[node name="DistrictLockToggleButton" type="Button" parent="UI/Hud/TopBar/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Unlock All (Test)"
-
-[node name="EnforceLocksButton" type="Button" parent="UI/Hud/TopBar/Row"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Enforce Locks"
 
 [node name="BackButton" type="Button" parent="UI/Hud/TopBar/Row"]
 layout_mode = 2

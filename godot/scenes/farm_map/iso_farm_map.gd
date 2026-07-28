@@ -14,8 +14,7 @@ const _Bank := preload("res://core/systems/bank_system.gd")
 @onready var _run_stats: Label = %RunStats
 @onready var _overview_button: Button = %OverviewButton
 @onready var _advance_button: Button = %AdvanceButton
-@onready var _unlock_all_button: Button = %UnlockAllButton
-@onready var _enforce_locks_button: Button = %EnforceLocksButton
+@onready var _district_lock_toggle: Button = %DistrictLockToggleButton
 @onready var _parcel_panel: PanelContainer = %ParcelBusinessPanel
 
 const MIN_ZOOM := 0.18
@@ -74,8 +73,7 @@ func _ready() -> void:
 
 	_wire_map_events()
 	_overview_button.pressed.connect(_on_overview_pressed)
-	_unlock_all_button.pressed.connect(_on_unlock_all_pressed)
-	_enforce_locks_button.pressed.connect(_on_enforce_locks_pressed)
+	_district_lock_toggle.pressed.connect(_on_district_lock_toggle_pressed)
 	_apply_view_context()
 	_go_to_overview(false)
 	_bootstrap_map()
@@ -449,16 +447,24 @@ func _on_overview_pressed() -> void:
 	_parcel_panel.hide_panel()
 
 
-func _on_unlock_all_pressed() -> void:
-	_Unlock.unlock_all_for_testing(Game.state, _region)
+func _on_district_lock_toggle_pressed() -> void:
+	if Game.state != null and Game.state.district_unlock_dev_bypass:
+		_Unlock.lock_all_except_starter(Game.state)
+		if not _Unlock.is_unlocked(Game.state, _focus_district_id):
+			_go_to_overview()
+	else:
+		_Unlock.unlock_all_for_testing(Game.state, _region)
 	_bootstrap_map()
+	_refresh_district_lock_toggle()
 
 
-func _on_enforce_locks_pressed() -> void:
-	_Unlock.lock_all_except_starter(Game.state)
-	if not _Unlock.is_unlocked(Game.state, _focus_district_id):
-		_go_to_overview()
-	_bootstrap_map()
+func _refresh_district_lock_toggle() -> void:
+	if _district_lock_toggle == null or Game.state == null:
+		return
+	if Game.state.district_unlock_dev_bypass:
+		_district_lock_toggle.text = "Enforce Locks"
+	else:
+		_district_lock_toggle.text = "Unlock All (Test)"
 
 
 func _on_run_bootstrap(_state: RunState) -> void:
@@ -548,14 +554,16 @@ func _refresh_hud() -> void:
 	if _run_stats == null or Game.state == null:
 		return
 	var stats: Dictionary = RunView.header_stats(Game.state)
-	_run_stats.text = "Turn %d · %s · NW %s · %d AP" % [
+	_run_stats.text = "Turn %d · %s · NW %s · Debt %s · %d AP" % [
 		int(stats.get("turn", 0)),
 		MathUtil.fmt_money(int(stats.get("cash", 0))),
 		MathUtil.fmt_money(int(stats.get("netWorth", 0))),
+		MathUtil.fmt_money(int(stats.get("debt", 0))),
 		int(stats.get("actionPoints", 0)),
 	]
 	if _advance_button != null:
 		_advance_button.disabled = Game.state.game_over != null
+	_refresh_district_lock_toggle()
 
 
 func _process(delta: float) -> void:
