@@ -33,7 +33,7 @@ var _camera_mode := "district"
 var _camera_target_pos := Vector2.ZERO
 var _camera_target_zoom := Vector2(OVERVIEW_ZOOM, OVERVIEW_ZOOM)
 var _improve_panel: Window = null
-var _negotiation_panel: Window = null
+var _negotiation_panel: CanvasLayer = null
 var _edge_modal: Window = null
 var _shortage_modal: Window = null
 var _turn_debrief_modal: Window = null
@@ -133,7 +133,18 @@ func _on_parcel_investigate(opportunity_id: String) -> void:
 
 
 func _on_parcel_negotiate(opportunity_id: String) -> void:
+	var selected: Dictionary = _lots.get_selection() if _lots != null else {}
+	if not selected.is_empty():
+		_focus_parcel(selected)
+		_snap_camera_to_targets()
+	if _parcel_panel != null:
+		_parcel_panel.hide_panel()
 	_negotiation_panel.open_for_opportunity(opportunity_id)
+
+
+func _snap_camera_to_targets() -> void:
+	_camera.position = _camera_target_pos
+	_camera.zoom = _camera_target_zoom
 
 
 func _on_edge_choices_pending(_state: RunState, _choices: Array) -> void:
@@ -265,6 +276,8 @@ func _set_zoom(next_zoom: float) -> void:
 
 
 func _pointer_over_ui() -> bool:
+	if _negotiation_panel != null and _negotiation_panel.visible:
+		return true
 	var hovered: Control = get_viewport().gui_get_hovered_control()
 	if hovered == null:
 		return false
@@ -278,6 +291,9 @@ func _pointer_over_ui() -> bool:
 
 
 func _update_hover() -> void:
+	if _negotiation_panel != null and _negotiation_panel.visible:
+		_lots.set_hover({})
+		return
 	if _pointer_over_ui():
 		_lots.set_hover({})
 		return

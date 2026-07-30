@@ -8,7 +8,7 @@ extends Control
 @onready var advance_button: Button = %AdvanceButton
 
 var _improve_panel: Window = null
-var _negotiation_panel: Window = null
+var _negotiation_panel: CanvasLayer = null
 var _shortage_modal: Window = null
 var _edge_modal: Window = null
 var _supply_chain_view: Window = null

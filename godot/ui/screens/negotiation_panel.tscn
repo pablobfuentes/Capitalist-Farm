@@ -1,205 +1,386 @@
-[gd_scene load_steps=2 format=3 uid="uid://econgame_negotiation_panel"]
+[gd_scene load_steps=19 format=3 uid="uid://econgame_negotiation_panel"]
 
 [ext_resource type="Script" path="res://ui/screens/negotiation_panel.gd" id="1_neg"]
+[ext_resource type="Shader" path="res://ui/shaders/modal_backdrop_blur.gdshader" id="2_shader"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/frame.png" id="2_frame"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/header_panel.png" id="3_header"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/name_banner.png" id="4_banner"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/gauge_panel.png" id="5_gauge"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/gauge_pointer.png" id="6_pointer"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/chat_background.png" id="7_chat_bg"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/input_tray.png" id="8_tray"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/input_field.png" id="9_field"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/notebook_background.png" id="10_notebook"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/notebook_divider.png" id="11_divider"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/btn_send.png" id="12_send"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/btn_walk_away.png" id="13_walk"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/btn_close_deal.png" id="14_close"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/crest_bottom.png" id="15_crest"]
 
-[node name="NegotiationPanel" type="Window"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_blur"]
+shader = ExtResource("2_shader")
+shader_parameter/blur_strength = 2.2
+shader_parameter/dim_color = Color(0.08, 0.08, 0.1, 0.18)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_input"]
+
+[node name="NegotiationPanel" type="CanvasLayer"]
+layer = 128
 visible = false
-initial_position = 1
-size = Vector2i(920, 560)
-min_size = Vector2i(720, 400)
 script = ExtResource("1_neg")
 
-[node name="Margin" type="MarginContainer" parent="."]
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 12
+mouse_filter = 0
 
-[node name="RootVBox" type="VBoxContainer" parent="Margin"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/separation = 8
+[node name="Backdrop" type="Control" parent="Overlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
 
-[node name="MainHBox" type="HBoxContainer" parent="Margin/RootVBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/separation = 12
+[node name="BackdropImage" type="TextureRect" parent="Overlay/Backdrop"]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_blur")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
 
-[node name="LeftColumn" type="VBoxContainer" parent="Margin/RootVBox/MainHBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.0
-theme_override_constants/separation = 8
+[node name="Root" type="Control" parent="Overlay"]
+unique_name_in_owner = true
+z_index = 1
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
 
-[node name="HeaderLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+[node name="FrameBg" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_frame")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeaderPanel" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("3_header")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeaderText" type="Control" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 5
+layout_mode = 0
+mouse_filter = 2
+clip_contents = true
+
+[node name="HeaderCenter" type="CenterContainer" parent="Overlay/Root/HeaderText"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HeaderStack" type="VBoxContainer" parent="Overlay/Root/HeaderText/HeaderCenter"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_constants/separation = 3
+alignment = 1
+
+[node name="HeaderLabel" type="Label" parent="Overlay/Root/HeaderText/HeaderCenter/HeaderStack"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 1
 autowrap_mode = 3
 text = "Listing"
 
-[node name="MetaLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+[node name="AskLabel" type="Label" parent="Overlay/Root/HeaderText/HeaderCenter/HeaderStack"]
 unique_name_in_owner = true
 layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-text = "Ask price"
+size_flags_horizontal = 3
+horizontal_alignment = 1
+text = "Ask $0"
 
-[node name="ContextSummaryLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+[node name="DiscountLabel" type="Label" parent="Overlay/Root/HeaderText/HeaderCenter/HeaderStack"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 1
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-theme_override_colors/font_color = Color(0.72, 0.78, 0.72, 1)
-text = ""
+text = "No discount unlocked yet"
 
-[node name="CoachTipLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.62, 0.66, 0.58, 1)
-text = ""
+[node name="PortraitSlot" type="Control" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
 
-[node name="RivalBarLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+[node name="PortraitPlaceholder" type="Label" parent="Overlay/Root/PortraitSlot"]
 unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-theme_override_colors/font_color = Color(0.48, 0.23, 0.54, 1)
-text = ""
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = -20.0
+offset_right = 120.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "Character portrait"
 
-[node name="CompareLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-text = ""
+[node name="GaugePanel" type="TextureRect" parent="Overlay/Root"]
+z_index = 1
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("5_gauge")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="IntelScroll" type="ScrollContainer" parent="Margin/RootVBox/MainHBox/LeftColumn"]
+[node name="NameBanner" type="TextureRect" parent="Overlay/Root"]
+z_index = 2
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("4_banner")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="SellerNameLabel" type="Label" parent="Overlay/Root"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-size_flags_vertical = 3
+z_index = 4
+layout_mode = 0
+text = "Seller"
+
+[node name="GaugePointer" type="TextureRect" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 3
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("6_pointer")
+expand_mode = 1
+stretch_mode = 4
+
+[node name="ChatBackground" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("7_chat_bg")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ChatScroll" type="ScrollContainer" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 10
+layout_mode = 0
+mouse_filter = 0
+clip_contents = true
 horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
 
-[node name="IntelLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn/IntelScroll"]
+[node name="ChatMessages" type="VBoxContainer" parent="Overlay/Root/ChatScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-text = ""
-
-[node name="AiStatusLabel" type="Label" parent="Margin/RootVBox/MainHBox/LeftColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 11
-theme_override_colors/font_color = Color(0.45, 0.55, 0.45, 1)
-text = "AI connecting…"
-
-[node name="RightColumn" type="VBoxContainer" parent="Margin/RootVBox/MainHBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-size_flags_stretch_ratio = 1.0
+size_flags_vertical = 0
 theme_override_constants/separation = 6
 
-[node name="ConversationHeaderRow" type="HBoxContainer" parent="Margin/RootVBox/MainHBox/RightColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="ConversationLabel" type="Label" parent="Margin/RootVBox/MainHBox/RightColumn/ConversationHeaderRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 13
-text = "Conversation"
-
-[node name="GaugeBar" type="ProgressBar" parent="Margin/RootVBox/MainHBox/RightColumn/ConversationHeaderRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(80, 6)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
-max_value = 100.0
-show_percentage = false
-value = 50.0
-
-[node name="MessagesEdit" type="TextEdit" parent="Margin/RootVBox/MainHBox/RightColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_font_sizes/font_size = 13
-editable = false
-wrap_mode = 1
-selecting_enabled = true
-text = ""
-
-[node name="FooterPanel" type="PanelContainer" parent="Margin/RootVBox"]
-layout_mode = 2
-size_flags_vertical = 0
-
-[node name="FooterVBox" type="VBoxContainer" parent="Margin/RootVBox/FooterPanel"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="StatusLabel" type="Label" parent="Margin/RootVBox/FooterPanel/FooterVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-text = "Status"
-
-[node name="InputRow" type="HBoxContainer" parent="Margin/RootVBox/FooterPanel/FooterVBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="MessageInput" type="LineEdit" parent="Margin/RootVBox/FooterPanel/FooterVBox/InputRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-placeholder_text = "Type your offer..."
-
-[node name="SendButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/InputRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Send"
-
-[node name="ButtonRow" type="HBoxContainer" parent="Margin/RootVBox/FooterPanel/FooterVBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="CopyTranscriptButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Copy debug log"
-
-[node name="SaveLogButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Save log"
-
-[node name="WalkButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Walk away"
-
-[node name="CloseDealButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
+[node name="RivalBarLabel" type="Label" parent="Overlay/Root"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 2
-text = "Close Deal"
+layout_mode = 0
+theme_override_colors/font_color = Color(0.48, 0.23, 0.54, 1)
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
 
-[node name="CloseButton" type="Button" parent="Margin/RootVBox/FooterPanel/FooterVBox/ButtonRow"]
+[node name="CompareLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+theme_override_font_sizes/font_size = 11
+autowrap_mode = 3
+
+[node name="InputTray" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("8_tray")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="InputField" type="NinePatchRect" parent="Overlay/Root"]
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+texture = ExtResource("9_field")
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="MessageInput" type="LineEdit" parent="Overlay/Root/InputField"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 18.0
+offset_top = 14.0
+offset_right = -18.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.28, 0.18, 0.1, 1)
+theme_override_colors/font_placeholder_color = Color(0.45, 0.38, 0.3, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxEmpty_input")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_input")
+theme_override_styles/read_only = SubResource("StyleBoxEmpty_input")
+flat = true
+caret_blink = true
+
+[node name="SendButton" type="TextureButton" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+ignore_texture_size = true
+stretch_mode = 5
+texture_normal = ExtResource("12_send")
+
+[node name="WalkButton" type="TextureButton" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+ignore_texture_size = true
+stretch_mode = 5
+texture_normal = ExtResource("13_walk")
+
+[node name="CloseDealButton" type="TextureButton" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+modulate = Color(1, 1, 1, 0.55)
+ignore_texture_size = true
+stretch_mode = 5
+texture_normal = ExtResource("14_close")
+
+[node name="NotebookBg" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("10_notebook")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NotebookDivider" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("11_divider")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NotesScroll" type="ScrollContainer" parent="Overlay/Root"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+horizontal_scroll_mode = 0
+
+[node name="NotesLabel" type="Label" parent="Overlay/Root/NotesScroll"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+text = "Notes"
+
+[node name="DiligenceScroll" type="ScrollContainer" parent="Overlay/Root"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+horizontal_scroll_mode = 0
+
+[node name="DiligenceLabel" type="Label" parent="Overlay/Root/DiligenceScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+text = "Seller diligence"
+
+[node name="StatusLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+layout_mode = 0
+autowrap_mode = 3
+horizontal_alignment = 1
+
+[node name="CrestBottom" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("15_crest")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ContextSummaryLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+theme_override_font_sizes/font_size = 11
+autowrap_mode = 3
+
+[node name="CoachTipLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+theme_override_font_sizes/font_size = 11
+autowrap_mode = 3
+
+[node name="AiStatusLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+theme_override_font_sizes/font_size = 10
+autowrap_mode = 3
+
+[node name="CopyTranscriptButton" type="Button" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+text = "Copy debug log"
+
+[node name="SaveLogButton" type="Button" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+text = "Save log"
+
+[node name="CloseButton" type="Button" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
 text = "Close"

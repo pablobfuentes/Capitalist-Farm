@@ -1,4 +1,4 @@
-extends Window
+extends CanvasLayer
 
 signal closed
 
@@ -7,16 +7,94 @@ const _Diligence := preload("res://core/systems/diligence_system.gd")
 const _V2 := preload("res://core/systems/negotiation_v2_engine.gd")
 const _V2Display := preload("res://core/systems/negotiation_v2_display.gd")
 const _Transcript := preload("res://core/systems/negotiation_transcript.gd")
+const _Archetypes := preload("res://core/content/negotiation_archetypes.gd")
+const _ChatBubble := preload("res://ui/components/negotiation_chat_bubble.gd")
+
+const DESIGN_SIZE := Vector2(1523, 981)
+const LAYOUT_PATH := "res://assets/ui/negotiation/layout.json"
+
+const _COLOR_TITLE := Color(0.22, 0.12, 0.06, 1.0)
+const _COLOR_ASK := Color(0.72, 0.14, 0.08, 1.0)
+const _COLOR_BODY := Color(0.28, 0.18, 0.1, 1.0)
+const _COLOR_NOTES := Color(0.24, 0.16, 0.1, 1.0)
+const _COLOR_MUTED := Color(0.42, 0.34, 0.24, 1.0)
+const _COLOR_GAUGE_UP := Color(0.18, 0.72, 0.38, 1.0)
+const _COLOR_GAUGE_DOWN := Color(0.82, 0.22, 0.18, 1.0)
+const _COLOR_DISCOUNT_UP := Color(0.12, 0.62, 0.32, 1.0)
+
+const _GAUGE_POP_DURATION := 0.32
+const _GAUGE_HOLD_DURATION := 0.45
+const _GAUGE_MOVE_DURATION := 1.25
+const _DISCOUNT_MIN_DELTA_PCT := 0.45
+const _DISCOUNT_POP_DURATION := 0.28
+const _DISCOUNT_FLOAT_DURATION := 1.35
+
+const _PANEL_NODES: Dictionary = {
+	"HeaderPanel": "header_panel",
+	"PortraitSlot": "portrait_area",
+	"GaugePanel": "gauge_panel",
+	"NameBanner": "name_banner",
+	"ChatBackground": "chat_background",
+	"InputTray": "input_tray",
+	"SendButton": "btn_send",
+	"WalkButton": "btn_walk_away",
+	"CloseDealButton": "btn_close_deal",
+	"NotebookBg": "notebook",
+	"NotebookDivider": "divider",
+	"CrestBottom": "crest_bottom",
+}
+
+const _TEXT_NODES: Dictionary = {
+	"HeaderText": "header_text",
+	"SellerNameLabel": "name_banner",
+	"NotesScroll": "notes_area",
+	"DiligenceScroll": "diligence_area",
+	"StatusLabel": "status_text",
+}
+
+const _DECORATIVE_NODES: Array[String] = [
+	"FrameBg",
+	"HeaderPanel",
+	"HeaderText",
+	"PortraitSlot",
+	"GaugePanel",
+	"NameBanner",
+	"GaugePointer",
+	"ChatBackground",
+	"InputTray",
+	"NotebookBg",
+	"NotebookDivider",
+	"CrestBottom",
+]
+
+const _INSET_NODES: Dictionary = {
+	"ChatScroll": "chat_scroll",
+	"InputField": "input_field",
+}
 
 var _opportunity_id: String = ""
 var _busy: bool = false
+var _layout: Dictionary = {}
+var _backdrop_snapshot: ImageTexture
+var _chat_follow_bottom := true
+var _shown_gauge: float = -1.0
+var _shown_discount_pct: float = -1.0
+var _gauge_delta_label: Label
+var _discount_delta_label: Label
+var _feedback_tween: Tween
+var _gauge_feedback_from: float = 0.0
+var _gauge_feedback_to: float = 0.0
+var _gauge_feedback_v2: Dictionary = {}
+var _gauge_feedback_label: Label
+var _turn_feedback_active := false
 
 
 func _ready() -> void:
+	layer = 128
 	visible = false
-	title = "Negotiate"
-	unresizable = false
-	close_requested.connect(_on_walk)
+	_load_layout()
+	_style_labels()
+	_configure_interaction()
 	%CloseButton.pressed.connect(_on_walk)
 	%SendButton.pressed.connect(_on_send_pressed)
 	%WalkButton.pressed.connect(_on_walk)
@@ -24,9 +102,202 @@ func _ready() -> void:
 	%CopyTranscriptButton.pressed.connect(_on_copy_transcript)
 	%SaveLogButton.pressed.connect(_on_save_log)
 	%MessageInput.text_submitted.connect(_on_text_submitted)
+	%MessageInput.placeholder_text = "Type your offer here"
+	%MessageInput.caret_blink = true
+	var chat_bar: VScrollBar = %ChatScroll.get_v_scroll_bar()
+	if chat_bar:
+		chat_bar.value_changed.connect(_on_chat_scroll_changed)
 	AiClient.health_updated.connect(_on_ai_health_updated)
 	EventBus.negotiation_updated.connect(_on_negotiation_updated)
 	get_tree().root.size_changed.connect(_on_viewport_resized)
+	%CopyTranscriptButton.hide()
+	%SaveLogButton.hide()
+	%CloseButton.hide()
+	_ensure_feedback_labels()
+	set_process_unhandled_input(true)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if event.is_action_pressed("ui_cancel"):
+		_on_walk()
+		get_viewport().set_input_as_handled()
+
+
+func _load_layout() -> void:
+	var file := FileAccess.open(LAYOUT_PATH, FileAccess.READ)
+	if file == null:
+		push_warning("NegotiationPanel: missing layout at %s" % LAYOUT_PATH)
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if parsed is Dictionary:
+		_layout = parsed
+
+
+func _ui_scale() -> float:
+	var root: Control = %Root
+	return clampf(root.size.y / DESIGN_SIZE.y, 0.72, 1.15)
+
+
+func _apply_layouts() -> void:
+	for node_name in _PANEL_NODES.keys():
+		var node: Node = get_node_or_null("Overlay/Root/%s" % node_name)
+		if node is Control:
+			_place_panel(node as Control, str(_PANEL_NODES[node_name]))
+
+	for node_name in _TEXT_NODES.keys():
+		var node: Node = get_node_or_null("Overlay/Root/%s" % node_name)
+		if node is Control:
+			_place_text_area(node as Control, str(_TEXT_NODES[node_name]))
+
+	for node_name in _INSET_NODES.keys():
+		var node: Node = get_node_or_null("Overlay/Root/%s" % node_name)
+		if node is Control:
+			_place_text_area(node as Control, str(_INSET_NODES[node_name]))
+
+	_apply_scaled_fonts()
+	_layout_header_stack()
+	_sync_notebook_scroll_widths()
+
+
+func _configure_interaction() -> void:
+	var root: Control = %Root
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	for node_name in _DECORATIVE_NODES:
+		var node: Node = get_node_or_null("Overlay/Root/%s" % node_name)
+		if node is Control:
+			(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	%ChatScroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	%ChatScroll.z_index = 10
+	for node_name in ["InputField", "SendButton", "WalkButton", "CloseDealButton"]:
+		var node: Node = get_node_or_null("Overlay/Root/%s" % node_name)
+		if node is Control:
+			var ctrl := node as Control
+			ctrl.mouse_filter = Control.MOUSE_FILTER_STOP
+			ctrl.z_index = 20
+	%MessageInput.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func _sync_notebook_scroll_widths() -> void:
+	var pad := int(4 * _ui_scale())
+	if %NotesScroll.size.x > 0.0:
+		%NotesLabel.custom_minimum_size.x = maxf(%NotesScroll.size.x - pad, 1.0)
+	if %DiligenceScroll.size.x > 0.0:
+		%DiligenceLabel.custom_minimum_size.x = maxf(%DiligenceScroll.size.x - pad, 1.0)
+
+
+func _layout_header_stack() -> void:
+	var bounds := _design_bounds("header_text")
+	if bounds == Vector4.ZERO:
+		return
+	var inset := _inset_for("header_text")
+	var design_w := (bounds.z - inset.z) - (bounds.x + inset.x)
+	if design_w <= 0.0:
+		return
+	var root: Control = %Root
+	var px_w := design_w * (root.size.x / DESIGN_SIZE.x)
+	%HeaderStack.custom_minimum_size = Vector2(px_w, 0.0)
+	%HeaderLabel.custom_minimum_size = Vector2(px_w, 0.0)
+	%AskLabel.custom_minimum_size = Vector2(px_w, 0.0)
+	%DiscountLabel.custom_minimum_size = Vector2(px_w, 0.0)
+
+
+func _design_bounds(layout_key: String) -> Vector4:
+	var entry: Dictionary = _layout.get(layout_key, {})
+	var rect: Array = entry.get("rect", [0, 0, 0, 0])
+	if rect.size() < 4:
+		return Vector4.ZERO
+	return Vector4(float(rect[0]), float(rect[1]), float(rect[2]), float(rect[3]))
+
+
+func _inset_for(layout_key: String) -> Vector4:
+	var entry: Dictionary = _layout.get(layout_key, {})
+	var inset: Array = entry.get("inset", [0, 0, 0, 0])
+	if inset.size() < 4:
+		return Vector4.ZERO
+	return Vector4(float(inset[0]), float(inset[1]), float(inset[2]), float(inset[3]))
+
+
+func _place_panel(node: Control, layout_key: String) -> void:
+	var bounds := _design_bounds(layout_key)
+	if bounds == Vector4.ZERO:
+		return
+	node.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	node.anchor_left = bounds.x / DESIGN_SIZE.x
+	node.anchor_top = bounds.y / DESIGN_SIZE.y
+	node.anchor_right = bounds.z / DESIGN_SIZE.x
+	node.anchor_bottom = bounds.w / DESIGN_SIZE.y
+	node.offset_left = 0.0
+	node.offset_top = 0.0
+	node.offset_right = 0.0
+	node.offset_bottom = 0.0
+	if node is TextureRect:
+		var tex := node as TextureRect
+		tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tex.stretch_mode = TextureRect.STRETCH_SCALE
+	elif node is TextureButton:
+		var btn := node as TextureButton
+		btn.ignore_texture_size = true
+		btn.stretch_mode = TextureButton.STRETCH_SCALE
+
+
+func _place_text_area(node: Control, layout_key: String) -> void:
+	var bounds := _design_bounds(layout_key)
+	if bounds == Vector4.ZERO:
+		return
+	var inset := _inset_for(layout_key)
+	var left := bounds.x + inset.x
+	var top := bounds.y + inset.y
+	var right := bounds.z - inset.z
+	var bottom := bounds.w - inset.w
+	node.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	node.anchor_left = left / DESIGN_SIZE.x
+	node.anchor_top = top / DESIGN_SIZE.y
+	node.anchor_right = right / DESIGN_SIZE.x
+	node.anchor_bottom = bottom / DESIGN_SIZE.y
+	node.offset_left = 0.0
+	node.offset_top = 0.0
+	node.offset_right = 0.0
+	node.offset_bottom = 0.0
+
+
+func _apply_scaled_fonts() -> void:
+	var s := _ui_scale()
+	%HeaderLabel.add_theme_font_size_override("font_size", int(20 * s))
+	%AskLabel.add_theme_font_size_override("font_size", int(24 * s))
+	%DiscountLabel.add_theme_font_size_override("font_size", int(13 * s))
+	%SellerNameLabel.add_theme_font_size_override("font_size", int(18 * s))
+	%NotesLabel.add_theme_font_size_override("font_size", int(12 * s))
+	%DiligenceLabel.add_theme_font_size_override("font_size", int(12 * s))
+	%StatusLabel.add_theme_font_size_override("font_size", int(11 * s))
+	%PortraitPlaceholder.add_theme_font_size_override("font_size", int(14 * s))
+	%MessageInput.add_theme_font_size_override("font_size", int(15 * s))
+	%HeaderStack.add_theme_constant_override("separation", int(3 * s))
+	_style_feedback_labels()
+
+
+func _style_labels() -> void:
+	%HeaderLabel.add_theme_color_override("font_color", _COLOR_TITLE)
+	%AskLabel.add_theme_color_override("font_color", _COLOR_ASK)
+	%DiscountLabel.add_theme_color_override("font_color", _COLOR_BODY)
+	%SellerNameLabel.add_theme_color_override("font_color", Color(0.98, 0.95, 0.9, 1.0))
+	%NotesLabel.add_theme_color_override("font_color", _COLOR_NOTES)
+	%DiligenceLabel.add_theme_color_override("font_color", _COLOR_NOTES)
+	%StatusLabel.add_theme_color_override("font_color", _COLOR_MUTED)
+	%PortraitPlaceholder.add_theme_color_override("font_color", _COLOR_MUTED)
+	%HeaderLabel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	%HeaderLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	%AskLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	%DiscountLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	%HeaderStack.alignment = BoxContainer.ALIGNMENT_CENTER
+	%NotesLabel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	%DiligenceLabel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	%StatusLabel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	%StatusLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	%SellerNameLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	%SellerNameLabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_apply_scaled_fonts()
 
 
 func _on_viewport_resized() -> void:
@@ -52,115 +323,553 @@ func open_active() -> void:
 
 func _open_session() -> void:
 	AiClient.begin_negotiation_session(Game.state)
+	_chat_follow_bottom = true
+	_shown_gauge = -1.0
+	_shown_discount_pct = -1.0
+	_stop_feedback_tween()
 	_fit_to_viewport()
-	popup_centered()
+	await _capture_backdrop()
+	show()
 	_refresh()
+	_set_input_enabled(not _busy)
+	call_deferred("_focus_message_input")
 	_Transcript.save_to_user_file(Game.state.negotiation)
 
 
+func _focus_message_input() -> void:
+	if not visible or _busy or not %MessageInput.editable:
+		return
+	%MessageInput.grab_focus()
+	%MessageInput.caret_column = %MessageInput.text.length()
+
+
+func _capture_backdrop() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var vp_tex: ViewportTexture = get_viewport().get_texture()
+	if vp_tex == null:
+		return
+	var img: Image = vp_tex.get_image()
+	if img == null or img.is_empty():
+		return
+	_backdrop_snapshot = ImageTexture.create_from_image(img)
+	%BackdropImage.texture = _backdrop_snapshot
+	var mat: Material = %BackdropImage.material
+	if mat is ShaderMaterial:
+		(mat as ShaderMaterial).set_shader_parameter("snap_texture", _backdrop_snapshot)
+
+
 func _fit_to_viewport() -> void:
+	var overlay: Control = $Overlay
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	var margin := 32
-	max_size = Vector2i(int(vp_size.x - margin), int(vp_size.y - margin))
-	var target_w := clampi(int(vp_size.x * 0.82), min_size.x, max_size.x)
-	var target_h := clampi(int(vp_size.y * 0.82), min_size.y, max_size.y)
-	size = Vector2i(target_w, target_h)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.set_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE)
+	overlay.size = vp_size
+
+	var pad := 48.0
+	var avail := Vector2(
+		maxi(vp_size.x - pad * 2.0, 640.0),
+		maxi(vp_size.y - pad * 2.0, 460.0),
+	)
+	var aspect := DESIGN_SIZE.x / DESIGN_SIZE.y
+	var target_w := avail.x
+	var target_h := target_w / aspect
+	if target_h > avail.y:
+		target_h = avail.y
+		target_w = target_h * aspect
+
+	var root: Control = %Root
+	root.set_anchors_preset(Control.PRESET_CENTER)
+	root.offset_left = -target_w * 0.5
+	root.offset_top = -target_h * 0.5
+	root.offset_right = target_w * 0.5
+	root.offset_bottom = target_h * 0.5
+	root.custom_minimum_size = Vector2(target_w, target_h)
+	_apply_layouts()
 
 
-func _refresh() -> void:
+func _refresh(animate_turn: bool = false) -> void:
 	var neg: Dictionary = Game.state.negotiation if Game.state else {}
 	if neg.is_empty():
 		return
 
 	var ctx: Dictionary = neg.get("context", {})
 	var v2: Dictionary = neg.get("v2", {})
+	var cp: Dictionary = neg.get("counterparty", {})
 
-	%HeaderLabel.text = str(ctx.get("name", "Listing"))
-	%MetaLabel.text = "Ask %s · Round %d/%d" % [
-		MathUtil.fmt_money(int(ctx.get("price", 0))),
-		int(neg.get("round", 0)),
-		int(neg.get("maxRounds", 6)),
-	]
-	_update_gauge_bar(neg)
+	var listing_name := str(ctx.get("name", "")).strip_edges()
+	if listing_name.is_empty():
+		var opp: Dictionary = ctx.get("opp", {}) if typeof(ctx.get("opp")) == TYPE_DICTIONARY else {}
+		listing_name = str(opp.get("name", "")).strip_edges()
+	if listing_name.is_empty():
+		listing_name = "Listing"
+	%HeaderLabel.text = listing_name
+	call_deferred("_layout_header_stack")
+	_update_seller_name(cp)
 	_update_context_summary(neg)
+	_update_rival_ui(neg)
+	_update_notebook(neg)
+	await _update_chat(neg)
 
-	var is_contest := str(neg.get("kind", "")) == "rival_contest"
-	title = "Three-Way Contest" if is_contest else "Negotiate"
-	if is_contest:
-		var rival_raw: Variant = neg.get("rival")
-		var rival: Dictionary = rival_raw if rival_raw is Dictionary else {}
-		var rname := _Rival.display_name(rival)
-		var rival_offer: Dictionary = _Rival._offer_dict(neg, "rivalLastOffer")
-		var rbid: int = int(rival_offer.get("totalPrice", 0))
-		var player_offer: Dictionary = _Rival._offer_dict(neg, "playerLastOffer")
-		var pbid: int = int(player_offer.get("totalPrice", 0))
-		var lead := str(neg.get("leadingBidder", ""))
-		var lead_text := ""
-		if lead == "player":
-			lead_text = " · You lead"
-		elif lead == "rival":
-			lead_text = " · %s leads" % rname
-		var rival_line := "%s: conceded" % rname if bool(neg.get("rivalConceded", false)) else "%s bid: %s" % [rname, MathUtil.fmt_money(rbid)]
-		%RivalBarLabel.text = "%s %s%s · Round %d/%d" % [
-			rival_line,
-			(" · Your bid: %s" % MathUtil.fmt_money(pbid)) if pbid > 0 else "",
-			lead_text,
-			int(neg.get("round", 0)),
-			int(neg.get("maxRounds", 8)),
-		]
-		%CompareLabel.text = _Rival.package_comparison_text(neg)
-		%RivalBarLabel.show()
-		%CompareLabel.show()
+	var gauge_delta := 0
+	var gauge_from := 0.0
+	var gauge_to := 0.0
+	var discount_delta_pct := 0.0
+	var base_discount_pct := -1.0
+	if not v2.is_empty():
+		gauge_delta = int(v2.get("gaugeDelta", 0))
+		gauge_to = clampf(float(v2.get("gauge", 0)), 0.0, 100.0)
+		gauge_from = clampf(float(v2.get("previousGauge", gauge_to)), 0.0, 100.0)
+		if _shown_gauge >= 0.0:
+			gauge_from = _shown_gauge
+		var new_discount_pct := float(v2.get("unlockedDiscount", 0.0)) * 100.0
+		base_discount_pct = _shown_discount_pct if _shown_discount_pct >= 0.0 else new_discount_pct
+		discount_delta_pct = new_discount_pct - base_discount_pct
+
+	var play_gauge := animate_turn and gauge_delta != 0 and not v2.is_empty()
+	var play_discount := animate_turn and discount_delta_pct >= _DISCOUNT_MIN_DELTA_PCT and not v2.is_empty()
+
+	if play_discount and _shown_discount_pct >= 0.0:
+		_update_price_labels(ctx, v2, base_discount_pct)
 	else:
-		%RivalBarLabel.text = ""
-		%CompareLabel.text = ""
-		%RivalBarLabel.hide()
-		%CompareLabel.hide()
+		_update_price_labels(ctx, v2)
 
-	_update_intel_panel(neg)
+	if play_gauge:
+		_turn_feedback_active = true
+		_set_gauge_pointer(gauge_from, v2)
+		await _play_gauge_feedback(gauge_from, gauge_to, gauge_delta, v2)
+		_turn_feedback_active = false
+	elif not v2.is_empty():
+		_update_gauge(neg)
+	else:
+		%GaugePointer.hide()
+
+	if play_discount:
+		_turn_feedback_active = true
+		await _play_discount_feedback(discount_delta_pct, ctx, v2)
+		_turn_feedback_active = false
+		_update_price_labels(ctx, v2)
+
+	if not v2.is_empty():
+		_shown_gauge = gauge_to
+		_shown_discount_pct = float(v2.get("unlockedDiscount", 0.0)) * 100.0
 
 	var ai_text := _update_ai_status(neg)
 	%AiStatusLabel.visible = not ai_text.is_empty()
 
-	%MessagesEdit.text = _Transcript.build_messages(neg)
-	%MessagesEdit.set_caret_line(maxi(0, %MessagesEdit.get_line_count() - 1))
-
 	var last_decision: String = str(neg.get("lastDecision", ""))
-	var utility: float = float(neg.get("lastUtility", 0.0))
 	if _busy:
-		%StatusLabel.text = "Waiting for AI reply…"
+		%StatusLabel.text = "Waiting for reply…"
 	elif bool(neg.get("readyToClose", false)):
 		var pending: Dictionary = neg.get("pendingOffer", neg.get("playerLastOffer", {}))
 		var close_total: int = int(pending.get("totalPrice", 0))
 		if close_total > 0:
-			%StatusLabel.text = "Ready to close at %s — click Close Deal." % MathUtil.fmt_money(close_total)
+			%StatusLabel.text = "Ready to close at %s" % MathUtil.fmt_money(close_total)
 		else:
-			%StatusLabel.text = "Both gates passed — click Close Deal to finalize."
+			%StatusLabel.text = "Both gates passed — click Close Deal."
 	elif not v2.is_empty():
 		var display: Dictionary = _V2.gauge_display(v2)
-		%StatusLabel.text = "Last response: %s · %s" % [last_decision if last_decision != "" else "—", display.get("zoneHint", "")]
+		%StatusLabel.text = "%s · %s" % [
+			last_decision if last_decision != "" else "—",
+			display.get("zoneHint", ""),
+		]
 	elif last_decision != "":
-		%StatusLabel.text = "Last response: %s (utility %.1f)" % [last_decision, utility]
+		%StatusLabel.text = "Last response: %s" % last_decision
 	else:
-		%StatusLabel.text = "Type your offer · Use Copy debug log / Save log to export full session data."
+		%StatusLabel.text = ""
 
 	var ready := bool(neg.get("readyToClose", false))
-	%CloseDealButton.visible = ready
+	%CloseDealButton.visible = true
 	%CloseDealButton.disabled = _busy or not ready
+	%CloseDealButton.modulate = Color(1, 1, 1, 1.0 if ready else 0.55)
 	_set_input_enabled(not _busy)
-	_sync_scroll_content_widths()
-	_scroll_messages_to_bottom()
 
 
-func _sync_scroll_content_widths() -> void:
-	var intel_w := maxi(%IntelScroll.size.x - 12, 200)
-	%IntelLabel.custom_minimum_size.x = intel_w
+func _update_price_labels(ctx: Dictionary, v2: Dictionary, discount_pct_override: float = -1.0) -> void:
+	var ask: int = int(ctx.get("price", 0))
+	%AskLabel.text = "Ask %s" % MathUtil.fmt_money(ask)
+	if v2.is_empty():
+		%DiscountLabel.text = ""
+		return
+	var discount_pct: float = discount_pct_override if discount_pct_override >= 0.0 else float(v2.get("unlockedDiscount", 0.0)) * 100.0
+	var acceptable: int = int(v2.get("acceptableValue", ask))
+	if discount_pct_override >= 0.0:
+		acceptable = maxi(int(v2.get("hardFloor", 0)), int(round(float(ask) * (1.0 - discount_pct / 100.0))))
+	if discount_pct <= 0.05:
+		%DiscountLabel.text = "No discount unlocked yet"
+	else:
+		var savings: int = maxi(0, ask - acceptable)
+		%DiscountLabel.text = "Unlocked %.0f%% — %s" % [discount_pct, MathUtil.fmt_money(savings)]
 
 
-func _scroll_messages_to_bottom() -> void:
+func _update_seller_name(cp: Dictionary) -> void:
+	var name := str(cp.get("npcName", "")).strip_edges()
+	if name.is_empty():
+		var arch: Dictionary = _Archetypes.get_archetype(str(cp.get("archetypeId", "")))
+		name = str(arch.get("name", "Seller"))
+	%SellerNameLabel.text = name
+
+
+func _update_gauge(neg: Dictionary) -> void:
+	var v2: Dictionary = neg.get("v2", {})
+	if v2.is_empty():
+		%GaugePointer.hide()
+		return
+	%GaugePointer.show()
+	var gauge: float = clampf(float(_V2.gauge_display(v2).get("gauge", 0)), 0.0, 100.0)
+	_set_gauge_pointer(gauge, v2)
+
+
+func _gauge_track_anchors() -> Vector4:
+	var track: Dictionary = _layout.get("gauge_track", {"rect": [60, 780, 450, 820]})
+	var track_rect: Array = track["rect"]
+	return Vector4(
+		float(track_rect[0]) / DESIGN_SIZE.x,
+		float(track_rect[1]) / DESIGN_SIZE.y,
+		float(track_rect[2]) / DESIGN_SIZE.x,
+		float(track_rect[3]) / DESIGN_SIZE.y,
+	)
+
+
+func _set_gauge_pointer(gauge: float, v2: Dictionary = {}) -> void:
+	var track := _gauge_track_anchors()
+	var pointer: Control = %GaugePointer
+	var t: float = clampf(gauge, 0.0, 100.0) / 100.0
+	pointer.show()
+	pointer.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	pointer.anchor_left = lerpf(track.x, track.z, t)
+	pointer.anchor_right = pointer.anchor_left
+	pointer.anchor_top = track.y
+	pointer.anchor_bottom = track.w
+	pointer.offset_left = -13.0 * _ui_scale()
+	pointer.offset_right = 13.0 * _ui_scale()
+	pointer.offset_top = -6.0 * _ui_scale()
+	pointer.offset_bottom = 38.0 * _ui_scale()
+	if not v2.is_empty():
+		var display: Dictionary = _V2.gauge_display(v2)
+		pointer.tooltip_text = "%s — %s" % [display.get("zoneLabel", ""), display.get("zoneHint", "")]
+
+
+func _position_gauge_floater(gauge: float) -> void:
+	var track := _gauge_track_anchors()
+	var label := _gauge_delta_label
+	var t: float = clampf(gauge, 0.0, 100.0) / 100.0
+	var anchor_x := lerpf(track.x, track.z, t)
+	label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	label.anchor_left = anchor_x
+	label.anchor_right = anchor_x
+	label.anchor_top = track.y
+	label.anchor_bottom = track.y
+	var half_w := 44.0 * _ui_scale()
+	label.offset_left = -half_w
+	label.offset_right = half_w
+	label.offset_top = -42.0 * _ui_scale()
+	label.offset_bottom = -10.0 * _ui_scale()
+
+
+func _ensure_feedback_labels() -> void:
+	var root: Control = %Root
+	if _gauge_delta_label == null:
+		_gauge_delta_label = Label.new()
+		_gauge_delta_label.name = "GaugeDeltaFloater"
+		_gauge_delta_label.z_index = 6
+		_gauge_delta_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_gauge_delta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_gauge_delta_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		root.add_child(_gauge_delta_label)
+	if _discount_delta_label == null:
+		_discount_delta_label = Label.new()
+		_discount_delta_label.name = "DiscountDeltaFloater"
+		_discount_delta_label.z_index = 6
+		_discount_delta_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_discount_delta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		root.add_child(_discount_delta_label)
+	_style_feedback_labels()
+
+
+func _style_feedback_labels() -> void:
+	var s := _ui_scale()
+	if _gauge_delta_label:
+		_gauge_delta_label.add_theme_font_size_override("font_size", int(28 * s))
+		_gauge_delta_label.add_theme_constant_override("outline_size", int(3 * s))
+		_gauge_delta_label.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.85))
+	if _discount_delta_label:
+		_discount_delta_label.add_theme_font_size_override("font_size", int(16 * s))
+		_discount_delta_label.add_theme_constant_override("outline_size", int(2 * s))
+		_discount_delta_label.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.8))
+
+
+func _stop_feedback_tween() -> void:
+	if _feedback_tween and _feedback_tween.is_valid():
+		_feedback_tween.kill()
+	_feedback_tween = null
+	if _gauge_delta_label:
+		_gauge_delta_label.visible = false
+	if _discount_delta_label:
+		_discount_delta_label.visible = false
+	%DiscountLabel.scale = Vector2.ONE
+	%DiscountLabel.modulate = Color.WHITE
+	%GaugePointer.scale = Vector2.ONE
+
+
+func _play_gauge_feedback(from_gauge: float, to_gauge: float, delta: int, v2: Dictionary) -> void:
+	_stop_feedback_tween()
+	_style_feedback_labels()
+	_gauge_feedback_from = from_gauge
+	_gauge_feedback_to = to_gauge
+	_gauge_feedback_v2 = v2
+	var label := _gauge_delta_label
+	_gauge_feedback_label = label
+	var sign := "+" if delta > 0 else ""
+	label.text = "%s%d" % [sign, delta]
+	label.modulate = _COLOR_GAUGE_UP if delta > 0 else _COLOR_GAUGE_DOWN
+	label.modulate.a = 0.0
+	label.scale = Vector2(0.45, 0.45)
+	label.reset_size()
+	_set_gauge_pointer(from_gauge, v2)
+	_position_gauge_floater(from_gauge)
+	label.visible = true
+	label.pivot_offset = label.size * 0.5
+
+	_feedback_tween = create_tween()
+	_feedback_tween.tween_property(label, "scale", Vector2(1.15, 1.15), _GAUGE_POP_DURATION)\
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_feedback_tween.parallel().tween_property(label, "modulate:a", 1.0, _GAUGE_POP_DURATION * 0.6)
+	_feedback_tween.tween_interval(_GAUGE_HOLD_DURATION)
+	_feedback_tween.tween_callback(func() -> void:
+		_set_gauge_pointer(from_gauge, v2)
+		%GaugePointer.scale = Vector2(1.12, 1.12)
+	)
+	_feedback_tween.tween_method(_gauge_move_tick, 0.0, 1.0, _GAUGE_MOVE_DURATION)\
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_feedback_tween.tween_callback(func() -> void:
+		_set_gauge_pointer(to_gauge, v2)
+		%GaugePointer.scale = Vector2.ONE
+	)
+	await _feedback_tween.finished
+	label.visible = false
+
+
+func _gauge_move_tick(progress: float) -> void:
+	var gauge := lerpf(_gauge_feedback_from, _gauge_feedback_to, progress)
+	_set_gauge_pointer(gauge, _gauge_feedback_v2)
+	_position_gauge_floater(gauge)
+	var pointer: Control = %GaugePointer
+	var pulse := 1.0 + sin(progress * PI) * 0.14
+	pointer.scale = Vector2(pulse, pulse)
+	if _gauge_feedback_label and progress > 0.4:
+		_gauge_feedback_label.modulate.a = lerpf(1.0, 0.0, (progress - 0.4) / 0.6)
+
+
+func _play_discount_feedback(delta_pct: float, ctx: Dictionary, v2: Dictionary) -> void:
+	var ask: int = int(ctx.get("price", 0))
+	var acceptable: int = int(v2.get("acceptableValue", ask))
+	var savings_delta: int = maxi(0, int(round(float(ask) * delta_pct / 100.0)))
+	var label := _discount_delta_label
+	_style_feedback_labels()
+	label.text = "+%.0f%% unlocked" % delta_pct if savings_delta <= 0 else "+%.0f%% · %s" % [delta_pct, MathUtil.fmt_money(savings_delta)]
+	label.modulate = _COLOR_DISCOUNT_UP
+	label.modulate.a = 0.0
+	label.scale = Vector2(0.55, 0.55)
+	label.visible = true
+	label.reset_size()
+
+	var dl := %DiscountLabel
+	dl.pivot_offset = dl.size * 0.5
+
 	await get_tree().process_frame
-	%MessagesEdit.set_caret_line(maxi(0, %MessagesEdit.get_line_count() - 1))
-	%MessagesEdit.scroll_vertical = int(%MessagesEdit.get_v_scroll_bar().max_value) if %MessagesEdit.get_v_scroll_bar() else 0
+	var anchor: Vector2 = dl.get_global_rect().get_center()
+	label.global_position = anchor + Vector2(-label.size.x * 0.5, -28.0 * _ui_scale())
+
+	_feedback_tween = create_tween()
+	_feedback_tween.set_parallel(true)
+	_feedback_tween.tween_property(label, "scale", Vector2(1.1, 1.1), _DISCOUNT_POP_DURATION)\
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_feedback_tween.tween_property(label, "modulate:a", 1.0, _DISCOUNT_POP_DURATION * 0.7)
+	_feedback_tween.tween_property(label, "global_position:y", label.global_position.y - 28.0 * _ui_scale(), _DISCOUNT_FLOAT_DURATION)\
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_feedback_tween.tween_property(label, "modulate:a", 0.0, 0.45).set_delay(_DISCOUNT_FLOAT_DURATION * 0.55)
+	_feedback_tween.parallel().tween_property(dl, "scale", Vector2(1.08, 1.08), 0.22).set_delay(0.12)
+	_feedback_tween.parallel().tween_property(dl, "modulate", Color(1.15, 1.1, 0.95), 0.22).set_delay(0.12)
+	await _feedback_tween.finished
+	label.visible = false
+	dl.scale = Vector2.ONE
+	dl.modulate = Color.WHITE
+	_update_price_labels(ctx, v2)
+
+
+func _update_chat(neg: Dictionary) -> void:
+	var follow_bottom := _chat_follow_bottom
+	var box: VBoxContainer = %ChatMessages
+	for child in box.get_children():
+		child.queue_free()
+
+	await get_tree().process_frame
+	var scroll_w := maxf(%ChatScroll.size.x, 220.0)
+	box.custom_minimum_size.x = scroll_w
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", int(6 * _ui_scale()))
+	var bubble_scale := _ui_scale()
+	for msg_variant in neg.get("messages", []):
+		if typeof(msg_variant) != TYPE_DICTIONARY:
+			continue
+		var msg: Dictionary = msg_variant
+		var text := str(msg.get("text", "")).strip_edges()
+		if text.is_empty():
+			continue
+		var role := str(msg.get("role", msg.get("speaker", ""))).to_lower()
+		var kind: int = _ChatBubble.kind_from_role(role)
+		box.add_child(_ChatBubble.create(text, kind, scroll_w, bubble_scale))
+
+	if follow_bottom:
+		call_deferred("_scroll_chat_to_bottom")
+
+
+func _scroll_chat_to_bottom() -> void:
+	var scroll: ScrollContainer = %ChatScroll
+	var bar: VScrollBar = scroll.get_v_scroll_bar()
+	if bar:
+		scroll.scroll_vertical = int(bar.max_value)
+	_chat_follow_bottom = true
+
+
+func _chat_is_at_bottom(threshold: float = 16.0) -> bool:
+	var bar: VScrollBar = %ChatScroll.get_v_scroll_bar()
+	if bar == null:
+		return true
+	return bar.max_value <= 0.0 or bar.value >= bar.max_value - threshold
+
+
+func _on_chat_scroll_changed() -> void:
+	_chat_follow_bottom = _chat_is_at_bottom()
+
+
+func _format_notes(neg: Dictionary) -> String:
+	var cp: Dictionary = neg.get("counterparty", {})
+	var v2: Dictionary = neg.get("v2", {})
+	var species_id := str(v2.get("speciesId", cp.get("speciesId", "")))
+	var species_label := species_id.capitalize() if not species_id.is_empty() else "—"
+
+	var likes := "—"
+	var avoid := "—"
+	var offer := "—"
+	match species_id:
+		"pig":
+			likes = "Deal structure, earn-outs, upside participation"
+			avoid = "Pure price haggling without structure"
+		"donkey":
+			likes = "Evidence, warranties, verified numbers"
+			avoid = "Pressure without proof"
+		"hen":
+			likes = "Cash timing, certainty, fast close"
+			avoid = "Vague financing without dates"
+		"horse":
+			likes = "Employee retention, continuity, legacy"
+			avoid = "Dismissive treatment of staff"
+		"goat":
+			likes = "Complete packages with concrete terms"
+			avoid = "Price-only offers"
+		"sheep":
+			likes = "Reputation, fair dealing, references"
+			avoid = "Transactional lowballing"
+		_:
+			likes = "Serious terms aligned to their situation"
+
+	if not v2.is_empty():
+		offer = _V2Display.format_progress_panel(
+			v2,
+			cp,
+			bool(neg.get("readyToClose", false)),
+			_get_v2_preview(neg),
+		).get("coachLine", "Lead with species-aligned terms, then price.")
+
+	return "Species: %s\nLikes: %s\nAvoid: %s\nOffer: %s" % [species_label, likes, avoid, offer]
+
+
+func _format_diligence(neg: Dictionary) -> String:
+	if not bool(neg.get("intelUnlocked", false)):
+		return "Investigate this listing (1 AP) before negotiating to reveal seller leverage, floor, and unlock phrases."
+
+	var cp: Dictionary = neg.get("counterparty", {})
+	var asking: int = int(neg.get("context", {}).get("price", 0))
+	var ctx: Dictionary = neg.get("context", {})
+	var opp: Dictionary = ctx.get("opp", {}) if typeof(ctx.get("opp")) == TYPE_DICTIONARY else {}
+	var rng := SeededRng.new(Game.state.run_seed + asking + Game.state.turn) if Game.state else SeededRng.new(asking)
+
+	var lines: PackedStringArray = []
+	var seller_name := str(cp.get("npcName", "")).strip_edges()
+	if seller_name.is_empty():
+		seller_name = _update_seller_name_text(cp)
+	lines.append(seller_name)
+
+	var v2: Dictionary = neg.get("v2", {})
+	var situation := str(v2.get("situationLabel", "")).strip_edges()
+	if not situation.is_empty():
+		lines.append(situation)
+
+	var preview_raw: Variant = opp.get("v2Preview")
+	if preview_raw is Dictionary and not (preview_raw as Dictionary).is_empty():
+		var keywords: Array = (preview_raw as Dictionary).get("keywords", [])
+		if not keywords.is_empty():
+			lines.append("Phrases to unlock leverage:")
+			for kw in keywords:
+				lines.append("• \"%s\"" % str(kw))
+
+	var diligence_text := _Diligence.seller_diligence_block_text(asking, cp, rng)
+	for line in diligence_text.split("\n"):
+		var trimmed := line.strip_edges()
+		if trimmed.is_empty() or trimmed == "SELLER DILIGENCE":
+			continue
+		lines.append(trimmed.replace("Hidden leverage: ", "Hidden leverage — "))
+
+	return "\n".join(lines)
+
+
+func _update_seller_name_text(cp: Dictionary) -> String:
+	var name := str(cp.get("npcName", "")).strip_edges()
+	if name.is_empty():
+		var arch: Dictionary = _Archetypes.get_archetype(str(cp.get("archetypeId", "")))
+		name = str(arch.get("name", "Seller"))
+	return name
+
+
+func _update_notebook(neg: Dictionary) -> void:
+	%NotesLabel.text = _format_notes(neg)
+	%DiligenceLabel.text = _format_diligence(neg)
+	var unlocked := bool(neg.get("intelUnlocked", false))
+	%DiligenceLabel.modulate = Color.WHITE if unlocked else Color(0.72, 0.68, 0.62, 1.0)
+	call_deferred("_sync_notebook_scroll_widths")
+
+
+func _update_rival_ui(neg: Dictionary) -> void:
+	var is_contest := str(neg.get("kind", "")) == "rival_contest"
+	if not is_contest:
+		%RivalBarLabel.hide()
+		%CompareLabel.hide()
+		return
+	var rival_raw: Variant = neg.get("rival")
+	var rival: Dictionary = rival_raw if rival_raw is Dictionary else {}
+	var rname := _Rival.display_name(rival)
+	var rival_offer: Dictionary = _Rival._offer_dict(neg, "rivalLastOffer")
+	var rbid: int = int(rival_offer.get("totalPrice", 0))
+	var player_offer: Dictionary = _Rival._offer_dict(neg, "playerLastOffer")
+	var pbid: int = int(player_offer.get("totalPrice", 0))
+	var lead := str(neg.get("leadingBidder", ""))
+	var lead_text := ""
+	if lead == "player":
+		lead_text = " · You lead"
+	elif lead == "rival":
+		lead_text = " · %s leads" % rname
+	var rival_line := "%s conceded" % rname if bool(neg.get("rivalConceded", false)) else "%s bid: %s" % [rname, MathUtil.fmt_money(rbid)]
+	%RivalBarLabel.text = "%s%s · Your bid: %s%s" % [
+		rival_line,
+		(" · Round %d/%d" % [int(neg.get("round", 0)), int(neg.get("maxRounds", 8))]),
+		MathUtil.fmt_money(pbid) if pbid > 0 else "—",
+		lead_text,
+	]
+	%CompareLabel.text = _Rival.package_comparison_text(neg)
+	%RivalBarLabel.show()
+	%CompareLabel.show()
 
 
 func _update_context_summary(neg: Dictionary) -> void:
@@ -170,11 +879,8 @@ func _update_context_summary(neg: Dictionary) -> void:
 		neg.get("counterparty", {}),
 		str(neg.get("economicStatusHint", "")),
 	)
-	if not bool(summary.get("visible", false)):
-		%ContextSummaryLabel.hide()
-	else:
-		%ContextSummaryLabel.show()
-		%ContextSummaryLabel.text = str(summary.get("summaryLine", ""))
+	%ContextSummaryLabel.hide()
+	%ContextSummaryLabel.text = str(summary.get("summaryLine", ""))
 
 	var coach := ""
 	if not v2.is_empty():
@@ -185,8 +891,8 @@ func _update_context_summary(neg: Dictionary) -> void:
 			_get_v2_preview(neg),
 		)
 		coach = str(panel.get("coachLine", ""))
+	%CoachTipLabel.hide()
 	%CoachTipLabel.text = coach
-	%CoachTipLabel.visible = not coach.is_empty()
 
 
 func _get_v2_preview(neg: Dictionary) -> Dictionary:
@@ -199,53 +905,13 @@ func _get_v2_preview(neg: Dictionary) -> Dictionary:
 	return {}
 
 
-func _update_gauge_bar(neg: Dictionary) -> void:
-	var v2: Dictionary = neg.get("v2", {})
-	if v2.is_empty():
-		%GaugeBar.hide()
-		return
-	%GaugeBar.show()
-	var display: Dictionary = _V2.gauge_display(v2)
-	%GaugeBar.value = int(display.get("gauge", 0))
-	var zone_id: String = str(display.get("zoneId", ""))
-	match zone_id:
-		"collapsing":
-			%GaugeBar.modulate = Color(0.85, 0.35, 0.35)
-		"resistant":
-			%GaugeBar.modulate = Color(0.9, 0.55, 0.35)
-		"listening":
-			%GaugeBar.modulate = Color(0.85, 0.8, 0.45)
-		"close":
-			%GaugeBar.modulate = Color(0.55, 0.75, 0.55)
-		"ready":
-			%GaugeBar.modulate = Color(0.4, 0.85, 0.5)
-		_:
-			%GaugeBar.modulate = Color.WHITE
-
-
-func _update_intel_panel(neg: Dictionary) -> void:
-	var intel_text := _Diligence.format_intel_panel(neg, Game.state)
-	%IntelLabel.text = intel_text
-	var unlocked := bool(neg.get("intelUnlocked", false))
-	if unlocked:
-		%IntelLabel.add_theme_color_override("font_color", Color(0.78, 0.92, 0.82))
-	else:
-		%IntelLabel.add_theme_color_override("font_color", Color(0.72, 0.68, 0.58))
-	%IntelScroll.visible = not intel_text.is_empty()
-
-
 func _update_ai_status(neg: Dictionary) -> String:
 	var st: Dictionary = AiClient.status_label(neg)
 	var status_text: String = str(st.get("text", ""))
 	if str(neg.get("aiStatus", "")) == "offline":
-		status_text += "\nRun: npm start  ·  Ollama running  ·  http://127.0.0.1:8787/health"
+		status_text += "\nRun: npm start · Ollama · http://127.0.0.1:8787/health"
 	%AiStatusLabel.text = status_text
-	if bool(st.get("online", false)):
-		%AiStatusLabel.add_theme_color_override("font_color", Color(0.35, 0.6, 0.35))
-	elif str(neg.get("aiStatus", "")) == "checking":
-		%AiStatusLabel.add_theme_color_override("font_color", Color(0.5, 0.55, 0.45))
-	else:
-		%AiStatusLabel.add_theme_color_override("font_color", Color(0.65, 0.45, 0.35))
+	%AiStatusLabel.visible = not status_text.is_empty()
 	return status_text
 
 
@@ -256,7 +922,7 @@ func _on_ai_health_updated(_available: bool, _model: String) -> void:
 
 
 func _on_negotiation_updated(_state: RunState = null) -> void:
-	if _opportunity_id.is_empty():
+	if _opportunity_id.is_empty() or _turn_feedback_active:
 		return
 	_refresh()
 
@@ -302,7 +968,7 @@ func _send_message(text: String) -> void:
 
 	_busy = true
 	_set_input_enabled(false)
-	%StatusLabel.text = "Waiting for AI reply…"
+	%StatusLabel.text = "Waiting for reply…"
 	%MessageInput.text = ""
 
 	Game.send_negotiation_message_async(trimmed, _on_negotiation_result)
@@ -313,16 +979,16 @@ func _on_negotiation_result(result: Dictionary) -> void:
 
 	if not bool(result.get("ok", false)):
 		%StatusLabel.text = str(result.get("error", "Send failed"))
-		_refresh()
+		_refresh(false)
 		return
 
 	if bool(result.get("ready_to_close", false)):
-		_refresh()
-		%MessageInput.grab_focus()
+		_refresh(true)
+		call_deferred("_focus_message_input")
 		return
 
 	if bool(result.get("closed", false)):
-		_refresh()
+		_refresh(true)
 		if result.has("business"):
 			%StatusLabel.text = "Deal closed!"
 			await get_tree().create_timer(1.2).timeout
@@ -337,11 +1003,11 @@ func _on_negotiation_result(result: Dictionary) -> void:
 			closed.emit()
 			return
 		%StatusLabel.text = str(result.get("reply", "Negotiation ended."))
-		_refresh()
+		_refresh(false)
 		return
 
-	_refresh()
-	%MessageInput.grab_focus()
+	_refresh(true)
+	call_deferred("_focus_message_input")
 
 
 func _on_walk() -> void:
@@ -360,7 +1026,7 @@ func _on_copy_transcript() -> void:
 		%StatusLabel.text = "Nothing to copy yet."
 		return
 	DisplayServer.clipboard_set(text)
-	%StatusLabel.text = "Debug log copied to clipboard (%d chars)." % text.length()
+	%StatusLabel.text = "Debug log copied."
 
 
 func _on_save_log() -> void:
@@ -370,4 +1036,4 @@ func _on_save_log() -> void:
 		%StatusLabel.text = "Could not save log file."
 		return
 	DisplayServer.clipboard_set(path)
-	%StatusLabel.text = "Log saved (path also copied): %s" % path
+	%StatusLabel.text = "Log saved: %s" % path

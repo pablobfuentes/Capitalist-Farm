@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Negotiation Modal — Layout Tuner</title>
+  <style>
+    :root {
+      --bg: #1a1a1e; --panel: #25252b; --border: #3a3a44;
+      --text: #e8e4dc; --muted: #9a958a; --accent: #c45a2c; --accent2: #4a8f6a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+    header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+    header h1 { margin: 0 0 4px; font-size: 18px; }
+    header p { margin: 0; color: var(--muted); font-size: 12px; }
+    .layout { display: grid; grid-template-columns: 340px 1fr 440px; min-height: calc(100vh - 64px); }
+    .sidebar { border-right: 1px solid var(--border); overflow-y: auto; max-height: calc(100vh - 64px); background: var(--panel); }
+    .sidebar section { padding: 12px; border-bottom: 1px solid var(--border); }
+    .sidebar h2 { margin: 0 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    label { display: grid; grid-template-columns: 1fr 72px; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 12px; }
+    label span { color: var(--muted); }
+    input[type="number"], textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 4px 6px; border-radius: 4px; font-size: 12px; }
+    textarea { min-height: 52px; resize: vertical; font-family: inherit; }
+    .rect-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px; }
+    .rect-grid label { grid-template-columns: 1fr; margin: 0; }
+    .rect-grid label span { font-size: 10px; }
+    .preview-wrap { padding: 16px; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .viewport-frame { position: relative; background: #2d4a3e; border: 2px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.4); flex-shrink: 0; }
+    .viewport-label { font-size: 11px; color: var(--muted); align-self: flex-start; }
+    .modal-root { position: absolute; overflow: hidden; }
+    .layer-img, .frame-img { position: absolute; pointer-events: none; object-fit: fill; }
+    .layer-img { z-index: 0; opacity: 0.92; }
+    .frame-img { inset: 0; width: 100%; height: 100%; z-index: 1; }
+    .overlay-box { position: absolute; border: 2px dashed; pointer-events: none; z-index: 4; font-size: 10px; overflow: hidden; }
+    .overlay-box.panel { border-color: rgba(255,200,100,0.85); background: rgba(255,200,100,0.07); }
+    .overlay-box.text { border-color: rgba(100,200,255,0.9); background: rgba(100,200,255,0.14); }
+    .overlay-box.button { border-color: rgba(200,120,255,0.85); background: rgba(200,120,255,0.1); }
+    .overlay-box.gauge { border-color: rgba(120,255,180,0.85); background: rgba(120,255,180,0.08); }
+    .overlay-box .tag { position: absolute; top: 0; left: 0; background: rgba(0,0,0,0.72); padding: 1px 4px; font-size: 9px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    .sample-text { position: absolute; z-index: 5; overflow: hidden; pointer-events: none; line-height: 1.25; }
+    .sample-text.header-name { color: #381a06; font-weight: 600; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .sample-text.header-ask { color: #b82414; font-weight: 700; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .sample-text.header-discount { color: #472e1a; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .sample-text.seller { color: #faf2e8; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .sample-text.notes, .sample-text.diligence { color: #3d2818; white-space: pre-wrap; }
+    .sample-text.status { color: #6b5a48; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .sample-text.input-ph { color: #735f4d; display: flex; align-items: center; }
+    .sample-text.portrait { color: #8a8070; text-align: center; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .chat-layer { position: absolute; z-index: 5; overflow: hidden; pointer-events: none; display: flex; flex-direction: column; gap: 6px; padding: 2px; }
+    .chat-bubble { border-radius: 10px; padding: 8px 12px; line-height: 1.3; max-width: 88%; white-space: pre-wrap; }
+    .chat-bubble.npc { align-self: flex-start; background: #2a4a7a; color: #f0f0ec; border-bottom-left-radius: 2px; }
+    .chat-bubble.player { align-self: flex-end; background: #e8dcc8; color: #3d2818; border-bottom-right-radius: 2px; }
+    .table-panel { border-left: 1px solid var(--border); overflow: auto; max-height: calc(100vh - 64px); background: var(--panel); }
+    .table-panel section { padding: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { border: 1px solid var(--border); padding: 5px 6px; text-align: left; vertical-align: top; }
+    th { background: var(--bg); color: var(--muted); font-weight: 600; position: sticky; top: 0; z-index: 1; }
+    td.num { font-family: Consolas, monospace; font-size: 10px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    button { background: var(--accent); color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    button.secondary { background: #444; }
+    button:hover { filter: brightness(1.08); }
+    .group-title { font-size: 12px; font-weight: 600; color: var(--accent2); margin: 10px 0 6px; }
+    .chk { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: var(--muted); }
+    .chk input { width: auto; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--muted); }
+    .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; margin-right: 4px; border: 1px dashed; }
+    .legend .p { background: rgba(255,200,100,0.45); border-color: rgba(255,200,100,0.9); }
+    .legend .t { background: rgba(100,200,255,0.35); border-color: rgba(100,200,255,0.9); }
+    .legend .b { background: rgba(200,120,255,0.35); border-color: rgba(200,120,255,0.9); }
+    .legend .g { background: rgba(120,255,180,0.3); border-color: rgba(120,255,180,0.9); }
+    #exportOut { width: 100%; min-height: 80px; margin-top: 8px; font-family: Consolas, monospace; font-size: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Negotiation Modal — Layout Tuner</h1>
+    <p>All layout keys from <code>layout.json</code> · gold = panel rect · blue = text/inset area · purple = buttons · green = gauge track</p>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="controls"></aside>
+    <main class="preview-wrap">
+      <div class="viewport-label">Viewport — <span id="vpLabel"></span></div>
+      <div class="viewport-frame" id="viewport">
+        <div class="modal-root" id="modalRoot">
+          <div id="layerImages"></div>
+          <img class="frame-img" src="../godot/assets/ui/negotiation/frame.png" alt="frame" onerror="this.style.opacity=0.2" />
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="p"></i>Panel rect</span>
+        <span><i class="t"></i>Text / scroll area (inset)</span>
+        <span><i class="b"></i>Buttons</span>
+        <span><i class="g"></i>Gauge track</span>
+      </div>
+    </main>
+    <aside class="table-panel">
+      <section><h2>All layout regions</h2><table id="regionTable"><thead><tr><th>Key</th><th>Type</th><th>W×H</th><th>X,Y modal</th><th>X,Y window</th></tr></thead><tbody></tbody></table></section>
+      <section><h2>Text elements</h2><table id="textTable"><thead><tr><th>Element</th><th>Parent</th><th>W×H</th><th>X,Y modal</th><th>Font</th></tr></thead><tbody></tbody></table></section>
+      <section><h2>Export</h2><div class="actions">
+        <button type="button" id="btnExport">Copy layout JSON</button>
+        <button type="button" class="secondary" id="btnExportFonts">Copy fonts</button>
+        <button type="button" class="secondary" id="btnReset">Reset</button>
+      </div><textarea id="exportOut" readonly></textarea></section>
+    </aside>
+  </div>
+<script>
+const ASSET = "../godot/assets/ui/negotiation";
+const DEFAULTS = {
+  designW: 1523, designH: 981, viewportW: 1280, viewportH: 720, pad: 48,
+  scaleMin: 0.72, scaleMax: 1.15, headerSep: 3,
+  showLayers: true, showPanels: true, showTextAreas: true, showButtons: true,
+  sample: {
+    headerName: "General Store & Market — Copper Silo",
+    headerAsk: "Ask $13,625", headerDiscount: "Unlocked 11% — $1,504",
+    sellerName: "Desperate Seller",
+    notes: "Species: Goat\nLikes: Complete packages with concrete terms\nAvoid: Price-only offers\nOffer: Firm package with two concrete terms.",
+    diligence: "Investigate this listing (1 AP) before negotiating to reveal seller leverage, floor, and unlock phrases.",
+    status: "listening · They are still considering the deal.",
+    inputPlaceholder: "Type your response...",
+    portrait: "Character portrait",
+    chatNpc: "Goat — Entrepreneur / Growth. My ask is on the table; show me serious terms.",
+    chatPlayer1: "I'm interested, but the price is steep right now.",
+    chatPlayer2: "What kind of structure are you hoping for?",
+  },
+  fonts: { HeaderLabel: 20, AskLabel: 24, DiscountLabel: 13, SellerNameLabel: 18, NotesLabel: 12, DiligenceLabel: 12, StatusLabel: 11, PortraitPlaceholder: 14, MessageInput: 15, ChatBubble: 12 },
+  layout: {
+    header_panel: { rect: [46, 36, 478, 306], inset: [0, 0, 0, 0] },
+    header_text: { rect: [53, 104, 473, 302], inset: [30, 41, 26, 14] },
+    portrait_area: { rect: [46, 306, 478, 667], inset: [0, 0, 0, 0] },
+    name_banner: { rect: [38, 667, 462, 752], inset: [50, 13, 56, 13] },
+    gauge_panel: { rect: [33, 695, 473, 870], inset: [0, 0, 0, 0] },
+    gauge_track: { rect: [58, 815, 450, 870], inset: [0, 0, 0, 0] },
+    chat_background: { rect: [484, 102, 964, 871], inset: [0, 0, 0, 0] },
+    chat_scroll: { rect: [484, 102, 964, 571], inset: [14, 12, 14, 8] },
+    input_tray: { rect: [495, 630, 952, 856], inset: [0, 0, 0, 0] },
+    input_field: { rect: [490, 642, 837, 768], inset: [18, 14, 18, 14] },
+    btn_send: { rect: [835, 642, 923, 769], inset: [0, 0, 0, 0] },
+    btn_walk_away: { rect: [505, 772, 720, 839], inset: [0, 0, 0, 0] },
+    btn_close_deal: { rect: [724, 772, 941, 839], inset: [0, 0, 0, 0] },
+    notebook: { rect: [970, 104, 1486, 873], inset: [0, 0, 0, 0] },
+    notes_area: { rect: [1046, 218, 1460, 473], inset: [38, 8, 22, 8] },
+    divider: { rect: [1078, 465, 1433, 515], inset: [0, 0, 0, 0] },
+    diligence_area: { rect: [1046, 528, 1460, 842], inset: [38, 12, 22, 16] },
+    status_text: { rect: [497, 577, 951, 620], inset: [4, 5, 4, 4] },
+    crest_bottom: { rect: [637, 860, 881, 981], inset: [0, 0, 0, 0] },
+  },
+};
+
+const LAYER_IMAGES = [
+  { key: "header_panel", file: "header_panel.png" },
+  { key: "chat_background", file: "chat_background.png" },
+  { key: "input_tray", file: "input_tray.png" },
+  { key: "notebook", file: "notebook_background.png" },
+  { key: "name_banner", file: "name_banner.png" },
+  { key: "gauge_panel", file: "gauge_panel.png" },
+];
+
+const TEXT_AREAS = new Set(["header_text", "name_banner", "notes_area", "diligence_area", "status_text", "input_field", "chat_scroll"]);
+const BUTTON_KEYS = new Set(["btn_send", "btn_walk_away", "btn_close_deal"]);
+const TEXT_BINDINGS = [
+  { id: "HeaderLabel", parent: "HeaderText", layoutKey: "header_text", kind: "header-stack", stackIndex: 0, className: "header-name", sampleKey: "headerName" },
+  { id: "AskLabel", parent: "HeaderText", layoutKey: "header_text", kind: "header-stack", stackIndex: 1, className: "header-ask", sampleKey: "headerAsk" },
+  { id: "DiscountLabel", parent: "HeaderText", layoutKey: "header_text", kind: "header-stack", stackIndex: 2, className: "header-discount", sampleKey: "headerDiscount" },
+  { id: "PortraitPlaceholder", parent: "PortraitSlot", layoutKey: "portrait_area", kind: "portrait-center", className: "portrait", sampleKey: "portrait" },
+  { id: "SellerNameLabel", parent: "NameBanner", layoutKey: "name_banner", kind: "text", className: "seller", sampleKey: "sellerName" },
+  { id: "NotesLabel", parent: "Notebook", layoutKey: "notes_area", kind: "text", className: "notes", sampleKey: "notes" },
+  { id: "DiligenceLabel", parent: "Notebook", layoutKey: "diligence_area", kind: "text", className: "diligence", sampleKey: "diligence" },
+  { id: "StatusLabel", parent: "InputTray", layoutKey: "status_text", kind: "text", className: "status", sampleKey: "status" },
+  { id: "MessageInput", parent: "InputField", layoutKey: "input_field", kind: "text", className: "input-ph", sampleKey: "inputPlaceholder" },
+];
+
+const GODOT_NODE_MAP = {
+  header_panel: "HeaderPanel (art — full rect, no inset)",
+  header_text: "HeaderText / labels",
+  portrait_area: "PortraitSlot",
+  name_banner: "NameBanner / SellerNameLabel",
+  gauge_panel: "GaugePanel",
+  gauge_track: "GaugePointer (track)",
+  chat_background: "ChatBackground",
+  chat_scroll: "ChatScroll / ChatMessages",
+  input_tray: "InputTray",
+  input_field: "InputField / MessageInput",
+  btn_send: "SendButton",
+  btn_walk_away: "WalkButton",
+  btn_close_deal: "CloseDealButton",
+  notebook: "NotebookBg",
+  notes_area: "NotesLabel",
+  divider: "NotebookDivider",
+  diligence_area: "DiligenceLabel",
+  status_text: "StatusLabel",
+  crest_bottom: "CrestBottom",
+};
+
+const state = JSON.parse(JSON.stringify(DEFAULTS));
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function fmt(n) { return Math.round(n * 10) / 10; }
+
+function rectFromEntry(entry) {
+  const [x1, y1, x2, y2] = entry.rect;
+  const ins = entry.inset || [0, 0, 0, 0];
+  return {
+    panel: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 },
+    text: { x: x1 + ins[0], y: y1 + ins[1], w: (x2 - ins[2]) - (x1 + ins[0]), h: (y2 - ins[3]) - (y1 + ins[1]) },
+  };
+}
+
+function computeModal() {
+  const availW = Math.max(state.viewportW - state.pad * 2, 640);
+  const availH = Math.max(state.viewportH - state.pad * 2, 460);
+  const aspect = state.designW / state.designH;
+  let targetW = availW, targetH = targetW / aspect;
+  if (targetH > availH) { targetH = availH; targetW = targetH * aspect; }
+  return {
+    x: (state.viewportW - targetW) / 2, y: (state.viewportH - targetH) / 2,
+    w: targetW, h: targetH, sx: targetW / state.designW, sy: targetH / state.designH,
+    uiScale: clamp(targetH / state.designH, state.scaleMin, state.scaleMax),
+  };
+}
+
+function toModalPx(rect, modal) {
+  return { x: rect.x * modal.sx, y: rect.y * modal.sy, w: rect.w * modal.sx, h: rect.h * modal.sy };
+}
+function toWindowPx(rect, modal) {
+  const m = toModalPx(rect, modal);
+  return { x: modal.x + m.x, y: modal.y + m.y, w: m.w, h: m.h };
+}
+function scaledFont(base) { return Math.round(base * computeModal().uiScale); }
+
+function buildControls() {
+  const el = document.getElementById("controls");
+  el.innerHTML = `
+    <section><h2>Viewport</h2>
+      ${["viewportW","viewportH","pad","designW","designH","scaleMin","scaleMax","headerSep"].map(k=>{
+        const step = k.includes("scale") ? 0.01 : 1;
+        return `<label><span>${k}</span><input type="number" id="${k}" step="${step}" value="${state[k]}" /></label>`;
+      }).join("")}
+      <div class="chk"><input type="checkbox" id="showLayers" ${state.showLayers?"checked":""}/> Show layer PNGs</div>
+      <div class="chk"><input type="checkbox" id="showPanels" ${state.showPanels?"checked":""}/> Show panel rects (gold)</div>
+      <div class="chk"><input type="checkbox" id="showTextAreas" ${state.showTextAreas?"checked":""}/> Show text/scroll rects (blue)</div>
+      <div class="chk"><input type="checkbox" id="showButtons" ${state.showButtons?"checked":""}/> Show button rects (purple)</div>
+    </section>
+    <section><h2>Fonts (base)</h2>
+      ${Object.entries(state.fonts).map(([k,v])=>`<label><span>${k}</span><input type="number" id="font_${k}" value="${v}"/></label>`).join("")}
+    </section>
+    <section><h2>Sample text</h2>
+      ${Object.entries(state.sample).map(([k,v])=>`<label style="grid-template-columns:1fr"><span>${k}</span><textarea data-sample="${k}">${v.replace(/</g,"&lt;")}</textarea></label>`).join("")}
+    </section>
+    <section id="layoutControls"><h2>Layout (all keys)</h2></section>`;
+
+  const lc = document.getElementById("layoutControls");
+  for (const [key, entry] of Object.entries(state.layout)) {
+    lc.innerHTML += `<div class="group-title">${key} <span style="color:var(--muted);font-weight:400">${GODOT_NODE_MAP[key]||""}</span></div>
+      <div class="rect-grid">${["x1","y1","x2","y2"].map((l,i)=>`<label><span>${l}</span><input type="number" data-layout="${key}" data-rect="${i}" value="${entry.rect[i]}"/></label>`).join("")}</div>
+      <div class="rect-grid">${["L","T","R","B"].map((l,i)=>`<label><span>inset ${l}</span><input type="number" data-layout="${key}" data-inset="${i}" value="${(entry.inset||[0,0,0,0])[i]}"/></label>`).join("")}</div>`;
+  }
+  el.querySelectorAll("input[type=number]").forEach(i => i.addEventListener("input", onControlChange));
+  el.querySelectorAll("textarea[data-sample]").forEach(t => t.addEventListener("input", e => { state.sample[e.target.dataset.sample] = e.target.value; render(); }));
+  el.querySelectorAll("input[type=checkbox]").forEach(c => c.addEventListener("change", e => { state[e.target.id] = e.target.checked; render(); }));
+}
+
+function onControlChange(e) {
+  const t = e.target;
+  if (t.dataset.layout) {
+    const k = t.dataset.layout;
+    if (t.dataset.rect !== undefined) state.layout[k].rect[+t.dataset.rect] = +t.value;
+    if (t.dataset.inset !== undefined) {
+      if (!state.layout[k].inset) state.layout[k].inset = [0,0,0,0];
+      state.layout[k].inset[+t.dataset.inset] = +t.value;
+    }
+  } else if (t.id.startsWith("font_")) state.fonts[t.id.slice(5)] = +t.value;
+  else if (t.id in state) state[t.id] = +t.value;
+  render();
+}
+
+function stackChildRect(textRect, binding, modal) {
+  const fonts = [state.fonts.HeaderLabel, state.fonts.AskLabel, state.fonts.DiscountLabel];
+  const sep = state.headerSep * modal.uiScale;
+  const heights = fonts.map((fs, i) => fs * (i === 0 ? 2.5 : 1.35));
+  const stackH = heights.reduce((a, b) => a + b, 0) + sep * (fonts.length - 1);
+  let y = textRect.y + Math.max(0, (textRect.h - stackH) / 2);
+  for (let i = 0; i < binding.stackIndex; i++) y += heights[i] + sep;
+  const h = heights[binding.stackIndex];
+  return { x: textRect.x, y, w: textRect.w, h };
+}
+
+function portraitCenterRect(panel) {
+  return { x: panel.x + panel.w * 0.15, y: panel.y + panel.h * 0.42, w: panel.w * 0.7, h: panel.h * 0.12 };
+}
+
+function addBox(parent, r, kind, label) {
+  const d = document.createElement("div");
+  d.className = `overlay-box ${kind}`;
+  d.style.cssText = `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;`;
+  d.innerHTML = `<span class="tag">${label}</span>`;
+  parent.appendChild(d);
+}
+
+function addSampleText(parent, r, cls, text, fs) {
+  const d = document.createElement("div");
+  d.className = `sample-text ${cls}`;
+  d.style.cssText = `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${fs}px;`;
+  d.textContent = text;
+  parent.appendChild(d);
+}
+
+function renderChat(parent, textRect, modal) {
+  const area = toModalPx(textRect, modal);
+  const layer = document.createElement("div");
+  layer.className = "chat-layer";
+  layer.style.cssText = `left:${area.x}px;top:${area.y}px;width:${area.w}px;height:${area.h}px;font-size:${scaledFont(state.fonts.ChatBubble)}px;`;
+  const msgs = [
+    { text: state.sample.chatNpc, kind: "npc" },
+    { text: state.sample.chatPlayer1, kind: "player" },
+    { text: state.sample.chatPlayer2, kind: "player" },
+  ];
+  for (const m of msgs) {
+    const b = document.createElement("div");
+    b.className = `chat-bubble ${m.kind}`;
+    b.textContent = m.text;
+    layer.appendChild(b);
+  }
+  parent.appendChild(layer);
+}
+
+function render() {
+  const modal = computeModal();
+  const vp = document.getElementById("viewport");
+  const root = document.getElementById("modalRoot");
+  vp.style.width = state.viewportW + "px";
+  vp.style.height = state.viewportH + "px";
+  root.style.cssText = `left:${modal.x}px;top:${modal.y}px;width:${modal.w}px;height:${modal.h}px;`;
+
+  document.getElementById("vpLabel").textContent =
+    `${state.viewportW}×${state.viewportH} · modal ${fmt(modal.w)}×${fmt(modal.h)} · uiScale ${fmt(modal.uiScale)}`;
+
+  root.querySelectorAll(".overlay-box, .sample-text, .chat-layer").forEach(n => n.remove());
+  const layerHost = document.getElementById("layerImages");
+  layerHost.innerHTML = "";
+
+  if (state.showLayers) {
+    for (const layer of LAYER_IMAGES) {
+      const entry = state.layout[layer.key];
+      if (!entry) continue;
+      const r = toModalPx(rectFromEntry(entry).panel, modal);
+      const img = document.createElement("img");
+      img.className = "layer-img";
+      img.src = `${ASSET}/${layer.file}`;
+      img.style.cssText = `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;`;
+      img.onerror = () => { img.style.display = "none"; };
+      layerHost.appendChild(img);
+    }
+  }
+
+  const regionRows = [];
+  const textRows = [];
+
+  for (const [key, entry] of Object.entries(state.layout)) {
+    const { panel, text } = rectFromEntry(entry);
+    const panelM = toModalPx(panel, modal);
+    const panelW = toWindowPx(panel, modal);
+    const hasText = TEXT_AREAS.has(key);
+    const textM = hasText ? toModalPx(text, modal) : null;
+    const textW = hasText ? toWindowPx(text, modal) : null;
+
+    let type = "panel";
+    if (BUTTON_KEYS.has(key)) type = "button";
+    else if (key === "gauge_track") type = "gauge";
+    else if (hasText) type = "panel+text";
+
+    regionRows.push({
+      key, type, godot: GODOT_NODE_MAP[key] || "",
+      pw: fmt(panelM.w), ph: fmt(panelM.h), px: fmt(panelM.x), py: fmt(panelM.y),
+      wx: fmt(panelW.x), wy: fmt(panelW.y),
+      tw: textM ? fmt(textM.w) : "—", th: textM ? fmt(textM.h) : "—",
+      tx: textM ? fmt(textM.x) : "—", ty: textM ? fmt(textM.y) : "—",
+    });
+
+    if (state.showPanels && !BUTTON_KEYS.has(key) && key !== "gauge_track") {
+      addBox(root, panelM, "panel", key);
+    }
+    if (state.showButtons && BUTTON_KEYS.has(key)) {
+      addBox(root, panelM, "button", key);
+    }
+    if (key === "gauge_track" && state.showPanels) {
+      addBox(root, panelM, "gauge", key);
+    }
+    if (state.showTextAreas && hasText && textM) {
+      addBox(root, textM, "text", key + " (inset)");
+    }
+  }
+
+  if (state.showTextAreas) {
+    const chatEntry = state.layout.chat_scroll;
+    if (chatEntry) renderChat(root, rectFromEntry(chatEntry).text, modal);
+  }
+
+  for (const b of TEXT_BINDINGS) {
+    const entry = state.layout[b.layoutKey];
+    if (!entry) continue;
+    const { text, panel } = rectFromEntry(entry);
+    let textRect = text;
+    if (b.kind === "header-stack") textRect = stackChildRect(text, b, modal);
+    else if (b.kind === "portrait-center") textRect = portraitCenterRect(panel);
+    const areaM = toModalPx(textRect, modal);
+    const fs = scaledFont(state.fonts[b.id] || state.fonts.ChatBubble);
+    textRows.push({ id: b.id, parent: b.parent, w: fmt(areaM.w), h: fmt(areaM.h), x: fmt(areaM.x), y: fmt(areaM.y), fs });
+    addSampleText(root, areaM, b.className, state.sample[b.sampleKey], fs);
+  }
+
+  document.querySelector("#regionTable tbody").innerHTML = regionRows.map(r => `
+    <tr>
+      <td><strong>${r.key}</strong><br><span style="color:var(--muted);font-size:10px">${r.godot}</span></td>
+      <td>${r.type}</td>
+      <td class="num">panel ${r.pw}×${r.ph}<br>text ${r.tw}×${r.th}</td>
+      <td class="num">panel ${r.px}, ${r.py}<br>text ${r.tx}, ${r.ty}</td>
+      <td class="num">${r.wx}, ${r.wy}</td>
+    </tr>`).join("");
+
+  document.querySelector("#textTable tbody").innerHTML = textRows.map(r => `
+    <tr><td><strong>${r.id}</strong></td><td>${r.parent}</td><td class="num">${r.w}×${r.h}</td><td class="num">${r.x}, ${r.y}</td><td class="num">${r.fs}</td></tr>`).join("");
+}
+
+document.getElementById("btnExport").addEventListener("click", () => {
+  const out = { design_size: [state.designW, state.designH], ...state.layout };
+  const txt = JSON.stringify(out, null, 2);
+  document.getElementById("exportOut").value = txt;
+  navigator.clipboard?.writeText(txt);
+});
+
+document.getElementById("btnExportFonts").addEventListener("click", () => {
+  const scaled = {};
+  for (const [k, v] of Object.entries(state.fonts)) scaled[k] = { base: v, scaled: scaledFont(v) };
+  const txt = JSON.stringify({ fonts: scaled, headerSep: state.headerSep }, null, 2);
+  document.getElementById("exportOut").value = txt;
+  navigator.clipboard?.writeText(txt);
+});
+
+document.getElementById("btnReset").addEventListener("click", () => {
+  Object.assign(state, JSON.parse(JSON.stringify(DEFAULTS)));
+  buildControls(); render();
+});
+
+buildControls(); render();
+</script>
+</body>
+</html>
