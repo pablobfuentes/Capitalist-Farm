@@ -60,6 +60,8 @@ func _ready() -> void:
 	_edge_modal.skipped.connect(_on_edge_skipped)
 
 	_connect_panel_signals()
+	FeedbackBus.wire_button(advance_button)
+	FeedbackBus.set_ambient("map")
 
 	EventBus.turn_advanced.connect(_on_state_changed)
 	EventBus.command_applied.connect(_on_state_changed)
@@ -117,6 +119,47 @@ func _feedback(message: String) -> void:
 	_debrief_card.set_feedback(message)
 
 
+func _economy_snapshot() -> Dictionary:
+	if Game.state == null:
+		return {"cash": 0, "ap": 0, "nw": 0}
+	return {
+		"cash": Game.state.cash,
+		"ap": Game.state.action_points,
+		"nw": FinanceSystem.net_worth(Game.state),
+	}
+
+
+func _emit_economy_deltas(before: Dictionary) -> void:
+	if Game.state == null:
+		return
+	var cash_delta: int = Game.state.cash - int(before.get("cash", Game.state.cash))
+	var ap_delta: int = Game.state.action_points - int(before.get("ap", Game.state.action_points))
+	if cash_delta != 0:
+		FeedbackBus.cash_delta(cash_delta, _header_bar)
+	if ap_delta != 0:
+		FeedbackBus.ap_delta(ap_delta, _header_bar)
+
+
+func _show_what_changed_chip(before: Dictionary, result: Dictionary) -> void:
+	if Game.state == null:
+		return
+	var cash_delta: int = Game.state.cash - int(before.get("cash", Game.state.cash))
+	var ap_delta: int = Game.state.action_points - int(before.get("ap", Game.state.action_points))
+	var name := ""
+	if result.get("business") is BusinessInstance:
+		name = (result.get("business") as BusinessInstance).name
+	elif typeof(result.get("realEstate")) == TYPE_DICTIONARY:
+		name = str((result.get("realEstate") as Dictionary).get("name", "Property"))
+	var bits: PackedStringArray = []
+	if not name.is_empty():
+		bits.append(name)
+	if cash_delta != 0:
+		bits.append("%s%s" % ["+" if cash_delta > 0 else "-", MathUtil.fmt_money(absi(cash_delta))])
+	if ap_delta != 0:
+		bits.append("%+d AP" % ap_delta)
+	FeedbackBus.show_chip("What changed: %s" % " · ".join(bits), _header_bar, 2.4)
+
+
 func _maybe_show_turn_debrief(s: RunState) -> void:
 	if s.pending_turn_debrief.is_empty() or s.game_over != null:
 		return
@@ -169,11 +212,13 @@ func _on_edge_skipped() -> void:
 
 
 func _on_buy_re_pressed(opportunity_id: String) -> void:
+	var before := _economy_snapshot()
 	var result: Dictionary = Game.apply_command(GameCommand.acquire_real_estate(opportunity_id))
 	if not bool(result.get("ok", false)):
+		FeedbackBus.deny(opportunities_list)
 		_feedback("Purchase failed: %s" % str(result.get("error", "unknown")))
 		return
-	await _present_acquisition_certificate(result)
+	await _present_acquisition_certificate(result, int(before.get("nw", 0)))
 	_refresh()
 
 
@@ -234,21 +279,26 @@ func _on_improve_re_pressed(asset_id: String) -> void:
 
 
 func _on_buy_pressed(opportunity_id: String) -> void:
+	var before := _economy_snapshot()
 	var result: Dictionary = Game.apply_command(GameCommand.acquire_business(opportunity_id))
 	if not bool(result.get("ok", false)):
+		FeedbackBus.deny(opportunities_list)
 		_feedback("Purchase failed: %s" % str(result.get("error", "unknown")))
 		return
-	await _present_acquisition_certificate(result)
+	await _present_acquisition_certificate(result, int(before.get("nw", 0)))
 	_refresh()
 
 
-func _present_acquisition_certificate(result: Dictionary) -> void:
+func _present_acquisition_certificate(result: Dictionary, nw_before: int = -1) -> void:
 	if _certificate_modal == null:
 		return
 	var CertScript = preload("res://ui/screens/acquisition_certificate_modal.gd")
 	if not CertScript.is_acquisition_result(result):
 		return
-	await _certificate_modal.present(CertScript.deal_from_command_result(result))
+	var before_nw := nw_before if nw_before >= 0 else 0
+	var after_nw := FinanceSystem.net_worth(Game.state) if Game.state != null else before_nw
+	var deal: Dictionary = CertScript.deal_from_command_result(result, before_nw, after_nw)
+	await _certificate_modal.present(deal, _header_bar)
 
 
 func _on_negotiate_pressed(opportunity_id: String) -> void:
@@ -256,10 +306,13 @@ func _on_negotiate_pressed(opportunity_id: String) -> void:
 
 
 func _on_investigate_pressed(opportunity_id: String) -> void:
+	var before := _economy_snapshot()
 	var result: Dictionary = Game.apply_command(GameCommand.investigate(opportunity_id))
 	if not bool(result.get("ok", false)):
+		FeedbackBus.deny(opportunities_list)
 		_feedback("Investigate failed: %s" % str(result.get("error", "unknown")))
 	else:
+		_emit_economy_deltas(before)
 		var opp: Variant = result.get("opportunity")
 		if opp is Dictionary and (opp as Dictionary).has("v2Preview"):
 			var preview: Dictionary = (opp as Dictionary)["v2Preview"]
@@ -278,32 +331,46 @@ func _on_investigate_pressed(opportunity_id: String) -> void:
 
 
 func _on_advance_pressed() -> void:
+	FeedbackBus.advance_whoosh()
+	FeedbackBus.pulse(advance_button)
+	await get_tree().create_timer(0.12).timeout
+	var before := _economy_snapshot()
 	var result: Dictionary = Game.apply_command(GameCommand.advance_turn())
 	if bool(result.get("requires_supply_policy", false)):
+		FeedbackBus.deny(advance_button)
 		_feedback(str(result.get("error", "Set allocation policy first.")))
 		_shortage_modal.open_with_shortages(result.get("shortages", []))
 		return
 	if not bool(result.get("ok", false)):
-		_feedback("Turn failed: %s" % str(result.get("error", "unknown")))
-	elif Game.state != null and Game.state.game_over != null:
-		Game.go_to_run_report()
-
-
-func _on_shortage_confirmed() -> void:
-	_refresh()
-	var result: Dictionary = Game.apply_command(GameCommand.advance_turn())
-	if bool(result.get("requires_supply_policy", false)):
-		_feedback(str(result.get("error", "Set allocation policy first.")))
-		_shortage_modal.open_with_shortages(result.get("shortages", []))
-	elif not bool(result.get("ok", false)):
+		FeedbackBus.deny(advance_button)
 		_feedback("Turn failed: %s" % str(result.get("error", "unknown")))
 	elif Game.state != null and Game.state.game_over != null:
 		Game.go_to_run_report()
 	else:
+		_emit_economy_deltas(before)
+
+
+func _on_shortage_confirmed() -> void:
+	_refresh()
+	FeedbackBus.advance_whoosh()
+	var before := _economy_snapshot()
+	var result: Dictionary = Game.apply_command(GameCommand.advance_turn())
+	if bool(result.get("requires_supply_policy", false)):
+		FeedbackBus.deny(advance_button)
+		_feedback(str(result.get("error", "Set allocation policy first.")))
+		_shortage_modal.open_with_shortages(result.get("shortages", []))
+	elif not bool(result.get("ok", false)):
+		FeedbackBus.deny(advance_button)
+		_feedback("Turn failed: %s" % str(result.get("error", "unknown")))
+	elif Game.state != null and Game.state.game_over != null:
+		Game.go_to_run_report()
+	else:
+		_emit_economy_deltas(before)
 		_feedback("Turn advanced.")
 
 
 func _on_shortage_cancelled() -> void:
+	FeedbackBus.deny(advance_button)
 	_feedback("Advance cancelled — resolve supply allocation first.")
 
 

@@ -62,6 +62,10 @@ var _status_override: String = ""
 var _refresh_token: int = 0
 var _rendered_messages_fingerprint: String = ""
 var _last_chat_column_width: float = -1.0
+var _notebook_line_count: int = 0
+var _relationship_score: int = 0
+var _messages_remaining_seen: int = -1
+var _door_chimed := false
 
 
 func _ready() -> void:
@@ -76,6 +80,10 @@ func _ready() -> void:
 	%MessageInput.placeholder_text = "Say something…"
 	%MessageInput.focus_mode = Control.FOCUS_ALL
 	%MessageInput.caret_blink = true
+	FeedbackBus.wire_button(%SendButton)
+	FeedbackBus.wire_button(%WalkButton)
+	FeedbackBus.wire_scroll(%ChatScroll)
+	FeedbackBus.wire_scroll(%NotesScroll)
 	var chat_bar: VScrollBar = %ChatScroll.get_v_scroll_bar()
 	if chat_bar:
 		chat_bar.value_changed.connect(_on_chat_scroll_changed)
@@ -116,9 +124,15 @@ func open_for_community_business(community_business_id: String, parcel_id: Strin
 	_chat_follow_bottom = true
 	_rendered_messages_fingerprint = ""
 	_last_chat_column_width = -1.0
+	_notebook_line_count = 0
+	_relationship_score = CommunityState.personal_relationship_score(Game.state, npc_id)
+	_messages_remaining_seen = -1
+	_door_chimed = false
 	_fit_to_viewport()
 	await _capture_backdrop()
 	show()
+	FeedbackBus.set_ambient("negotiation")
+	await FeedbackBus.slide_in_panel(%Root)
 	await _ensure_ai_ready()
 	await _refresh()
 	call_deferred("_focus_message_input")
@@ -133,7 +147,7 @@ func _ensure_ai_ready() -> void:
 		await get_tree().process_frame
 
 
-func _on_walk() -> void:
+func _on_walk(polite: bool = false) -> void:
 	if _busy:
 		return
 	if not _npc_id.is_empty() and Game.state != null:
@@ -144,6 +158,15 @@ func _on_walk() -> void:
 	_rendered_messages_fingerprint = ""
 	_last_chat_column_width = -1.0
 	_updating_chat = false
+	_notebook_line_count = 0
+	_messages_remaining_seen = -1
+	_door_chimed = false
+	if polite:
+		await FeedbackBus.slide_out_panel(%Root)
+	else:
+		FeedbackBus.walk_away_sting()
+		await FeedbackBus.slide_out_panel(%Root)
+	FeedbackBus.set_ambient("map")
 	hide()
 	closed.emit()
 
@@ -166,23 +189,48 @@ func _send_message(text: String) -> void:
 	_set_input_enabled(false)
 	%StatusLabel.text = "Waiting for reply…"
 	%MessageInput.text = ""
+	FeedbackBus.paper_whoosh()
+	_show_typing_indicator()
 	CommunityChatRuntime.send_player_message(Game.state, _npc_id, trimmed, _on_chat_result)
 
 
 func _on_chat_result(result: Dictionary) -> void:
 	_busy = false
+	_clear_typing_indicator()
 	if bool(result.get("fallback", false)):
 		_status_override = "%s (fallback reply)" % str(result.get("error", "AI issue"))
+		FeedbackBus.toast_error(_status_override)
 	elif not bool(result.get("ok", false)):
+		FeedbackBus.deny(%SendButton)
+		FeedbackBus.toast_error(str(result.get("error", "Send failed")))
 		_status_override = str(result.get("error", "Send failed"))
 	else:
 		_status_override = ""
+		_play_chat_result_juice(result)
 	await _refresh()
 	if bool(result.get("dismissed", false)):
-		await get_tree().create_timer(1.4).timeout
-		_on_walk()
+		if not _door_chimed:
+			FeedbackBus.door_chime()
+			_door_chimed = true
+		await get_tree().create_timer(1.1).timeout
+		await _on_walk(true)
 		return
 	call_deferred("_focus_message_input")
+
+
+func _play_chat_result_juice(result: Dictionary) -> void:
+	var discoveries: Array = result.get("discoveries", [])
+	if discoveries.size() > 0:
+		FeedbackBus.whisper()
+	var promise: Variant = result.get("promise", {})
+	if typeof(promise) == TYPE_DICTIONARY and not (promise as Dictionary).is_empty():
+		FeedbackBus.sparkle_burst(%NpcNameLabel)
+		return
+	var effects: Variant = result.get("socialEffects", {})
+	if typeof(effects) == TYPE_DICTIONARY:
+		var action := str((effects as Dictionary).get("socialAction", ""))
+		if action == "gift_offer" or action == "promise_offer":
+			FeedbackBus.sparkle_burst(%NpcNameLabel)
 
 
 func _refresh(rebuild_chat: bool = true) -> void:
@@ -196,9 +244,21 @@ func _refresh(rebuild_chat: bool = true) -> void:
 	%HeaderLabel.text = str(business.get("displayName", "Neighbor visit"))
 	_update_chat_subheader()
 	call_deferred("_layout_header_stack")
-	%NpcNameLabel.text = str(npc.get("displayName", "Neighbor"))
+	var score := CommunityState.personal_relationship_score(Game.state, _npc_id)
+	var rel_label := _relationship_label(score)
+	%NpcNameLabel.text = "%s · %s" % [str(npc.get("displayName", "Neighbor")), rel_label]
+	if score != _relationship_score:
+		var warmth := clampf((float(score) + 5.0) / 10.0, 0.0, 1.0)
+		FeedbackBus.warmth_glow(%NpcNameLabel, warmth)
+		_relationship_score = score
+	if RunStatsSystem.try_trusted_seal(Game.state, _npc_id, score, 4):
+		FeedbackBus.trusted_seal(%NpcNameLabel)
 	var remaining := _messages_remaining(session)
 	%DiligenceLabel.text = "%d message%s left this visit" % [remaining, "" if remaining == 1 else "s"]
+	if _messages_remaining_seen >= 0 and remaining == 0 and _messages_remaining_seen > 0 and not _door_chimed:
+		FeedbackBus.door_chime()
+		_door_chimed = true
+	_messages_remaining_seen = remaining
 	_update_notebook()
 	_update_portrait_ai_status()
 	if rebuild_chat:
@@ -214,6 +274,18 @@ func _refresh(rebuild_chat: bool = true) -> void:
 	else:
 		%StatusLabel.text = ""
 	_set_input_enabled(_can_accept_input(session, remaining))
+
+
+func _relationship_label(score: int) -> String:
+	if score >= 4:
+		return "Trusted"
+	if score >= 2:
+		return "Warm"
+	if score >= 0:
+		return "Cordial"
+	if score >= -2:
+		return "Cool"
+	return "Strained"
 
 
 func _update_notebook() -> void:
@@ -232,6 +304,10 @@ func _update_notebook() -> void:
 		%NotesLabel.text = "Community intel discovered here will appear in your negotiation notebook."
 	else:
 		%NotesLabel.text = "Notebook intel from this neighbor:\n%s" % "\n".join(lines)
+	if lines.size() > _notebook_line_count and _notebook_line_count > 0:
+		FeedbackBus.whisper()
+		FeedbackBus.highlight_text_control(%NotesLabel, 1.0)
+	_notebook_line_count = lines.size()
 	call_deferred("_sync_notebook_scroll_widths")
 
 
@@ -267,6 +343,7 @@ func _update_chat(session: Dictionary) -> void:
 	box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	box.add_theme_constant_override("separation", int(6 * _ui_scale()))
 	var bubble_scale := _ui_scale()
+	var last_bubble: Control = null
 	for msg_variant in session.get("messages", []):
 		if typeof(msg_variant) != TYPE_DICTIONARY:
 			continue
@@ -276,7 +353,9 @@ func _update_chat(session: Dictionary) -> void:
 			continue
 		var role := str(msg.get("role", msg.get("speaker", ""))).to_lower()
 		var kind: int = _ChatBubble.kind_from_role(role)
-		box.add_child(_ChatBubble.create(text, kind, scroll_w, bubble_scale))
+		var bubble: Control = _ChatBubble.create(text, kind, scroll_w, bubble_scale)
+		box.add_child(bubble)
+		last_bubble = bubble
 	# Bottom pad so the last line clears the chat clip / status band.
 	var bottom_pad := Control.new()
 	bottom_pad.custom_minimum_size = Vector2(1.0, 18.0 * bubble_scale)
@@ -287,6 +366,10 @@ func _update_chat(session: Dictionary) -> void:
 	for child in box.get_children():
 		if child is Control:
 			_ChatBubble.sync_min_height(child as Control)
+	if last_bubble != null:
+		FeedbackBus.pop_in(last_bubble)
+	if _busy:
+		_show_typing_indicator()
 
 	_rendered_messages_fingerprint = fingerprint
 	_updating_chat = false
@@ -412,6 +495,34 @@ func _on_ai_health_updated(_available: bool, _model: String) -> void:
 	if visible and not _busy:
 		# Status/model only — do not rebuild the message list.
 		_refresh(false)
+
+
+func _show_typing_indicator() -> void:
+	_clear_typing_indicator()
+	FeedbackBus.duck_ambient(true)
+	var box: VBoxContainer = %ChatMessages
+	if box == null:
+		return
+	var indicator := FeedbackBus.make_typing_indicator()
+	var insert_at := box.get_child_count()
+	if insert_at > 0:
+		var last: Node = box.get_child(insert_at - 1)
+		if last is Control and (last as Control).custom_minimum_size.y > 0.0 and last.get_child_count() == 0:
+			insert_at = maxi(0, insert_at - 1)
+	box.add_child(indicator)
+	box.move_child(indicator, insert_at)
+	FeedbackBus.pop_in(indicator)
+	call_deferred("_scroll_chat_to_bottom")
+
+
+func _clear_typing_indicator() -> void:
+	FeedbackBus.duck_ambient(false)
+	var box: VBoxContainer = %ChatMessages
+	if box == null:
+		return
+	var existing := box.get_node_or_null("TypingIndicator")
+	if existing != null:
+		existing.queue_free()
 
 
 func _set_input_enabled(enabled: bool) -> void:

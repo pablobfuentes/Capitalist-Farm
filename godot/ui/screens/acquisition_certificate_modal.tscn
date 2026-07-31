@@ -33,7 +33,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+mouse_filter = 0
 expand_mode = 1
 stretch_mode = 5
 
@@ -42,6 +42,7 @@ unique_name_in_owner = true
 z_index = 5
 layout_mode = 0
 focus_mode = 0
+mouse_filter = 0
 mouse_default_cursor_shape = 2
 theme_override_styles/normal = SubResource("StyleBoxEmpty_close")
 theme_override_styles/hover = SubResource("StyleBoxEmpty_close")

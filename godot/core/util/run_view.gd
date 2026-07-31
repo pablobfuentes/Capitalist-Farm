@@ -268,11 +268,13 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 			actions = {
 				"kind": "opportunity",
 				"opportunityId": opportunity_id,
+				"price": price,
 				"canBuy": bool(opp_row.get("canBuy", false)),
+				"buyBlockedReason": str(opp_row.get("buyBlockedReason", "")),
 				"canInvestigate": bool(opp_row.get("canInvestigate", false)),
 				"canNegotiate": bool(opp_row.get("canNegotiate", false)),
-				"negotiateLabel": str(opp_row.get("negotiateLabel", "Negotiate (1 AP)")),
-				"buyLabel": "Buy · %s (1 AP)" % MathUtil.fmt_money(price) if price > 0 else "Buy Now (1 AP)",
+				"negotiateLabel": str(opp_row.get("negotiateLabel", "Negotiate (−1 AP)")),
+				"buyLabel": str(opp_row.get("buyLabel", "Buy Now (−1 AP)")),
 			}
 	elif community_business_id != "":
 		var community_business: Dictionary = CommunityGenerator.get_business(state, community_business_id)
@@ -631,17 +633,29 @@ static func _business_opportunity_row(state: RunState, opp: Dictionary) -> Dicti
 	]
 	if not blurb.is_empty():
 		summary += "\n" + blurb.substr(0, 80)
+	var can_buy := state.action_points >= 1 and not is_contest and state.cash >= price
+	var buy_block := ""
+	if is_contest:
+		buy_block = "Rival contest — negotiate instead"
+	elif state.action_points < 1:
+		buy_block = "Need 1 AP"
+	elif state.cash < price:
+		buy_block = "Need %s cash (have %s)" % [MathUtil.fmt_money(price), MathUtil.fmt_money(state.cash)]
+	var buy_label := "Buy · %s (−1 AP)" % MathUtil.fmt_money(price) if price > 0 else "Buy Now (−1 AP)"
+	if not can_buy and not buy_block.is_empty():
+		buy_label = "Buy · %s — %s" % [MathUtil.fmt_money(price), buy_block]
 	return {
 		"kind": "business_opp",
 		"id": str(opp.get("id", "")),
 		"summary": summary,
 		"detailLine": detail_line,
 		"intelLine": intel_line,
-		"canBuy": state.action_points >= 1 and not is_contest and state.cash >= price,
+		"canBuy": can_buy,
+		"buyBlockedReason": buy_block,
 		"canInvestigate": state.action_points >= 1 and not bool(opp.get("diligenceDone", false)),
 		"canNegotiate": state.action_points >= 1,
-		"negotiateLabel": "Contest (1 AP)" if is_contest else "Negotiate (1 AP)",
-		"buyLabel": "Buy · %s (1 AP)" % MathUtil.fmt_money(price) if price > 0 else "Buy Now (1 AP)",
+		"negotiateLabel": "Contest (−1 AP)" if is_contest else "Negotiate (−1 AP)",
+		"buyLabel": buy_label,
 	}
 
 

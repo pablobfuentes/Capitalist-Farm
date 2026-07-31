@@ -5,6 +5,11 @@ extends RefCounted
 static func ensure(state: RunState) -> Dictionary:
 	if typeof(state.run_stats) != TYPE_DICTIONARY:
 		state.run_stats = _default_stats()
+		return state.run_stats
+	var defaults := _default_stats()
+	for key in defaults.keys():
+		if not state.run_stats.has(key):
+			state.run_stats[key] = defaults[key]
 	return state.run_stats
 
 
@@ -74,6 +79,58 @@ static func track_deal(state: RunState, name: String, quality: int, savings: int
 		"kind": kind,
 	})
 	stats["deals"] = deals
+
+
+## Record a closed acquisition for mastery juice. Returns first-of-type / combo flags.
+static func note_acquisition(state: RunState, template_id: String, name: String = "", quality: int = 0, savings: int = 0, kind: String = "acquisition") -> Dictionary:
+	var stats: Dictionary = ensure(state)
+	track_deal(state, name if not name.is_empty() else template_id, quality, savings, kind)
+	var deals_closed := int(stats.get("dealsClosedCount", 0)) + 1
+	stats["dealsClosedCount"] = deals_closed
+	var templates: Dictionary = stats.get("templatesAcquired", {})
+	if typeof(templates) != TYPE_DICTIONARY:
+		templates = {}
+	var tid := template_id.strip_edges()
+	var first_of_type := false
+	if not tid.is_empty() and not bool(templates.get(tid, false)):
+		templates[tid] = true
+		stats["templatesAcquired"] = templates
+		first_of_type = true
+	else:
+		stats["templatesAcquired"] = templates
+	return {
+		"dealsClosedCount": deals_closed,
+		"firstOfType": first_of_type,
+		"combo": deals_closed,
+		"templateId": tid,
+	}
+
+
+## Update profitable-turn streak from quarter-closed profit. Returns current streak (0 if reset).
+static func note_profit_quarter(state: RunState, profit: int) -> int:
+	var stats: Dictionary = ensure(state)
+	var streak := int(stats.get("profitStreak", 0))
+	if profit > 0:
+		streak += 1
+	else:
+		streak = 0
+	stats["profitStreak"] = streak
+	return streak
+
+
+## One-shot Trusted seal when score first reaches threshold. Returns true if seal should play.
+static func try_trusted_seal(state: RunState, npc_id: String, score: int, threshold: int = 4) -> bool:
+	if npc_id.is_empty() or score < threshold:
+		return false
+	var stats: Dictionary = ensure(state)
+	var seals: Dictionary = stats.get("trustedSeals", {})
+	if typeof(seals) != TYPE_DICTIONARY:
+		seals = {}
+	if bool(seals.get(npc_id, false)):
+		return false
+	seals[npc_id] = true
+	stats["trustedSeals"] = seals
+	return true
 
 
 static func build_report_extras(state: RunState) -> Dictionary:
@@ -146,4 +203,8 @@ static func _default_stats() -> Dictionary:
 		"shocks": [],
 		"policyChanges": [],
 		"utilizationSamples": [],
+		"dealsClosedCount": 0,
+		"templatesAcquired": {},
+		"profitStreak": 0,
+		"trustedSeals": {},
 	}

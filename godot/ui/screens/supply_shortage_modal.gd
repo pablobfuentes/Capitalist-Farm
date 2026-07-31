@@ -13,6 +13,8 @@ func _ready() -> void:
 	close_requested.connect(_on_cancel)
 	%CancelButton.pressed.connect(_on_cancel)
 	%ConfirmButton.pressed.connect(_on_confirm)
+	FeedbackBus.wire_button(%CancelButton)
+	FeedbackBus.wire_button(%ConfirmButton)
 
 
 func open_with_shortages(shortages: Array) -> void:
@@ -23,6 +25,14 @@ func open_with_shortages(shortages: Array) -> void:
 	_refresh()
 	_fit_to_viewport()
 	popup_centered()
+	FeedbackBus.warning_rattle()
+	# Red flash on content (Window itself has no modulate).
+	var content: Control = get_node_or_null("Margin") as Control
+	if content != null:
+		var original := content.modulate
+		content.modulate = Color(1.15, 0.55, 0.5, 1.0)
+		var tween := create_tween()
+		tween.tween_property(content, "modulate", original, 0.45).set_ease(Tween.EASE_OUT)
 
 
 func _fit_to_viewport() -> void:

@@ -21,6 +21,16 @@ static func acquire_business(state: RunState, opportunity_id: String, price_over
 		return {"ok": false, "error": "Cannot buy outright during a rival contest — negotiate"}
 
 	var ask: int = price_override if price_override >= 0 else int(opp.get("price", 0))
+	# Buy Now is all-cash at ask — do not auto-open a seller note for the shortfall.
+	if state.cash < ask:
+		return {
+			"ok": false,
+			"error": "Need %s cash to Buy Now (have %s)" % [
+				MathUtil.fmt_money(ask),
+				MathUtil.fmt_money(state.cash),
+			],
+		}
+
 	var offer: Dictionary = {
 		"totalPrice": ask,
 		"cashAtClosing": ask,
@@ -29,10 +39,10 @@ static func acquire_business(state: RunState, opportunity_id: String, price_over
 		"riskToCounterparty": 8,
 	}
 
-	ActionPointsSystem.spend(state, 1)
 	var result: Dictionary = close_business_acquisition(state, opportunity_id, offer)
 	if not bool(result.get("ok", false)):
 		return result
+	ActionPointsSystem.spend(state, 1)
 	state.run_log.append("Buy Now — %s at %s" % [str(opp.get("name", "business")), MathUtil.fmt_money(ask)])
 	return result
 
@@ -47,11 +57,13 @@ static func close_business_acquisition(state: RunState, opportunity_id: String, 
 
 	var total_price: int = int(offer.get("totalPrice", int(opp.get("price", 0))))
 	var cash_requested: int = int(offer.get("cashAtClosing", total_price))
-	var cash_at_closing: int = mini(state.cash, cash_requested)
-	if state.cash < cash_at_closing:
+	if state.cash < cash_requested:
 		return {
 			"ok": false,
-			"error": "Need %s cash at closing" % MathUtil.fmt_money(cash_at_closing),
+			"error": "Need %s cash at closing (have %s)" % [
+				MathUtil.fmt_money(cash_requested),
+				MathUtil.fmt_money(state.cash),
+			],
 		}
 
 	var biz := _create_business_from_opportunity(state, opp, total_price)
@@ -114,6 +126,14 @@ static func acquire_real_estate(state: RunState, opportunity_id: String, price_o
 		return {"ok": false, "error": "Cannot buy outright during a rival contest — negotiate"}
 
 	var ask: int = price_override if price_override >= 0 else int(opp.get("price", 0))
+	if state.cash < ask:
+		return {
+			"ok": false,
+			"error": "Need %s cash to Buy Now (have %s)" % [
+				MathUtil.fmt_money(ask),
+				MathUtil.fmt_money(state.cash),
+			],
+		}
 	var offer: Dictionary = {
 		"totalPrice": ask,
 		"cashAtClosing": ask,
@@ -121,10 +141,11 @@ static func acquire_real_estate(state: RunState, opportunity_id: String, price_o
 		"termsOffered": [],
 		"riskToCounterparty": 8,
 	}
-	ActionPointsSystem.spend(state, 1)
 	var result: Dictionary = close_real_estate_acquisition(state, opportunity_id, offer)
-	if bool(result.get("ok", false)):
-		state.run_log.append("Buy Now — %s at %s" % [str(opp.get("name", "property")), MathUtil.fmt_money(ask)])
+	if not bool(result.get("ok", false)):
+		return result
+	ActionPointsSystem.spend(state, 1)
+	state.run_log.append("Buy Now — %s at %s" % [str(opp.get("name", "property")), MathUtil.fmt_money(ask)])
 	return result
 
 
@@ -137,9 +158,14 @@ static func close_real_estate_acquisition(state: RunState, opportunity_id: Strin
 
 	var total_price: int = int(offer.get("totalPrice", int(opp.get("price", 0))))
 	var cash_requested: int = int(offer.get("cashAtClosing", total_price))
-	var cash_at_closing: int = mini(state.cash, cash_requested)
-	if state.cash < cash_at_closing:
-		return {"ok": false, "error": "Need %s cash at closing" % MathUtil.fmt_money(cash_at_closing)}
+	if state.cash < cash_requested:
+		return {
+			"ok": false,
+			"error": "Need %s cash at closing (have %s)" % [
+				MathUtil.fmt_money(cash_requested),
+				MathUtil.fmt_money(state.cash),
+			],
+		}
 
 	var asset := _create_real_estate_from_opportunity(state, opp, total_price)
 	state.portfolio.real_estate.append(asset)

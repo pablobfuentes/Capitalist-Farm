@@ -14,8 +14,9 @@ const PLAYER_OUTLINE := Color(0.20, 0.72, 1.0, 1.0)
 const OPPORTUNITY_OUTLINE := Color(1.0, 0.92, 0.12, 1.0)
 const CONTESTED_OUTLINE := Color(1.0, 0.72, 0.18, 1.0)
 const OUTLINE_WIDTH := 2.0
-const OPPORTUNITY_BLINK_MIN_ALPHA := 0.22
+const OPPORTUNITY_BLINK_MIN_ALPHA := 0.16
 const OPPORTUNITY_BLINK_MAX_ALPHA := 1.0
+const OWNED_SMOKE_COLOR := Color(0.78, 0.82, 0.86, 0.55)
 
 var _region: Dictionary = {}
 var _region_offset := Vector2.ZERO
@@ -26,6 +27,7 @@ var _textures: Array[Texture2D] = []
 var _texture_pick: Dictionary = {}
 var _sprite_metrics: Dictionary = {}
 var _blink_phase := 0.0
+var _owned_count := 0
 
 
 func _ready() -> void:
@@ -48,11 +50,48 @@ func set_view_context(view_mode: String, focus_district_id: String) -> void:
 
 func set_blink_phase(phase: float) -> void:
 	_blink_phase = phase
+	# Always redraw — opportunity outlines pulse from this phase even with zero owned parcels.
 	queue_redraw()
+
+
+func get_owned_count() -> int:
+	return _owned_count
+
+
+func get_opportunity_outline_count() -> int:
+	return _count_opportunity_parcels()
 
 
 func refresh_ownership() -> void:
+	_owned_count = _count_owned_parcels()
 	queue_redraw()
+
+
+func _count_owned_parcels() -> int:
+	return _count_parcels_with_owner([_Ownership.OWNER_PLAYER])
+
+
+func _count_opportunity_parcels() -> int:
+	return _count_parcels_with_owner([_Ownership.OWNER_OPPORTUNITY, _Ownership.OWNER_CONTESTED])
+
+
+func _count_parcels_with_owner(owners: Array) -> int:
+	var count := 0
+	for bundle_variant in _district_bundles:
+		if typeof(bundle_variant) != TYPE_DICTIONARY:
+			continue
+		var bundle: Dictionary = bundle_variant
+		var district: Dictionary = bundle.get("district", {})
+		for parcel_variant in district.get("parcels", []):
+			if typeof(parcel_variant) != TYPE_DICTIONARY:
+				continue
+			var parcel: Dictionary = parcel_variant
+			var role := str(parcel.get("role", "core"))
+			if role in ["development", "civic", "bank", "plaza"]:
+				continue
+			if _owner_state_for_entry(parcel, district) in owners:
+				count += 1
+	return count
 
 
 func _ensure_textures_loaded() -> void:
@@ -110,6 +149,7 @@ func _metrics_for(texture: Texture2D) -> Dictionary:
 func _draw() -> void:
 	if _textures.is_empty():
 		return
+	var owned := 0
 	for bundle_variant in _district_bundles:
 		if typeof(bundle_variant) != TYPE_DICTIONARY:
 			continue
@@ -118,7 +158,8 @@ func _draw() -> void:
 		if not _Unlock.is_unlocked(Game.state, district_id):
 			continue
 		var dimmed := _should_dim_district(district_id)
-		_draw_district_buildings(bundle, dimmed)
+		owned += _draw_district_buildings(bundle, dimmed)
+	_owned_count = owned
 
 
 func _should_dim_district(district_id: String) -> bool:
@@ -127,11 +168,12 @@ func _should_dim_district(district_id: String) -> bool:
 	return district_id != _focus_district_id
 
 
-func _draw_district_buildings(bundle: Dictionary, dimmed: bool) -> void:
+func _draw_district_buildings(bundle: Dictionary, dimmed: bool) -> int:
 	var district: Dictionary = bundle.get("district", {})
 	var origin: Vector2i = bundle.get("origin", Vector2i.ZERO)
 	var district_id: String = str(bundle.get("district_id", ""))
 	var alpha := 0.42 if dimmed else 1.0
+	var owned := 0
 
 	for parcel_variant in district.get("parcels", []):
 		if typeof(parcel_variant) != TYPE_DICTIONARY:
@@ -147,6 +189,28 @@ func _draw_district_buildings(bundle: Dictionary, dimmed: bool) -> void:
 		var owner_state := _owner_state_for_entry(parcel, district)
 		var layout: Dictionary = _draw_building_sprite(texture, lot_rect, alpha)
 		_draw_sprite_status_outline(layout.get("world_outline", PackedVector2Array()), owner_state, alpha)
+		if owner_state == _Ownership.OWNER_PLAYER:
+			owned += 1
+			_draw_owned_idle_smoke(layout.get("dest_rect", Rect2()), alpha, str(parcel.get("id", "")))
+	return owned
+
+
+func _draw_owned_idle_smoke(dest_rect: Rect2, alpha: float, parcel_id: String) -> void:
+	if dest_rect.size == Vector2.ZERO:
+		return
+	var seed_bias := float(hash(parcel_id) % 1000) / 1000.0
+	var base := dest_rect.position + Vector2(dest_rect.size.x * 0.62, dest_rect.size.y * 0.18)
+	for i in 3:
+		var phase := fposmod(_blink_phase * 0.35 + seed_bias + float(i) * 0.28, 1.0)
+		var rise := phase * 18.0
+		var drift := sin((_blink_phase + seed_bias + float(i)) * TAU) * 3.0
+		var puff_a := (1.0 - phase) * 0.45 * alpha
+		if puff_a <= 0.02:
+			continue
+		var radius := lerpf(2.2, 5.5, phase)
+		var color := OWNED_SMOKE_COLOR
+		color.a = puff_a
+		draw_circle(base + Vector2(drift, -rise), radius, color)
 
 
 func _texture_for_parcel(district_id: String, parcel_id: String) -> Texture2D:
@@ -204,8 +268,10 @@ func _status_outline_color(owner_state: String) -> Color:
 
 
 func _opportunity_blink_alpha() -> float:
+	# Ease the sine so the bright peak lingers a bit — calmer, still obvious.
 	var wave := 0.5 + 0.5 * sin(_blink_phase * TAU)
-	return lerpf(OPPORTUNITY_BLINK_MIN_ALPHA, OPPORTUNITY_BLINK_MAX_ALPHA, wave)
+	var eased := wave * wave * (3.0 - 2.0 * wave)
+	return lerpf(OPPORTUNITY_BLINK_MIN_ALPHA, OPPORTUNITY_BLINK_MAX_ALPHA, eased)
 
 
 func _owner_state_for_entry(entry: Dictionary, district: Dictionary) -> String:

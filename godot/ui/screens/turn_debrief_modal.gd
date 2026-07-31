@@ -19,6 +19,7 @@ func _ready() -> void:
 	visible = false
 	close_requested.connect(_on_continue)
 	_continue_button.pressed.connect(_on_continue)
+	FeedbackBus.wire_button(_continue_button)
 
 
 func open_with_report(report: Dictionary) -> void:
@@ -26,11 +27,25 @@ func open_with_report(report: Dictionary) -> void:
 	if _report.is_empty():
 		hide()
 		return
-	_refresh()
+	# Clear rows first so the animated fill is visible after popup.
+	for child in _rows_list.get_children():
+		child.queue_free()
+	_title_label.text = "Turn %d Debrief" % int(_report.get("turnClosed", 0))
 	popup_centered_ratio(0.72)
+	FeedbackBus.paper_whoosh()
+	var content: Control = get_node_or_null("Margin") as Control
+	if content != null:
+		content.modulate.a = 0.0
+		var tween := create_tween()
+		tween.tween_property(content, "modulate:a", 1.0, 0.18).set_ease(Tween.EASE_OUT)
+	await _refresh_animated()
 
 
 func _refresh() -> void:
+	_refresh_animated()
+
+
+func _refresh_animated() -> void:
 	if _report.is_empty():
 		return
 	var turn_closed: int = int(_report.get("turnClosed", 0))
@@ -41,13 +56,25 @@ func _refresh() -> void:
 	for child in _rows_list.get_children():
 		child.queue_free()
 
-	_add_compare_row("Cash", int(_report.get("cashBefore", 0)), int(_report.get("cashAfter", 0)))
-	_add_compare_row("Net worth", int(_report.get("nwBefore", 0)), int(_report.get("nwAfter", 0)))
-	_add_compare_row("Debt outstanding", int(_report.get("debtBefore", 0)), int(_report.get("debtAfter", 0)), true)
-	_add_compare_row("Revenue (qtr run-rate)", int(_report.get("revenueBefore", 0)), int(_report.get("revenueAfter", 0)))
-	_add_compare_row("Costs + debt svc (qtr)", int(_report.get("costsDebtBefore", 0)), int(_report.get("costsDebtAfter", 0)), true)
-	_add_compare_row("Profit run rate (qtr)", int(_report.get("profitRunBefore", 0)), int(_report.get("profitRunAfter", 0)))
-	_add_profit_closed_row(int(_report.get("profitQuarterClosed", 0)))
+	var rows: Array = [
+		["Cash", int(_report.get("cashBefore", 0)), int(_report.get("cashAfter", 0)), false],
+		["Net worth", int(_report.get("nwBefore", 0)), int(_report.get("nwAfter", 0)), false],
+		["Debt outstanding", int(_report.get("debtBefore", 0)), int(_report.get("debtAfter", 0)), true],
+		["Revenue (qtr run-rate)", int(_report.get("revenueBefore", 0)), int(_report.get("revenueAfter", 0)), false],
+		["Costs + debt svc (qtr)", int(_report.get("costsDebtBefore", 0)), int(_report.get("costsDebtAfter", 0)), true],
+		["Profit run rate (qtr)", int(_report.get("profitRunBefore", 0)), int(_report.get("profitRunAfter", 0)), false],
+	]
+	for row_variant in rows:
+		var row: Array = row_variant
+		_add_compare_row(str(row[0]), int(row[1]), int(row[2]), bool(row[3]))
+		FeedbackBus.play("calc")
+		await get_tree().create_timer(0.05).timeout
+	var profit_closed := int(_report.get("profitQuarterClosed", 0))
+	_add_profit_closed_row(profit_closed)
+	if Game.state != null:
+		var streak := RunStatsSystem.note_profit_quarter(Game.state, profit_closed)
+		if streak > 0:
+			FeedbackBus.profit_streak_tick(streak, _title_label)
 
 	var highlights: Array = _report.get("highlights", [])
 	if highlights.is_empty():

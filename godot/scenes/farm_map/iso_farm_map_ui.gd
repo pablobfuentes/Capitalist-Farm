@@ -10,4 +10,5 @@ func _ready() -> void:
 			if ctrl.name == "Hint" or ctrl.name == "ParcelBusinessPanel":
 				ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			else:
+				# TopBar, AdvanceButton, and other chrome stay clickable.
 				ctrl.mouse_filter = Control.MOUSE_FILTER_STOP

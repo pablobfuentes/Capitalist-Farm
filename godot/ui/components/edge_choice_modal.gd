@@ -18,6 +18,8 @@ func open_with_choices(choices: Array) -> void:
 		return
 	_rebuild(choices)
 	popup_centered()
+	FeedbackBus.crest_burst(false)
+	FeedbackBus.paper_whoosh()
 
 
 func close_modal() -> void:
@@ -46,17 +48,20 @@ func _rebuild(choices: Array) -> void:
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var edge_id: String = str(edge.get("id", ""))
 		btn.pressed.connect(func() -> void: _on_edge_pressed(edge_id))
+		FeedbackBus.wire_button(btn)
 		root.add_child(btn)
 
 	var skip_btn := Button.new()
 	skip_btn.text = "Skip"
 	skip_btn.pressed.connect(_on_skip_pressed)
+	FeedbackBus.wire_button(skip_btn)
 	root.add_child(skip_btn)
 
 	add_child(root)
 
 
 func _on_edge_pressed(edge_id: String) -> void:
+	FeedbackBus.crest_burst(true)
 	close_modal()
 	edge_chosen.emit(edge_id)
 

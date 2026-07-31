@@ -89,6 +89,13 @@ var _gauge_feedback_v2: Dictionary = {}
 var _gauge_feedback_label: Label
 var _turn_feedback_active := false
 var _certificate_modal: CanvasLayer = null
+var _close_ready_was := false
+var _close_pulse_tween: Tween = null
+var _notes_fingerprint := ""
+var _prev_notes_text := ""
+var _diligence_was_unlocked := false
+var _momentum_arrow: Label = null
+var _gauge_tick_bucket := -1
 
 
 func _ready() -> void:
@@ -115,6 +122,12 @@ func _ready() -> void:
 	%CopyTranscriptButton.hide()
 	%SaveLogButton.hide()
 	%CloseButton.hide()
+	FeedbackBus.wire_button(%SendButton)
+	FeedbackBus.wire_button(%WalkButton)
+	FeedbackBus.wire_button(%CloseDealButton)
+	FeedbackBus.wire_scroll(%ChatScroll)
+	FeedbackBus.wire_scroll(%NotesScroll)
+	FeedbackBus.wire_scroll(%DiligenceScroll)
 	_ensure_feedback_labels()
 	_certificate_modal = preload("res://ui/screens/acquisition_certificate_modal.tscn").instantiate()
 	add_child(_certificate_modal)
@@ -330,10 +343,18 @@ func _open_session() -> void:
 	_chat_follow_bottom = true
 	_shown_gauge = -1.0
 	_shown_discount_pct = -1.0
+	_close_ready_was = false
+	_busy = false
+	_notes_fingerprint = ""
+	_prev_notes_text = ""
+	_diligence_was_unlocked = false
 	_stop_feedback_tween()
+	_update_close_deal_pulse(false)
 	_fit_to_viewport()
 	await _capture_backdrop()
 	show()
+	FeedbackBus.set_ambient("negotiation")
+	await FeedbackBus.slide_in_panel(%Root)
 	_refresh()
 	_set_input_enabled(not _busy)
 	call_deferred("_focus_message_input")
@@ -485,8 +506,14 @@ func _refresh(animate_turn: bool = false) -> void:
 	var ready := bool(neg.get("readyToClose", false))
 	%CloseDealButton.visible = true
 	%CloseDealButton.disabled = _busy or not ready
-	%CloseDealButton.modulate = Color(1, 1, 1, 1.0 if ready else 0.55)
+	_apply_close_deal_affordability(neg, ready)
+	_update_close_deal_pulse(ready and not _busy)
+	_update_momentum_arrow(v2, animate_turn)
 	_set_input_enabled(not _busy)
+	if _busy:
+		_show_typing_indicator()
+	else:
+		_clear_typing_indicator()
 
 
 func _update_price_labels(ctx: Dictionary, v2: Dictionary, discount_pct_override: float = -1.0) -> void:
@@ -634,6 +661,10 @@ func _play_gauge_feedback(from_gauge: float, to_gauge: float, delta: int, v2: Di
 	_position_gauge_floater(from_gauge)
 	label.visible = true
 	label.pivot_offset = label.size * 0.5
+	_gauge_tick_bucket = -1
+	FeedbackBus.play("tick")
+	FeedbackBus.flash_color(%GaugePointer, label.modulate, 0.4)
+	FeedbackBus.species_react(%PortraitSlot, delta > 0)
 
 	_feedback_tween = create_tween()
 	_feedback_tween.tween_property(label, "scale", Vector2(1.15, 1.15), _GAUGE_POP_DURATION)\
@@ -663,6 +694,10 @@ func _gauge_move_tick(progress: float) -> void:
 	pointer.scale = Vector2(pulse, pulse)
 	if _gauge_feedback_label and progress > 0.4:
 		_gauge_feedback_label.modulate.a = lerpf(1.0, 0.0, (progress - 0.4) / 0.6)
+	var bucket := int(progress * 6.0)
+	if bucket != _gauge_tick_bucket and bucket > 0:
+		_gauge_tick_bucket = bucket
+		FeedbackBus.play("tick")
 
 
 func _play_discount_feedback(delta_pct: float, ctx: Dictionary, v2: Dictionary) -> void:
@@ -718,6 +753,7 @@ func _update_chat(neg: Dictionary) -> void:
 	box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	box.add_theme_constant_override("separation", int(6 * _ui_scale()))
 	var bubble_scale := _ui_scale()
+	var last_bubble: Control = null
 	for msg_variant in neg.get("messages", []):
 		if typeof(msg_variant) != TYPE_DICTIONARY:
 			continue
@@ -727,7 +763,9 @@ func _update_chat(neg: Dictionary) -> void:
 			continue
 		var role := str(msg.get("role", msg.get("speaker", ""))).to_lower()
 		var kind: int = _ChatBubble.kind_from_role(role)
-		box.add_child(_ChatBubble.create(text, kind, scroll_w, bubble_scale))
+		var bubble: Control = _ChatBubble.create(text, kind, scroll_w, bubble_scale)
+		box.add_child(bubble)
+		last_bubble = bubble
 	var bottom_pad := Control.new()
 	bottom_pad.custom_minimum_size = Vector2(1.0, 18.0 * bubble_scale)
 	bottom_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -737,6 +775,10 @@ func _update_chat(neg: Dictionary) -> void:
 	for child in box.get_children():
 		if child is Control:
 			_ChatBubble.sync_min_height(child as Control)
+	if last_bubble != null:
+		FeedbackBus.pop_in(last_bubble)
+	if _busy:
+		_show_typing_indicator()
 
 	if follow_bottom:
 		call_deferred("_scroll_chat_to_bottom")
@@ -856,13 +898,26 @@ func _update_seller_name_text(cp: Dictionary) -> String:
 
 
 func _update_notebook(neg: Dictionary) -> void:
-	%NotesLabel.text = _format_notes(neg)
+	var notes_text := _format_notes(neg)
 	var diligence_text := _format_diligence(neg)
 	if Game.state != null and CommunityFeatureFlags.is_enabled(CommunityFeatureFlags.FLAG_NOTEBOOK_INTEL, Game.state):
 		diligence_text = CommunityNotebookService.format_diligence_with_notebook(Game.state, diligence_text, neg)
+	var notes_fp := "%s||%s" % [notes_text, diligence_text]
+	var notes_grew := not _prev_notes_text.is_empty() and notes_text != _prev_notes_text and notes_text.length() >= _prev_notes_text.length()
+	%NotesLabel.text = notes_text
 	%DiligenceLabel.text = diligence_text
 	var unlocked := bool(neg.get("intelUnlocked", false))
 	%DiligenceLabel.modulate = Color.WHITE if unlocked else Color(0.72, 0.68, 0.62, 1.0)
+	if unlocked and not _diligence_was_unlocked:
+		FeedbackBus.stamp_punch(%DiligenceLabel)
+		FeedbackBus.highlight_text_control(%DiligenceLabel, 1.1)
+	elif notes_grew and notes_fp != _notes_fingerprint:
+		FeedbackBus.paper_whoosh()
+		FeedbackBus.play("success")
+		FeedbackBus.highlight_text_control(%NotesLabel, 0.9)
+	_diligence_was_unlocked = unlocked
+	_notes_fingerprint = notes_fp
+	_prev_notes_text = notes_text
 	call_deferred("_sync_notebook_scroll_widths")
 
 
@@ -958,19 +1013,79 @@ func _set_input_enabled(enabled: bool) -> void:
 	%WalkButton.disabled = not enabled
 	var ready := Game.state != null and bool(Game.state.negotiation.get("readyToClose", false))
 	%CloseDealButton.disabled = not enabled or not ready
+	_update_close_deal_pulse(ready and enabled)
+
+
+func _update_close_deal_pulse(ready: bool) -> void:
+	var btn: Control = %CloseDealButton
+	if _close_pulse_tween != null and _close_pulse_tween.is_valid():
+		_close_pulse_tween.kill()
+	_close_pulse_tween = null
+	if btn == null:
+		return
+	if btn.size != Vector2.ZERO:
+		btn.pivot_offset = btn.size * 0.5
+	if not ready:
+		btn.scale = Vector2.ONE
+		_close_ready_was = false
+		return
+	if not _close_ready_was:
+		FeedbackBus.chime()
+		_close_ready_was = true
+	_close_pulse_tween = create_tween().set_loops()
+	_close_pulse_tween.tween_property(btn, "scale", Vector2(1.05, 1.05), 0.55)\
+		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	_close_pulse_tween.tween_property(btn, "scale", Vector2.ONE, 0.55)\
+		.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+
+
+func _show_typing_indicator() -> void:
+	_clear_typing_indicator()
+	FeedbackBus.duck_ambient(true)
+	var box: VBoxContainer = %ChatMessages
+	if box == null:
+		return
+	var indicator := FeedbackBus.make_typing_indicator()
+	# Insert before bottom pad when present.
+	var insert_at := box.get_child_count()
+	if insert_at > 0:
+		var last: Node = box.get_child(insert_at - 1)
+		if last is Control and (last as Control).custom_minimum_size.y > 0.0 and last.get_child_count() == 0:
+			insert_at = maxi(0, insert_at - 1)
+	box.add_child(indicator)
+	box.move_child(indicator, insert_at)
+	FeedbackBus.pop_in(indicator)
+	call_deferred("_scroll_chat_to_bottom")
+
+
+func _clear_typing_indicator() -> void:
+	FeedbackBus.duck_ambient(false)
+	var box: VBoxContainer = %ChatMessages
+	if box == null:
+		return
+	var existing := box.get_node_or_null("TypingIndicator")
+	if existing != null:
+		existing.queue_free()
 
 
 func _on_close_deal() -> void:
 	if _busy:
 		return
+	var nw_before := FinanceSystem.net_worth(Game.state) if Game.state != null else 0
 	var result: Dictionary = Game.apply_command(GameCommand.close_negotiation_deal())
 	if not bool(result.get("ok", false)):
-		%StatusLabel.text = str(result.get("error", "Could not close deal"))
+		FeedbackBus.deny(%CloseDealButton)
+		var err := str(result.get("error", "Could not close deal"))
+		%StatusLabel.text = err
+		FeedbackBus.toast_error(err)
 		_refresh()
 		return
+	_update_close_deal_pulse(false)
 	if bool(result.get("closed", false)) and _result_is_acquisition(result):
 		%StatusLabel.text = "Deal closed!"
-		await _present_acquisition_certificate(result)
+		FeedbackBus.toast_success("Deal closed")
+		await _present_acquisition_certificate(result, nw_before)
+		FeedbackBus.set_ambient("map")
 		hide()
 		closed.emit()
 	else:
@@ -994,15 +1109,21 @@ func _send_message(text: String) -> void:
 	_set_input_enabled(false)
 	%StatusLabel.text = "Waiting for reply…"
 	%MessageInput.text = ""
+	FeedbackBus.paper_whoosh()
+	_show_typing_indicator()
 
 	Game.send_negotiation_message_async(trimmed, _on_negotiation_result)
 
 
 func _on_negotiation_result(result: Dictionary) -> void:
 	_busy = false
+	_clear_typing_indicator()
 
 	if not bool(result.get("ok", false)):
-		%StatusLabel.text = str(result.get("error", "Send failed"))
+		FeedbackBus.deny(%SendButton)
+		var err := str(result.get("error", "Send failed"))
+		%StatusLabel.text = err
+		FeedbackBus.toast_error(err)
 		_refresh(false)
 		return
 
@@ -1015,14 +1136,22 @@ func _on_negotiation_result(result: Dictionary) -> void:
 		_refresh(true)
 		if _result_is_acquisition(result):
 			%StatusLabel.text = "Deal closed!"
-			await _present_acquisition_certificate(result)
+			FeedbackBus.toast_success("Deal closed")
+			# NW-before is unknown on async path; cascade uses current as both (no-op) unless stored.
+			await _present_acquisition_certificate(result, -1)
+			FeedbackBus.set_ambient("map")
 			hide()
 			closed.emit()
 			return
 		var decision := str(result.get("decision", ""))
 		if decision == "rival_win":
 			%StatusLabel.text = str(result.get("reply", "Rowe wins the contest."))
+			FeedbackBus.deny(%Root)
+			FeedbackBus.toast_error("Outbid")
+			FeedbackBus.vignette_pulse(Color(0.85, 0.12, 0.1, 0.45), 0.7)
 			await get_tree().create_timer(2.0).timeout
+			await FeedbackBus.slide_out_panel(%Root)
+			FeedbackBus.set_ambient("map")
 			hide()
 			closed.emit()
 			return
@@ -1038,12 +1167,58 @@ func _result_is_acquisition(result: Dictionary) -> bool:
 	return _CertModal.is_acquisition_result(result)
 
 
-func _present_acquisition_certificate(result: Dictionary) -> void:
+func _present_acquisition_certificate(result: Dictionary, nw_before: int = -1) -> void:
 	if _certificate_modal == null:
 		_certificate_modal = preload("res://ui/screens/acquisition_certificate_modal.tscn").instantiate()
 		add_child(_certificate_modal)
-	var deal: Dictionary = _CertModal.deal_from_command_result(result)
-	await _certificate_modal.present(deal)
+	var before_nw := nw_before
+	var after_nw := FinanceSystem.net_worth(Game.state) if Game.state != null else 0
+	if before_nw < 0:
+		# Best-effort: estimate prior NW from after + cash paid - asset mark is unavailable here.
+		before_nw = after_nw
+	var deal: Dictionary = _CertModal.deal_from_command_result(result, before_nw, after_nw)
+	var banner: Control = get_tree().root.find_child("RunStats", true, false) as Control
+	await _certificate_modal.present(deal, banner)
+
+
+func _apply_close_deal_affordability(neg: Dictionary, ready: bool) -> void:
+	var btn: Control = %CloseDealButton
+	if not ready:
+		btn.modulate = Color(1, 1, 1, 0.55)
+		return
+	var pending: Dictionary = neg.get("pendingOffer", neg.get("playerLastOffer", {}))
+	var need: int = int(pending.get("cashAtClosing", pending.get("totalPrice", 0)))
+	var cash := Game.state.cash if Game.state != null else 0
+	var tint := FeedbackBus.affordability_color(cash, need)
+	btn.modulate = Color(tint.r, tint.g, tint.b, 1.0)
+
+
+func _update_momentum_arrow(v2: Dictionary, animate_turn: bool) -> void:
+	if _momentum_arrow == null:
+		_momentum_arrow = Label.new()
+		_momentum_arrow.name = "MomentumArrow"
+		_momentum_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_momentum_arrow.z_index = 7
+		_momentum_arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		%Root.add_child(_momentum_arrow)
+	if v2.is_empty():
+		_momentum_arrow.visible = false
+		return
+	var delta := int(v2.get("gaugeDelta", 0))
+	if not animate_turn or delta == 0:
+		_momentum_arrow.visible = false
+		return
+	_momentum_arrow.visible = true
+	_momentum_arrow.text = "▲" if delta > 0 else "▼"
+	_momentum_arrow.modulate = _COLOR_GAUGE_UP if delta > 0 else _COLOR_GAUGE_DOWN
+	_momentum_arrow.add_theme_font_size_override("font_size", int(22 * _ui_scale()))
+	var pointer: Control = %GaugePointer
+	_momentum_arrow.global_position = pointer.get_global_rect().position + Vector2(18 * _ui_scale(), -8 * _ui_scale())
+	FeedbackBus.pulse(_momentum_arrow, 1.2, 0.3)
+	get_tree().create_timer(1.1).timeout.connect(func() -> void:
+		if is_instance_valid(_momentum_arrow):
+			_momentum_arrow.visible = false
+	)
 
 
 func _on_walk() -> void:
@@ -1051,6 +1226,11 @@ func _on_walk() -> void:
 		return
 	_Transcript.save_to_user_file(Game.state.negotiation if Game.state else {})
 	Game.apply_command(GameCommand.end_negotiation(true))
+	_update_close_deal_pulse(false)
+	_clear_typing_indicator()
+	FeedbackBus.walk_away_sting()
+	await FeedbackBus.slide_out_panel(%Root)
+	FeedbackBus.set_ambient("map")
 	hide()
 	closed.emit()
 

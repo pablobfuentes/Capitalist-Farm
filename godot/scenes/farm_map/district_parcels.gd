@@ -8,11 +8,13 @@ const _Grid := preload("res://scenes/farm_map/iso_grid_math.gd")
 const _Layout := preload("res://scenes/farm_map/district_layout_data.gd")
 const _World := preload("res://scenes/farm_map/world_layout_data.gd")
 const _Unlock := preload("res://core/systems/district_unlock_system.gd")
+const _Ownership := preload("res://core/systems/parcel_ownership_system.gd")
 const _StaticLayer := preload("res://scenes/farm_map/district_parcels_static.gd")
 const _BuildingLayer := preload("res://scenes/farm_map/district_parcel_buildings.gd")
 const _OverlayLayer := preload("res://scenes/farm_map/district_parcels_overlay.gd")
 
-const OPPORTUNITY_BLINK_SPEED := 2.8
+## Slower pulse (~1.1s cycle) — calm but still reads as “needs attention”.
+const OPPORTUNITY_BLINK_SPEED := 0.9
 
 var _region: Dictionary = {}
 var _region_offset := Vector2.ZERO
@@ -122,6 +124,13 @@ func get_selection() -> Dictionary:
 	return _selected
 
 
+func flash_acquisition(entry: Dictionary = {}) -> void:
+	var target: Dictionary = entry if not entry.is_empty() else _selected
+	if target.is_empty():
+		return
+	_overlay_layer.flash_acquisition(target)
+
+
 func set_selection(entry: Dictionary) -> void:
 	_selected = entry.duplicate(true) if typeof(entry) == TYPE_DICTIONARY else {}
 	_overlay_layer.set_selection(_selected)
@@ -148,12 +157,18 @@ func set_hover(entry: Dictionary) -> void:
 
 
 func refresh_ownership() -> void:
+	if Game.state != null:
+		_Ownership.sync_from_state(Game.state)
 	_static_layer.refresh_ownership()
 	_building_layer.refresh_ownership()
 	_overlay_layer.configure(_region_offset, _static_layer.get_district_bundles())
 	_overlay_layer.refresh_ownership()
 	_rebuild_pick_cache()
 	_update_blink_process()
+	# Force an immediate draw so turn-1 opportunities aren't waiting on the first process tick.
+	if is_processing():
+		_overlay_layer.set_blink_phase(_blink_phase)
+		_building_layer.set_blink_phase(_blink_phase)
 
 
 func _process(delta: float) -> void:
@@ -191,7 +206,11 @@ func _rebuild_pick_cache() -> void:
 
 
 func _update_blink_process() -> void:
-	set_process(_overlay_layer.get_opportunity_count() > 0)
+	var need: bool = (
+		int(_overlay_layer.get_opportunity_count()) > 0
+		or int(_building_layer.get_owned_count()) > 0
+	)
+	set_process(need)
 	if not is_processing():
 		_blink_phase = 0.0
 

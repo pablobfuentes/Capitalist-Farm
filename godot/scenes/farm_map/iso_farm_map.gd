@@ -15,7 +15,11 @@ const _Bank := preload("res://core/systems/bank_system.gd")
 @onready var _overview_button: Button = %OverviewButton
 @onready var _advance_button: Button = %AdvanceButton
 @onready var _district_lock_toggle: Button = %DistrictLockToggleButton
+@onready var _back_button: Button = %BackButton
 @onready var _parcel_panel: PanelContainer = %ParcelBusinessPanel
+
+const _ICON_LOCK := preload("res://assets/ui/icons/icon_lock.svg")
+const _ICON_LOCK_OPEN := preload("res://assets/ui/icons/icon_lock_open.svg")
 
 const MIN_ZOOM := 0.18
 const MAX_ZOOM := 2.0
@@ -25,6 +29,7 @@ const DISTRICT_ZOOM := 0.92
 const CAMERA_LERP := 7.0
 const PARCEL_FOCUS_FILL := 0.88
 const PARCEL_FOCUS_SIDE_MARGIN := 24.0
+const ADVANCE_BUTTON_RESERVE := 80.0
 
 var _region: Dictionary = {}
 var _view_mode := "overview"
@@ -76,10 +81,17 @@ func _ready() -> void:
 	_wire_map_events()
 	_overview_button.pressed.connect(_on_overview_pressed)
 	_district_lock_toggle.pressed.connect(_on_district_lock_toggle_pressed)
+	FeedbackBus.wire_button(_overview_button)
+	FeedbackBus.wire_button(_advance_button)
+	FeedbackBus.wire_button(_district_lock_toggle)
+	FeedbackBus.wire_button(_back_button)
+	_style_icon_button(_back_button)
+	_style_icon_button(_district_lock_toggle)
 	_apply_view_context()
 	_go_to_overview(false)
 	_bootstrap_map()
 	_maybe_show_edge_choices()
+	FeedbackBus.set_ambient("map")
 
 
 func _wire_map_events() -> void:
@@ -131,18 +143,35 @@ func _on_improve_level_up(_opportunity_id: String) -> void:
 
 
 func _on_parcel_sell(business_id: String) -> void:
-	Game.apply_command(GameCommand.sell_asset("business", business_id))
+	var before := _economy_snapshot()
+	var result: Dictionary = Game.apply_command(GameCommand.sell_asset("business", business_id))
+	if not bool(result.get("ok", false)):
+		_deny_with_reason(str(result.get("error", "Sell failed")))
+		return
+	_emit_economy_deltas(before)
+	_refresh_parcels()
+	_refresh_selected_parcel()
+	if _parcel_panel != null:
+		_parcel_panel.hide_panel()
 
 
 func _on_parcel_buy(opportunity_id: String) -> void:
+	var before := _economy_snapshot()
+	var selected: Dictionary = _lots.get_selection() if _lots != null else {}
 	var result: Dictionary = Game.apply_command(GameCommand.acquire_business(opportunity_id))
 	if not bool(result.get("ok", false)):
+		_deny_with_reason(str(result.get("error", "Purchase failed")))
+		_refresh_selected_parcel()
 		return
-	await _present_acquisition_certificate(result)
+	# Quiet HUD/map update — money/NW celebration runs only after certificate dismiss.
+	_refresh_hud()
+	if _lots != null:
+		_lots.flash_acquisition(selected)
+	await _present_acquisition_certificate(result, int(before.get("nw", 0)))
 	_on_modal_closed_refresh_parcels()
 
 
-func _present_acquisition_certificate(result: Dictionary) -> void:
+func _present_acquisition_certificate(result: Dictionary, nw_before: int = -1) -> void:
 	if _certificate_modal == null:
 		return
 	var CertScript = preload("res://ui/screens/acquisition_certificate_modal.gd")
@@ -150,11 +179,19 @@ func _present_acquisition_certificate(result: Dictionary) -> void:
 		return
 	if _parcel_panel != null:
 		_parcel_panel.hide_panel()
-	await _certificate_modal.present(CertScript.deal_from_command_result(result))
+	var before_nw := nw_before if nw_before >= 0 else 0
+	var after_nw := FinanceSystem.net_worth(Game.state) if Game.state != null else before_nw
+	var deal: Dictionary = CertScript.deal_from_command_result(result, before_nw, after_nw)
+	await _certificate_modal.present(deal, _run_stats)
 
 
 func _on_parcel_investigate(opportunity_id: String) -> void:
-	Game.apply_command(GameCommand.investigate(opportunity_id))
+	var before := _economy_snapshot()
+	var result: Dictionary = Game.apply_command(GameCommand.investigate(opportunity_id))
+	if not bool(result.get("ok", false)):
+		_deny_with_reason(str(result.get("error", "Investigate failed")))
+		return
+	_emit_economy_deltas(before)
 
 
 func _on_parcel_negotiate(opportunity_id: String) -> void:
@@ -207,21 +244,39 @@ func _on_edge_skipped() -> void:
 
 
 func _on_advance_pressed() -> void:
+	FeedbackBus.advance_whoosh()
+	FeedbackBus.pulse(_advance_button)
+	await get_tree().create_timer(0.12).timeout
+	var before := _economy_snapshot()
 	var result: Dictionary = Game.apply_command(GameCommand.advance_turn())
 	if bool(result.get("requires_supply_policy", false)):
+		FeedbackBus.deny(_advance_button)
 		_shortage_modal.open_with_shortages(result.get("shortages", []))
 		return
 	if not bool(result.get("ok", false)):
-		push_warning("Turn failed: %s" % str(result.get("error", "unknown")))
+		FeedbackBus.deny(_advance_button)
+		var err := str(result.get("error", "Turn failed"))
+		FeedbackBus.toast_error(err)
+		push_warning("Turn failed: %s" % err)
+		return
+	_emit_economy_deltas(before)
 
 
 func _on_shortage_confirmed() -> void:
 	_refresh_hud()
+	FeedbackBus.advance_whoosh()
+	var before := _economy_snapshot()
 	var result: Dictionary = Game.apply_command(GameCommand.advance_turn())
 	if bool(result.get("requires_supply_policy", false)):
+		FeedbackBus.deny(_advance_button)
 		_shortage_modal.open_with_shortages(result.get("shortages", []))
 	elif not bool(result.get("ok", false)):
-		push_warning("Turn failed: %s" % str(result.get("error", "unknown")))
+		FeedbackBus.deny(_advance_button)
+		var err := str(result.get("error", "Turn failed"))
+		FeedbackBus.toast_error(err)
+		push_warning("Turn failed: %s" % err)
+	else:
+		_emit_economy_deltas(before)
 
 
 func _on_shortage_cancelled() -> void:
@@ -261,8 +316,11 @@ func _position_parcel_panel() -> void:
 	var top_y := _top_bar_bottom_y()
 	var side_margin := 16.0
 	var panel_width := 300.0
-	var bottom_margin := 24.0
+	# Leave room above the lower-right Advance Turn button.
+	var bottom_margin := ADVANCE_BUTTON_RESERVE
 	var panel_height := maxf(160.0, view_size.y - top_y - bottom_margin)
+	# Reset any stray position from older swipe tweens, then pin with anchors/offsets.
+	_parcel_panel.position = Vector2.ZERO
 	_parcel_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_parcel_panel.offset_left = -panel_width - side_margin
 	_parcel_panel.offset_right = -side_margin
@@ -316,10 +374,15 @@ func _pointer_over_ui() -> bool:
 		return true
 	if _community_chat_panel != null and _community_chat_panel.visible:
 		return true
+	# Certificate reparents to the scene root — without this, map clicks steal dismiss input.
+	if _certificate_modal != null and _certificate_modal.visible:
+		return true
 	var hovered: Control = get_viewport().gui_get_hovered_control()
 	if hovered == null:
 		return false
 	if _top_bar and (_top_bar == hovered or _top_bar.is_ancestor_of(hovered)):
+		return true
+	if _advance_button != null and (_advance_button == hovered or _advance_button.is_ancestor_of(hovered)):
 		return true
 	if hovered is BaseButton:
 		return true
@@ -406,7 +469,8 @@ func _focus_district(district_id: String) -> void:
 		Game.state.active_district_id = district_id
 	_apply_view_context()
 	_update_camera_targets()
-	_refresh_title()
+	_refresh_title(true)
+	FeedbackBus.panel_swipe(_title, true)
 
 
 func _go_to_overview(animate: bool = true) -> void:
@@ -414,7 +478,9 @@ func _go_to_overview(animate: bool = true) -> void:
 	_view_mode = "overview"
 	_apply_view_context()
 	_update_camera_targets()
-	_refresh_title()
+	_refresh_title(true)
+	if animate:
+		FeedbackBus.panel_swipe(_title, false)
 	if not animate:
 		_camera.position = _camera_target_pos
 		_camera.zoom = _camera_target_zoom
@@ -479,13 +545,17 @@ func _restore_district_camera() -> void:
 	_update_camera_targets()
 
 
-func _refresh_title() -> void:
+func _refresh_title(fade: bool = false) -> void:
 	if _view_mode == "overview":
 		_title.text = "Capital Farm Valley — Overview"
-		return
-	var entry: Dictionary = _World.find_entry_by_id(_region, _focus_district_id)
-	var district: Dictionary = _World.load_district_from_entry(entry)
-	_title.text = "D%d · %s" % [int(entry.get("index", 0)), str(district.get("name", "District"))]
+	else:
+		var entry: Dictionary = _World.find_entry_by_id(_region, _focus_district_id)
+		var district: Dictionary = _World.load_district_from_entry(entry)
+		_title.text = "D%d · %s" % [int(entry.get("index", 0)), str(district.get("name", "District"))]
+	if fade and _title != null:
+		_title.modulate.a = 0.0
+		var tween := create_tween()
+		tween.tween_property(_title, "modulate:a", 1.0, 0.28).set_ease(Tween.EASE_OUT)
 
 
 func _on_selection_cleared() -> void:
@@ -515,13 +585,26 @@ func _on_district_lock_toggle_pressed() -> void:
 	_refresh_district_lock_toggle()
 
 
+func _style_icon_button(button: Button) -> void:
+	if button == null:
+		return
+	button.text = ""
+	button.flat = true
+	button.expand_icon = true
+	button.custom_minimum_size = Vector2(36, 36)
+	button.add_theme_constant_override("icon_max_width", 22)
+
+
 func _refresh_district_lock_toggle() -> void:
 	if _district_lock_toggle == null or Game.state == null:
 		return
+	_district_lock_toggle.text = ""
 	if Game.state.district_unlock_dev_bypass:
-		_district_lock_toggle.text = "Enforce Locks"
+		_district_lock_toggle.icon = _ICON_LOCK_OPEN
+		_district_lock_toggle.tooltip_text = "Enforce district locks"
 	else:
-		_district_lock_toggle.text = "Unlock All (Test)"
+		_district_lock_toggle.icon = _ICON_LOCK
+		_district_lock_toggle.tooltip_text = "Unlock all districts (test)"
 
 
 func _on_run_bootstrap(_state: RunState) -> void:
@@ -538,12 +621,26 @@ func _on_turn_debrief_ready(_state: RunState, _debrief: Dictionary) -> void:
 	_maybe_show_turn_debrief()
 
 
-func _on_districts_unlocked(_state: RunState, _district_ids: Array) -> void:
+func _on_districts_unlocked(_state: RunState, district_ids: Array) -> void:
 	_refresh_terrain()
 	_refresh_parcels()
+	if district_ids.is_empty():
+		return
+	FeedbackBus.celebrate_acquisition()
+	var names: PackedStringArray = []
+	for id_variant in district_ids:
+		var entry: Dictionary = _World.find_entry_by_id(_region, str(id_variant))
+		var district: Dictionary = _World.load_district_from_entry(entry)
+		var dname := str(district.get("name", id_variant))
+		if not dname.is_empty():
+			names.append(dname)
+	var banner := "District unlocked: %s" % ", ".join(names) if not names.is_empty() else "New district unlocked"
+	FeedbackBus.show_chip(banner, _title, 2.6)
+	FeedbackBus.pulse(_title, 1.08, 0.3)
 
 
 func _on_map_state_changed(_state: RunState) -> void:
+	_refresh_hud()
 	_refresh_parcels()
 	_refresh_selected_parcel()
 
@@ -621,6 +718,79 @@ func _refresh_hud() -> void:
 	if _advance_button != null:
 		_advance_button.disabled = Game.state.game_over != null
 	_refresh_district_lock_toggle()
+
+
+func _economy_snapshot() -> Dictionary:
+	if Game.state == null:
+		return {"cash": 0, "ap": 0, "nw": 0}
+	return {
+		"cash": Game.state.cash,
+		"ap": Game.state.action_points,
+		"nw": FinanceSystem.net_worth(Game.state),
+	}
+
+
+func _emit_economy_deltas(before: Dictionary) -> void:
+	if Game.state == null:
+		return
+	var cash_delta: int = Game.state.cash - int(before.get("cash", Game.state.cash))
+	var ap_delta: int = Game.state.action_points - int(before.get("ap", Game.state.action_points))
+	var nw_delta: int = FinanceSystem.net_worth(Game.state) - int(before.get("nw", 0))
+	if cash_delta != 0:
+		FeedbackBus.cash_delta(cash_delta, _run_stats)
+	if ap_delta != 0:
+		FeedbackBus.ap_delta(ap_delta, _run_stats)
+	# Big portfolio moves get a NW punch (stand-in for sparkline pulse).
+	if absi(nw_delta) >= 5000:
+		FeedbackBus.pulse(_run_stats, 1.06, 0.28)
+		FeedbackBus.float_text_near(_run_stats, "NW %s%s" % ["+" if nw_delta > 0 else "-", MathUtil.fmt_money(absi(nw_delta))], Color(0.7, 0.85, 1.0, 1.0))
+	_refresh_hud()
+
+
+func _float_ownership_at_parcel(entry: Dictionary, price: int) -> void:
+	if entry.is_empty():
+		return
+	var label := "Owned · %s" % MathUtil.fmt_money(price)
+	var color := Color(1.0, 0.86, 0.35, 1.0)
+	if _parcel_panel != null and _parcel_panel.visible:
+		FeedbackBus.float_text_near(_parcel_panel, label, color)
+		return
+	if _lots == null:
+		return
+	var frame: Dictionary = _lots.get_parcel_frame(entry)
+	if frame.is_empty():
+		return
+	var world_center: Vector2 = frame.get("center", Vector2.ZERO)
+	var screen: Vector2 = get_viewport().get_canvas_transform() * world_center
+	FeedbackBus.float_text(label, screen, color)
+
+
+func _deny_with_reason(reason: String) -> void:
+	FeedbackBus.deny(_parcel_panel)
+	if not reason.strip_edges().is_empty():
+		FeedbackBus.show_chip(reason, _parcel_panel if _parcel_panel != null else _run_stats, 2.0)
+		FeedbackBus.toast_error(reason)
+
+
+func _show_what_changed_chip(before: Dictionary, result: Dictionary) -> void:
+	if Game.state == null:
+		return
+	var cash_delta: int = Game.state.cash - int(before.get("cash", Game.state.cash))
+	var ap_delta: int = Game.state.action_points - int(before.get("ap", Game.state.action_points))
+	var name := ""
+	if result.get("business") is BusinessInstance:
+		name = (result.get("business") as BusinessInstance).name
+	elif typeof(result.get("realEstate")) == TYPE_DICTIONARY:
+		name = str((result.get("realEstate") as Dictionary).get("name", "Property"))
+	var bits: PackedStringArray = []
+	if not name.is_empty():
+		bits.append(name)
+	if cash_delta != 0:
+		bits.append("%s%s" % ["+" if cash_delta > 0 else "-", MathUtil.fmt_money(absi(cash_delta))])
+	if ap_delta != 0:
+		bits.append("%+d AP" % ap_delta)
+	bits.append("parcel owned")
+	FeedbackBus.show_chip("What changed: %s" % " · ".join(bits), _run_stats, 2.4)
 
 
 func _process(delta: float) -> void:

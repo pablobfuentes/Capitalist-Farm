@@ -27,10 +27,15 @@ EventBus="*res://autoload/event_bus.gd"
 Content="*res://autoload/content_registry.gd"
 AiClient="*res://autoload/ai_client.gd"
 NegotiationContent="*res://autoload/negotiation_content.gd"
+FeedbackBus="*res://autoload/feedback_bus.gd"
 
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+
+[gui]
+
+timers/tooltip_delay_sec=0.04
 
 [rendering]
 

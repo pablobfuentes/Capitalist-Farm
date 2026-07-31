@@ -1,0 +1,759 @@
+Developer Prompt: Supply Chain Visualization Mode
+
+Implement an interactive Supply Chain Visualization Mode for the isometric game map. The purpose of this feature is to let the player quickly understand how businesses are connected, which links they own, the direction in which goods move, and whether a full supply chain has been completed.
+
+The visualization must appear directly over the existing game map without replacing the normal building view.
+
+1. Core Feature
+
+Add a toggle button to the main map UI:
+
+Supply Chain View
+
+The button has two states:
+
+Off: normal map behavior
+On: supply chain connections are displayed over the map
+
+The button should visually indicate whether the mode is active, such as through:
+
+Highlighted background
+Pressed state
+Glowing border
+Small chain-link icon
+Text changing between “Supply Chain” and “Hide Supply Chain”
+
+Do not permanently clutter the regular map. Supply chain connections should only be visible while this mode is active.
+
+2. Behavior When Activated
+
+When the player activates Supply Chain View:
+
+Select one valid business on the currently visible map.
+Prefer a business that has at least one supplier or client connection.
+If several valid businesses exist, select one randomly.
+Highlight the selected business.
+Display the complete supply chain associated with that business.
+Keep the player free to select another building at any time.
+
+Example:
+
+Grain Farm → Feed Mill → Chicken Coop → Restaurant
+
+When the Feed Mill is selected, show both upstream and downstream links:
+
+Grain Farm → Feed Mill
+Feed Mill → Chicken Coop
+Chicken Coop → Restaurant
+
+The selected building should be visually distinct from the rest of the chain.
+
+Possible treatment:
+
+Bright outline
+Pulsing base
+Small selection ring
+Floating supply-chain icon
+Subtle glow
+
+Do not obscure the building artwork.
+
+3. Building Selection While the Mode Is Active
+
+While Supply Chain View is active:
+
+Clicking a building selects it.
+If the building belongs to one or more supply chains, display its relevant chain.
+Replace the previously displayed chain rather than stacking unrelated visualizations.
+If the building has no connections, show a small message:
+No supply chain connections
+
+The message should disappear after a short delay or when another building is selected.
+
+Normal building actions should not accidentally trigger while the player is selecting a building for supply-chain inspection. Depending on the existing input model, either:
+
+First click selects the business for visualization.
+Second click opens the normal business panel.
+
+Or:
+
+Supply Chain View temporarily changes building clicks into visualization selection only.
+
+Use whichever approach is more consistent with the current map interaction system.
+
+4. Connection Line Design
+
+Connections between businesses must be represented by elevated, curved, dotted lines.
+
+Use a parabolic or smooth Bezier-style arc rather than a straight line.
+
+Each connection should:
+
+Start near the source building
+Rise above the map
+Curve toward the destination building
+End near the destination
+Avoid cutting through the center of buildings when possible
+Remain readable over roads, terrain, decorations, and structures
+
+The curve should visually resemble a trade route floating above the map.
+
+Line appearance
+
+Use:
+
+Rounded dots or short rounded dashes
+Consistent spacing
+No solid continuous line
+A slightly dark or transparent outline if required for visibility
+A subtle drop shadow when crossing bright terrain
+
+The base line should remain readable against all district backgrounds.
+
+5. Connection Colors
+
+Each connection has one of three visual states.
+
+White: visible but not owned
+
+Use white when the relationship exists in the supply chain, but the player does not control the relevant connection.
+
+Example:
+
+Grain Farm → Feed Mill
+
+If the player owns neither the relationship nor the required businesses, the line is white.
+
+Blue: player-owned connection
+
+Use blue when the player owns or controls that supply-chain connection.
+
+Example:
+
+Feed Mill → Chicken Coop
+
+If the game determines that this supplier-client link is controlled by the player, the dotted line becomes blue.
+
+Ownership must be determined from game state, not from the visualizer itself.
+
+Create a central function such as:
+
+getConnectionVisualState(connection): "external" | "owned" | "complete"
+
+Do not duplicate ownership logic inside the rendering code.
+
+Green: completed supply chain
+
+When the entire displayed supply-chain path is under the player’s control, mark the completed chain in green.
+
+For example:
+
+Grain Farm → Feed Mill → Chicken Coop → Restaurant
+
+If every required connection in that active path is owned, all lines in that path should become green.
+
+The completion state should also affect the involved buildings through a subtle additional treatment, such as:
+
+Green base outline
+Small completion badge
+Brief glow animation
+Chain-complete icon
+
+Avoid making the entire map flash or become visually overwhelming.
+
+6. Define Connection Ownership Clearly
+
+Use the game’s existing ownership and relationship rules.
+
+A connection should count as player-owned only when the game considers the supplier-client relationship controlled by the player.
+
+The implementation must support whichever business rules are currently used, such as:
+
+Player owns both connected businesses
+Player owns a contractual relationship
+Player owns one business and has secured the other through negotiation
+Player controls the supplier agreement
+Player controls the client agreement
+
+Do not assume that simply owning one endpoint automatically means the connection is owned.
+
+Represent this in data explicitly.
+
+Example:
+
+interface SupplyConnection {
+  id: string;
+  sourceBusinessId: string;
+  targetBusinessId: string;
+  resourceType?: string;
+  playerControlled: boolean;
+}
+
+If connection control is calculated rather than stored, expose it through a dedicated selector or service.
+
+7. Direction Animation
+
+Every visible connection must show the direction in which goods or services move.
+
+Use a moving dot that travels along the curved dotted line.
+
+The moving dot should:
+
+Be slightly larger than the normal line dots
+Move from supplier to client
+Loop continuously
+Follow the exact curve
+Move at a readable, moderate speed
+Not teleport visibly between the end and beginning
+Remain synchronized with the line state
+
+Example direction:
+
+Grain Farm → Feed Mill
+
+The moving dot starts at the Grain Farm and travels toward the Feed Mill.
+
+Suggested animation duration:
+
+1.5 to 2.5 seconds per connection
+
+The duration may scale slightly based on the visual length of the curve.
+
+Use the same color family as the connection:
+
+White route: bright white moving dot
+Blue route: bright cyan-blue moving dot
+Green route: bright lime-green moving dot
+
+The animated dot should remain distinguishable from the static dashes.
+
+Respect reduced-motion accessibility settings. When reduced motion is enabled, replace the traveling dot with a fixed directional arrow or a slower pulse.
+
+8. Full Chain Rendering
+
+When a business is selected, determine its connected supply-chain structure.
+
+The visualizer should support:
+
+Upstream suppliers
+Downstream clients
+Multiple levels
+Chains where the selected business is in the middle
+Chains where the selected business is the first node
+Chains where the selected business is the final node
+Branched chains
+Shared businesses
+Circular data errors without entering an infinite loop
+
+Example:
+
+Grain Farm
+   ↓
+Feed Mill
+   ↓
+Chicken Coop
+   ↓
+Restaurant
+
+If Feed Mill is selected, do not display only its direct neighbors. Display the relevant connected chain from origin to endpoint.
+
+Use bounded graph traversal and track visited nodes.
+
+Example implementation direction:
+
+function buildSupplyChainPaths(
+  selectedBusinessId: string,
+  graph: SupplyGraph
+): SupplyChainPath[]
+
+Return explicit paths instead of only a flat list of edges.
+
+Example:
+
+interface SupplyChainPath {
+  id: string;
+  businessIds: string[];
+  connectionIds: string[];
+  isComplete: boolean;
+}
+9. Branched Supply Chains
+
+Supply chains may split into multiple possible paths.
+
+Example:
+
+Grain Farm → Feed Mill → Chicken Coop → Restaurant
+                       ↘ Dairy Farm → Market
+
+Do not display every branch simultaneously if doing so makes the map unreadable.
+
+Instead:
+
+Identify all valid full paths associated with the selected business.
+Display one path at a time.
+Automatically switch to the next path every 3 seconds.
+Loop back to the first path after the final one.
+Keep the selected business highlighted throughout.
+Crossfade or smoothly transition between paths.
+Do not abruptly remove and redraw lines in a visually distracting way.
+
+Example:
+
+0–3 seconds:
+Grain Farm → Feed Mill → Chicken Coop → Restaurant
+
+3–6 seconds:
+Grain Farm → Feed Mill → Dairy Farm → Market
+
+6–9 seconds:
+Repeat first path
+
+When switching paths:
+
+Fade outgoing lines
+Fade incoming lines
+Reset moving route dots to the source
+Update completion status
+Keep shared connections visually stable when possible
+10. Manual Path Navigation
+
+When more than one path exists, show a compact path indicator.
+
+Example:
+
+Path 1 of 3
+
+Optional controls:
+
+‹ Previous    Pause    Next ›
+
+The automatic 3-second alternation should remain the default behavior.
+
+Pause automatic cycling when:
+
+The player hovers over the path controls
+The player opens a building detail panel
+The game is paused
+A modal appears
+The browser tab loses focus
+
+Resume only when the visualization remains active and no blocking UI is open.
+
+11. Chain Completion Logic
+
+A path is complete when every required connection in that path is player-controlled.
+
+Example:
+
+const isComplete = path.connectionIds.every(
+  id => getConnectionVisualState(connectionById[id]) === "owned"
+);
+
+Once complete:
+
+Render the path in green
+Show a compact label such as:
+Complete Supply Chain
+Optionally show a one-time celebratory effect when the path becomes complete during gameplay
+
+Do not repeatedly trigger the celebration every time the player opens Supply Chain View.
+
+Store whether the completion event has already been acknowledged.
+
+A branched graph may contain:
+
+One completed path
+One partially owned path
+One fully external path
+
+Each path must be evaluated independently.
+
+Do not mark the entire graph as complete just because one branch is complete, unless game design explicitly defines the whole network as one chain.
+
+12. Visual Layering
+
+The supply-chain routes must render above:
+
+Terrain
+Roads
+Decorative vegetation
+Building bases
+
+They should render below:
+
+Tooltips
+Menus
+Business labels
+Modals
+Tutorial overlays
+
+The moving dots must remain visible when crossing over building roofs, unless the chosen rendering system intentionally creates depth-aware occlusion.
+
+Preferred approach:
+
+Map
+Buildings
+Supply chain curves
+Selection highlights
+Labels and tooltips
+UI
+Modals
+
+If curves pass behind tall structures, use consistent depth logic. Avoid lines appearing partly inside buildings due to incorrect layering.
+
+13. Route Anchor Points
+
+Do not connect lines to the geometric center of the building sprite.
+
+Each building should expose one or more route anchor points.
+
+Example:
+
+interface SupplyChainAnchor {
+  x: number;
+  y: number;
+  heightOffset: number;
+}
+
+Possible anchor locations:
+
+Loading door
+Storage tank
+Delivery area
+Side entrance
+Roof-level visual anchor
+Center-top fallback
+
+Use a fallback anchor if no custom point exists.
+
+Example:
+
+function getSupplyAnchor(
+  building: MapBuilding,
+  direction: "incoming" | "outgoing"
+): WorldPoint
+
+This will help routes appear intentional and reduce overlap.
+
+14. Curve Generation
+
+Generate a cubic or quadratic Bezier curve between the source and target anchors.
+
+Suggested control:
+
+function createSupplyCurve(
+  source: WorldPoint,
+  target: WorldPoint
+): BezierCurve
+
+The arc height should depend on distance:
+
+Short distance = shallow arc
+Long distance = taller arc
+
+Apply a minimum arc height so connections remain clearly visible.
+
+When multiple routes connect the same two areas, slightly offset their control points to avoid complete overlap.
+
+15. State Model
+
+Create a dedicated visualization state.
+
+Example:
+
+interface SupplyChainViewState {
+  enabled: boolean;
+  selectedBusinessId: string | null;
+  availablePaths: SupplyChainPath[];
+  activePathIndex: number;
+  autoCycleEnabled: boolean;
+  lastPathChangeAt: number;
+}
+
+Recommended actions:
+
+enableSupplyChainView()
+disableSupplyChainView()
+selectSupplyChainBusiness(businessId)
+showNextSupplyChainPath()
+showPreviousSupplyChainPath()
+setSupplyChainPath(index)
+pauseSupplyChainCycling()
+resumeSupplyChainCycling()
+
+Do not store rendered coordinates as permanent game-state data. Derive them from building positions and camera state.
+
+16. Activation Selection Rules
+
+When Supply Chain View is turned on, choose the initial business using this priority:
+
+Currently selected business, if it has connections
+A player-owned business with connections
+A visible business with at least two connections
+Any visible business with at least one connection
+Any connected business in the district
+
+If no connected business exists:
+
+Keep the mode active
+Display:
+No supply chains available in this district
+Do not throw an error
+Do not attempt automatic path rotation
+17. Camera and Map Updates
+
+The visualization must update correctly when the player:
+
+Pans the map
+Zooms in or out
+Changes districts
+Moves a building, if supported
+Unlocks a district
+Buys or sells a business
+Creates or loses a supplier agreement
+Completes a chain
+
+Line endpoints must remain attached to buildings during camera movement.
+
+Do not recalculate the entire supply graph every frame. Recalculate only when:
+
+Selection changes
+Supply-chain data changes
+Building positions change
+District changes
+
+Screen-space curve positions may update each frame based on camera transformation.
+
+18. Tooltips
+
+Hovering over a route should show a compact tooltip.
+
+Example:
+
+Grain Farm → Feed Mill
+Resource: Grain
+Status: External
+
+Owned example:
+
+Feed Mill → Chicken Coop
+Resource: Feed
+Status: Player Controlled
+
+Completed example:
+
+Chicken Coop → Restaurant
+Resource: Eggs
+Status: Complete Chain
+
+The tooltip should not block selection of nearby buildings.
+
+19. Optional Resource Icons
+
+If the supply connection contains a resource type, optionally display a small icon near the midpoint of the curve.
+
+Examples:
+
+Grain
+Flour
+Feed
+Eggs
+Milk
+Vegetables
+Meat
+Finished meal
+
+Icons should be small and readable, using the existing pixel-art style.
+
+They should be optional through configuration because too many icons may create clutter.
+
+Example:
+
+showSupplyResourceIcons: boolean
+20. Performance Requirements
+
+The visualization must remain smooth with multiple active connections.
+
+Requirements:
+
+Do not create a separate expensive animation loop for every line
+Use one shared animation clock
+Cache Bezier geometry until endpoints change
+Avoid recalculating graph paths every frame
+Dispose of timers when the mode is disabled
+Dispose of path-cycling timers when changing districts
+Avoid memory leaks after repeated activation and deactivation
+
+Only render the active path or necessary visible routes.
+
+21. Edge Cases
+
+Handle these cases explicitly:
+
+Selected business is removed or sold
+
+Select another valid business or disable the active path gracefully.
+
+A connection changes ownership while displayed
+
+Update its color immediately.
+
+A path becomes complete while visible
+
+Transition the entire path to green and trigger the completion treatment once.
+
+A chain contains a loop
+
+Stop traversal when reaching a previously visited node. Do not allow infinite recursion.
+
+Two businesses occupy nearly the same screen position
+
+Increase arc height or apply horizontal offset.
+
+The selected building belongs to several unrelated chains
+
+Treat them as separate paths and cycle through them.
+
+The district changes
+
+Clear the previous visualization and choose a valid business in the new district.
+
+Game pause
+
+Pause route-dot movement and branch cycling.
+
+Modal open
+
+Keep the visualization state but pause automatic cycling behind the modal.
+
+22. Visual Style
+
+The feature must match the game’s existing bright, warm, isometric pixel-art presentation.
+
+Use:
+
+Chunky, readable shapes
+Clear color boundaries
+Minimal soft gradients
+Strong visual contrast
+Rounded UI elements
+Farm-themed visual motifs
+Small, deliberate animations
+No modern neon hologram styling
+
+The curves may be smoother than the sprite artwork, but their dots, highlights, icons, and controls should feel consistent with the low-resolution visual language.
+
+23. Example Scenario
+
+Given:
+
+Grain Farm → Feed Mill → Chicken Coop → Restaurant
+                         ↘ Pig Farm → Butcher Shop
+
+Player ownership:
+
+Grain Farm: not owned
+Feed Mill: owned
+Chicken Coop: owned
+Restaurant: not owned
+Pig Farm: owned
+Butcher Shop: owned
+
+Player-controlled connections:
+
+Feed Mill → Chicken Coop
+Feed Mill → Pig Farm
+Pig Farm → Butcher Shop
+
+When Feed Mill is selected:
+
+First path
+Grain Farm → Feed Mill → Chicken Coop → Restaurant
+
+Display:
+
+Grain Farm → Feed Mill: white
+Feed Mill → Chicken Coop: blue
+Chicken Coop → Restaurant: white
+
+The direction dots travel:
+
+Grain Farm toward Feed Mill
+Feed Mill toward Chicken Coop
+Chicken Coop toward Restaurant
+After 3 seconds
+
+Switch to:
+
+Grain Farm → Feed Mill → Pig Farm → Butcher Shop
+
+Display:
+
+Grain Farm → Feed Mill: white
+Feed Mill → Pig Farm: blue
+Pig Farm → Butcher Shop: blue
+
+This path is not green because Grain Farm → Feed Mill is not controlled.
+
+If the player later controls Grain Farm → Feed Mill, the full second path becomes green.
+
+24. Suggested Component Structure
+
+Use the project’s existing architecture, but conceptually separate the feature into:
+
+SupplyChainToggle
+SupplyChainVisualizationController
+SupplyChainGraphService
+SupplyChainPathResolver
+SupplyChainRouteLayer
+SupplyChainRoute
+SupplyChainDirectionMarker
+SupplyChainSelectionHighlight
+SupplyChainPathControls
+SupplyChainTooltip
+
+Responsibilities:
+
+SupplyChainGraphService
+
+Provides businesses, connections, ownership state, and resource information.
+
+SupplyChainPathResolver
+
+Builds full upstream-to-downstream paths and handles branches and loops.
+
+SupplyChainVisualizationController
+
+Handles activation, selection, timers, and current path.
+
+SupplyChainRouteLayer
+
+Renders active curves in map coordinates.
+
+SupplyChainRoute
+
+Renders one dotted Bezier curve and its animated direction marker.
+
+Keep graph logic separate from rendering logic.
+
+25. Acceptance Criteria
+
+The feature is complete when all of the following work:
+
+The player can turn Supply Chain View on and off.
+Activating the mode selects a valid business automatically.
+The player can select another building while the mode is active.
+The full connected path is displayed, not only direct neighbors.
+Connections are curved and dotted.
+External connections are white.
+Player-controlled connections are blue.
+Fully completed paths are green.
+A larger dot moves from supplier to client.
+Branching paths alternate every 3 seconds.
+The player can identify which path is currently displayed.
+The visualization updates when ownership changes.
+Curves remain attached while the camera moves or zooms.
+The system handles circular graph data without freezing.
+Timers stop when the feature is disabled.
+The UI matches the existing farm-themed pixel-art style.
+The visualization does not interfere with modals or essential map controls.

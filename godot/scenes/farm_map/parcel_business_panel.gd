@@ -14,12 +14,16 @@ signal chat_community_business(community_business_id: String, parcel_id: String,
 @onready var _ownership_label: Label = %StubLabel
 @onready var _actions_row: HBoxContainer = %ActionsRow
 @onready var _close_button: Button = %CloseButton
+var _shown_key := ""
 
 
 func _ready() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_close_button.pressed.connect(_on_close_pressed)
+	var details_scroll: ScrollContainer = %DetailsScroll
+	if details_scroll != null:
+		FeedbackBus.wire_scroll(details_scroll)
 
 
 func show_parcel(entry: Dictionary, district: Dictionary) -> void:
@@ -37,6 +41,7 @@ func show_locked_district(district_name: String, requirement: int, net_worth: in
 func hide_panel() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shown_key = ""
 	_clear_actions()
 
 
@@ -46,6 +51,9 @@ func _on_close_pressed() -> void:
 
 
 func _apply_view(view: Dictionary) -> void:
+	var key := "%s|%s" % [str(view.get("title", "")), str(view.get("roleLine", ""))]
+	var should_fade := not visible or key != _shown_key
+	_shown_key = key
 	_title_label.text = str(view.get("title", "Parcel"))
 	_role_label.text = str(view.get("roleLine", ""))
 	_details_label.text = str(view.get("details", ""))
@@ -55,6 +63,9 @@ func _apply_view(view: Dictionary) -> void:
 	_sync_details_scroll_width()
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# Never animate position on this anchored panel — it fights TOP_RIGHT offsets and clips off-screen.
+	if should_fade:
+		FeedbackBus.panel_fade_in(self)
 
 
 func _sync_details_scroll_width() -> void:
@@ -80,36 +91,46 @@ func _populate_actions(actions: Variant) -> void:
 			var business_id := str(action_map.get("businessId", ""))
 			if action_map.has("canImprove"):
 				_add_action_button(
-					str(action_map.get("improveLabel", "Improve (1 AP)")),
+					str(action_map.get("improveLabel", "Improve (−1 AP)")),
 					func() -> void: improve_business.emit(business_id),
 					not bool(action_map.get("canImprove", false)),
+					{"apCost": 1, "blockedReason": "Need 1 AP"},
 				)
 			if action_map.has("canSell"):
 				_add_action_button(
-					str(action_map.get("sellLabel", "Sell (1 AP)")),
+					str(action_map.get("sellLabel", "Sell (−1 AP)")),
 					func() -> void: sell_business.emit(business_id),
 					not bool(action_map.get("canSell", false)),
+					{"apCost": 1, "blockedReason": "Need 1 AP"},
 				)
 		"opportunity":
 			var opportunity_id := str(action_map.get("opportunityId", ""))
 			if action_map.has("canBuy"):
 				_add_action_button(
-					str(action_map.get("buyLabel", "Buy Now (1 AP)")),
+					str(action_map.get("buyLabel", "Buy Now (−1 AP)")),
 					func() -> void: buy_opportunity.emit(opportunity_id),
 					not bool(action_map.get("canBuy", false)),
+					{
+						"apCost": 1,
+						"cashNeed": int(action_map.get("price", 0)),
+						"affordTint": true,
+						"blockedReason": str(action_map.get("buyBlockedReason", "")),
+					},
 				)
 			if action_map.has("canInvestigate"):
 				_add_action_button(
-					"Investigate (1 AP)",
+					"Investigate (−1 AP)",
 					func() -> void: investigate_opportunity.emit(opportunity_id),
 					not bool(action_map.get("canInvestigate", false)),
+					{"apCost": 1, "blockedReason": "Need 1 AP or already investigated"},
 				)
 			if action_map.has("canNegotiate"):
-				var label: String = str(action_map.get("negotiateLabel", "Negotiate (1 AP)"))
+				var label: String = str(action_map.get("negotiateLabel", "Negotiate (−1 AP)"))
 				_add_action_button(
 					label,
 					func() -> void: negotiate_opportunity.emit(opportunity_id),
 					not bool(action_map.get("canNegotiate", false)),
+					{"apCost": 1, "blockedReason": "Need 1 AP"},
 				)
 		"community":
 			var community_business_id := str(action_map.get("communityBusinessId", ""))
@@ -118,24 +139,56 @@ func _populate_actions(actions: Variant) -> void:
 			if action_map.has("canChat"):
 				var chat_label := str(action_map.get("chatLabel", "Chat (free)"))
 				var can_chat := bool(action_map.get("canChat", false))
-				var btn := Button.new()
-				btn.text = chat_label
-				btn.disabled = not can_chat
-				if not can_chat:
-					var reason := str(action_map.get("chatDisabledReason", "")).strip_edges()
-					if not reason.is_empty():
-						btn.tooltip_text = reason
-				btn.pressed.connect(func() -> void:
-					chat_community_business.emit(community_business_id, parcel_id, district_id)
+				_add_action_button(
+					chat_label,
+					func() -> void: chat_community_business.emit(community_business_id, parcel_id, district_id),
+					not can_chat,
+					{"blockedReason": str(action_map.get("chatDisabledReason", "Chat unavailable"))},
 				)
-				_actions_row.add_child(btn)
 
 
-func _add_action_button(label: String, callback: Callable, disabled: bool = false) -> void:
+func _add_action_button(label: String, callback: Callable, disabled: bool = false, meta: Dictionary = {}) -> void:
+	# Keep the control hoverable even when the action is blocked so AP/cash previews work.
+	# Disabled Godot buttons do not receive mouse enter / tooltips.
 	var btn := Button.new()
 	btn.text = label
-	btn.disabled = disabled
-	btn.pressed.connect(callback)
+	btn.disabled = false
+	var blocked := disabled
+	var blocked_reason := str(meta.get("blockedReason", "Unavailable")).strip_edges()
+	if blocked:
+		btn.modulate = Color(0.75, 0.72, 0.68, 0.85)
+	btn.pressed.connect(func() -> void:
+		if blocked:
+			FeedbackBus.deny(btn)
+			if not blocked_reason.is_empty():
+				FeedbackBus.show_chip(blocked_reason, btn, 1.8)
+			return
+		callback.call()
+	)
+	FeedbackBus.wire_button(btn)
+
+	var ap_cost := int(meta.get("apCost", 0))
+	var cash_need := int(meta.get("cashNeed", 0))
+	if bool(meta.get("affordTint", false)) and not blocked:
+		var cash := Game.state.cash if Game.state != null else 0
+		btn.modulate = FeedbackBus.affordability_color(cash, cash_need)
+
+	var tip_bits: PackedStringArray = []
+	if ap_cost > 0:
+		tip_bits.append("−%d AP" % ap_cost)
+	if cash_need > 0:
+		tip_bits.append("needs %s cash" % MathUtil.fmt_money(cash_need))
+	if blocked and not blocked_reason.is_empty():
+		tip_bits.append(blocked_reason)
+	var tip := " · ".join(tip_bits)
+	btn.tooltip_text = tip
+
+	btn.mouse_entered.connect(func() -> void:
+		if ap_cost > 0:
+			FeedbackBus.float_text_near(btn, "−%d AP" % ap_cost, Color(0.95, 0.82, 0.35, 1.0))
+		elif not tip.is_empty():
+			FeedbackBus.float_text_near(btn, tip, Color(0.92, 0.9, 0.82, 1.0))
+	)
 	_actions_row.add_child(btn)
 
 

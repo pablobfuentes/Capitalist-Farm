@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3 uid="uid://econgame_iso_farm_map"]
+[gd_scene load_steps=8 format=3 uid="uid://econgame_iso_farm_map"]
 
 [ext_resource type="Script" path="res://scenes/farm_map/iso_farm_map.gd" id="1_map"]
 [ext_resource type="Script" path="res://scenes/farm_map/iso_farm_terrain.gd" id="2_terrain"]
 [ext_resource type="Script" path="res://scenes/farm_map/district_parcels.gd" id="3_lots"]
 [ext_resource type="Script" path="res://scenes/farm_map/iso_farm_map_ui.gd" id="4_ui"]
 [ext_resource type="PackedScene" uid="uid://econgame_parcel_business_panel" path="res://scenes/farm_map/parcel_business_panel.tscn" id="5_panel"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_close.svg" id="6_close"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_lock.svg" id="7_lock"]
 
 [node name="IsoFarmMap" type="Control"]
 layout_mode = 3
@@ -61,7 +63,7 @@ grow_horizontal = 2
 
 [node name="Row" type="HBoxContainer" parent="UI/Hud/TopBar"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="UI/Hud/TopBar/Row"]
 layout_mode = 2
@@ -83,20 +85,43 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Overview"
 
-[node name="AdvanceButton" type="Button" parent="UI/Hud/TopBar/Row"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "Advance Turn"
-
 [node name="DistrictLockToggleButton" type="Button" parent="UI/Hud/TopBar/Row"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
-text = "Unlock All (Test)"
+tooltip_text = "Unlock all districts (test)"
+icon = ExtResource("7_lock")
+flat = true
+icon_alignment = 1
+expand_icon = true
 
 [node name="BackButton" type="Button" parent="UI/Hud/TopBar/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
-text = "Main Menu"
+tooltip_text = "Main menu"
+icon = ExtResource("6_close")
+flat = true
+icon_alignment = 1
+expand_icon = true
+
+[node name="AdvanceButton" type="Button" parent="UI/Hud"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(168, 48)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -196.0
+offset_top = -72.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 16
+text = "Advance Turn"
 
 [node name="Hint" type="Label" parent="UI/Hud"]
 layout_mode = 0
@@ -127,4 +152,4 @@ grow_vertical = 0
 mouse_filter = 2
 
 [connection signal="pressed" from="UI/Hud/TopBar/Row/BackButton" to="." method="_on_back_pressed"]
-[connection signal="pressed" from="UI/Hud/TopBar/Row/AdvanceButton" to="." method="_on_advance_pressed"]
+[connection signal="pressed" from="UI/Hud/AdvanceButton" to="." method="_on_advance_pressed"]
