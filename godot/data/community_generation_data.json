@@ -27,6 +27,7 @@
   "operationalIssueTypes": [
     {
       "id": "late_delivery",
+      "topicTags": ["supply", "delivery", "logistics"],
       "summaries": [
         "%s deliveries average %d days late.",
         "%s shipments often miss the promised window by %d days.",
@@ -37,6 +38,7 @@
     },
     {
       "id": "quality_variance",
+      "topicTags": ["supply", "quality", "product"],
       "summaries": [
         "%s quality has been inconsistent this quarter.",
         "The last %s batch failed inspection once already.",
@@ -47,9 +49,10 @@
     },
     {
       "id": "payment_delay",
+      "topicTags": ["money", "payment", "cash"],
       "summaries": [
         "%s invoices are often paid a week late.",
-        "Cash timing on %s deliveries has been uneven.",
+        "Cash timing on %s work has been uneven.",
         "%s accounts payable slips when demand spikes."
       ],
       "sensitivity": 3,
@@ -57,6 +60,7 @@
     },
     {
       "id": "spare_capacity",
+      "topicTags": ["supply", "capacity", "help"],
       "summaries": [
         "%s has spare capacity that could serve another client.",
         "%s could take on more volume without new equipment.",
@@ -67,6 +71,7 @@
     },
     {
       "id": "contract_strain",
+      "topicTags": ["supply", "contract", "strain"],
       "summaries": [
         "The %s contract is under strain but still active.",
         "Both sides are frustrated with the current %s arrangement.",
@@ -74,6 +79,93 @@
       ],
       "sensitivity": 4,
       "leverageTags": ["operational", "leverage"]
+    }
+  ],
+  "socialFactTypes": [
+    {
+      "id": "staff_strain",
+      "factType": "staff",
+      "topicTags": ["staff", "people", "hiring", "help", "busy"],
+      "summaries": [
+        "%s is short-handed on the floor this season.",
+        "A couple of regular hands at %s have been out, and it shows.",
+        "%s could use another reliable worker before the next rush."
+      ],
+      "sensitivity": 2,
+      "leverageTags": ["operational"]
+    },
+    {
+      "id": "neighbor_preference",
+      "factType": "preference",
+      "topicTags": ["preference", "like", "favor", "gift", "thanks"],
+      "summaries": [
+        "%s softens up when visitors bring practical help, not just talk.",
+        "The owner of %s appreciates people who remember names and keep promises.",
+        "%s likes quiet competence more than fancy pitches."
+      ],
+      "sensitivity": 1,
+      "leverageTags": ["preference"]
+    },
+    {
+      "id": "local_fear",
+      "factType": "fear",
+      "topicTags": ["fear", "worry", "risk", "sale", "bank", "future"],
+      "summaries": [
+        "%s worries a bigger outfit could squeeze the street if prices keep sliding.",
+        "There's quiet anxiety at %s about what happens if demand dips for two seasons.",
+        "The owner of %s fears getting locked into a bad dependency."
+      ],
+      "sensitivity": 3,
+      "leverageTags": ["fear"]
+    },
+    {
+      "id": "district_gossip",
+      "factType": "atmospheric",
+      "topicTags": ["gossip", "rumor", "neighbor", "town", "valley", "news"],
+      "summaries": [
+        "Around the valley, folks say %s hears more porch talk than most.",
+        "There's a friendly rumor that %s knows who is struggling before the ledger does.",
+        "People stop by %s as much for news as for business."
+      ],
+      "sensitivity": 1,
+      "leverageTags": []
+    },
+    {
+      "id": "seasonal_pressure",
+      "factType": "seasonal",
+      "topicTags": ["season", "weather", "harvest", "busy", "schedule"],
+      "summaries": [
+        "%s is feeling the seasonal squeeze — everything arrives at once, then nothing.",
+        "Weather and harvest timing have made the last few weeks uneven at %s.",
+        "The calendar, not the customers, is what keeps %s up at night right now."
+      ],
+      "sensitivity": 1,
+      "leverageTags": ["operational"]
+    },
+    {
+      "id": "rival_watch",
+      "factType": "rival_rumor",
+      "topicTags": ["rival", "competition", "other", "across town"],
+      "summaries": [
+        "%s keeps one eye on %s — not hostile, but not ignoring them either.",
+        "There's talk that %s and %s are chasing the same corner of demand.",
+        "%s has noticed %s getting busier, and it changes how careful they are."
+      ],
+      "needsOtherBusiness": true,
+      "sensitivity": 2,
+      "leverageTags": ["leverage"]
+    },
+    {
+      "id": "community_tie",
+      "factType": "atmospheric",
+      "topicTags": ["people", "community", "place", "family", "neighbor"],
+      "summaries": [
+        "%s still thinks of this street as a neighborhood, not just a market.",
+        "The owner of %s cares who stays on the block as much as who pays on time.",
+        "%s would rather keep familiar faces than chase every last coin."
+      ],
+      "sensitivity": 1,
+      "leverageTags": ["preference"]
     }
   ]
 }

@@ -35,6 +35,7 @@ var _camera_target_zoom := Vector2(OVERVIEW_ZOOM, OVERVIEW_ZOOM)
 var _improve_panel: Window = null
 var _negotiation_panel: CanvasLayer = null
 var _community_chat_panel: CanvasLayer = null
+var _certificate_modal: CanvasLayer = null
 var _edge_modal: Window = null
 var _shortage_modal: Window = null
 var _turn_debrief_modal: Window = null
@@ -104,6 +105,9 @@ func _connect_parcel_panel_actions() -> void:
 	add_child(_negotiation_panel)
 	_negotiation_panel.closed.connect(_on_modal_closed_refresh_parcels)
 
+	_certificate_modal = preload("res://ui/screens/acquisition_certificate_modal.tscn").instantiate()
+	add_child(_certificate_modal)
+
 	_community_chat_panel = preload("res://ui/screens/community_chat_panel.tscn").instantiate()
 	add_child(_community_chat_panel)
 	_community_chat_panel.closed.connect(_on_modal_closed_refresh_parcels)
@@ -131,7 +135,22 @@ func _on_parcel_sell(business_id: String) -> void:
 
 
 func _on_parcel_buy(opportunity_id: String) -> void:
-	Game.apply_command(GameCommand.acquire_business(opportunity_id))
+	var result: Dictionary = Game.apply_command(GameCommand.acquire_business(opportunity_id))
+	if not bool(result.get("ok", false)):
+		return
+	await _present_acquisition_certificate(result)
+	_on_modal_closed_refresh_parcels()
+
+
+func _present_acquisition_certificate(result: Dictionary) -> void:
+	if _certificate_modal == null:
+		return
+	var CertScript = preload("res://ui/screens/acquisition_certificate_modal.gd")
+	if not CertScript.is_acquisition_result(result):
+		return
+	if _parcel_panel != null:
+		_parcel_panel.hide_panel()
+	await _certificate_modal.present(CertScript.deal_from_command_result(result))
 
 
 func _on_parcel_investigate(opportunity_id: String) -> void:

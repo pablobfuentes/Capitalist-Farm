@@ -5,7 +5,7 @@ extends RefCounted
 const _NpcSpecies := preload("res://core/systems/npc_species_system.gd")
 
 
-static func build(state: RunState, session: Dictionary) -> Dictionary:
+static func build(state: RunState, session: Dictionary, player_message: String = "") -> Dictionary:
 	CommunityState.ensure_initialized(state)
 	var npc_id := str(session.get("npcId", ""))
 	var business_id := str(session.get("businessId", ""))
@@ -14,13 +14,21 @@ static func build(state: RunState, session: Dictionary) -> Dictionary:
 	if npc.is_empty():
 		return {}
 
-	var eligible_facts: Array = CommunityKnowledgeService.get_eligible_facts(
+	var topics := CommunityFactTopicRouter.detect_topics(player_message)
+	var topic_relevance := 0.55
+	if not (topics.size() == 1 and topics[0] == "general"):
+		topic_relevance = 0.8
+	var all_eligible: Array = CommunityKnowledgeService.get_eligible_facts(
 		state,
 		npc_id,
 		{
-			"topicRelevance": 0.6,
+			"topicRelevance": topic_relevance,
 			"questionQuality": 0.7,
 		},
+	)
+	var eligible_facts: Array = CommunityFactTopicRouter.select_for_prompt(
+		all_eligible,
+		player_message,
 	)
 	var allowed_fact_ids: Array = []
 	for fact_variant in eligible_facts:
@@ -60,6 +68,7 @@ static func build(state: RunState, session: Dictionary) -> Dictionary:
 			"personalRelationshipScore": int(social.get("personalRelationshipScore", 0)),
 			"recentEvents": recent_events,
 		},
+		"detectedTopics": Array(topics),
 		"eligibleFacts": eligible_facts,
 		"playerKnownFactIds": player_known,
 		"allowedFactIds": allowed_fact_ids,

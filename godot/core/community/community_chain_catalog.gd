@@ -18,6 +18,13 @@ static func load_catalog() -> void:
 	_loaded = true
 
 
+static func reload_catalog() -> void:
+	_loaded = false
+	_chains_root = {}
+	_generation_root = {}
+	load_catalog()
+
+
 static func chains() -> Array:
 	load_catalog()
 	return (_chains_root.get("chains", []) as Array).duplicate(true)
@@ -49,6 +56,15 @@ static func generation_data() -> Dictionary:
 
 static func operational_issue_types() -> Array:
 	return generation_data().get("operationalIssueTypes", [])
+
+
+static func social_fact_types() -> Array:
+	var types: Array = generation_data().get("socialFactTypes", [])
+	if types.is_empty() and _loaded:
+		# Hot-reload safeguard when generation JSON gained new fields mid-session.
+		reload_catalog()
+		types = generation_data().get("socialFactTypes", [])
+	return types
 
 
 static func connection_map() -> Dictionary:

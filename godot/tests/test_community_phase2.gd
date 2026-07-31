@@ -4,7 +4,7 @@ extends GutTest
 func before_all() -> void:
 	Content.load_farm_content()
 	CommunityConfig.load_config()
-	CommunityChainCatalog.load_catalog()
+	CommunityChainCatalog.reload_catalog()
 	CommunitySocialEffects.load_effects()
 	NegotiationArchetypes.ensure_loaded()
 	CommunityFeatureFlags.reset_overrides()

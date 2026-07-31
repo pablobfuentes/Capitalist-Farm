@@ -113,6 +113,7 @@ static func get_eligible_facts(state: RunState, npc_id: String, context: Diction
 			"summary": str(payload.get("summary", "")),
 			"sensitivity": int(fact.get("sensitivity", 2)),
 			"leverageTags": fact.get("leverageTags", []),
+			"topicTags": payload.get("topicTags", []),
 		})
 	return out
 

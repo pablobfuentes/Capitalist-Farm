@@ -1,0 +1,50 @@
+[gd_scene load_steps=3 format=3 uid="uid://econgame_acquisition_certificate"]
+
+[ext_resource type="Script" path="res://ui/screens/acquisition_certificate_modal.gd" id="1_cert"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_close"]
+
+[node name="AcquisitionCertificateModal" type="CanvasLayer"]
+layer = 140
+visible = false
+script = ExtResource("1_cert")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.07, 0.05, 0.04, 0.62)
+
+[node name="CertificateRoot" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+anchors_preset = 0
+mouse_filter = 2
+
+[node name="CertificateImage" type="TextureRect" parent="CertificateRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CloseButton" type="Button" parent="CertificateRoot"]
+unique_name_in_owner = true
+z_index = 5
+layout_mode = 0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_close")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_close")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_close")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_close")
+flat = true

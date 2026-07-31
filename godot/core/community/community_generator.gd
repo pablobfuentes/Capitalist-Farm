@@ -297,6 +297,19 @@ static func _build_district_payload(
 	var edges: Array = _build_supply_relationships(businesses, district_id, rng)
 	edges = _repair_graph_connectivity(businesses, edges, slot_assignments, district, district_id, rng, cfg)
 	var fact_bundle: Dictionary = _build_operational_facts(businesses, edges, district_id, rng)
+	var social_bundle: Dictionary = _build_social_facts(
+		businesses,
+		npcs,
+		district_id,
+		rng,
+		int(fact_bundle.get("nextFactIndex", 1)),
+	)
+	var all_facts: Array = []
+	all_facts.append_array(fact_bundle.get("facts", []) as Array)
+	all_facts.append_array(social_bundle.get("facts", []) as Array)
+	var all_knowledge: Array = []
+	all_knowledge.append_array(fact_bundle.get("npcFactKnowledge", []) as Array)
+	all_knowledge.append_array(social_bundle.get("npcFactKnowledge", []) as Array)
 	var social_npc_ids: Array = []
 	for npc_variant in npcs:
 		if typeof(npc_variant) == TYPE_DICTIONARY:
@@ -306,12 +319,14 @@ static func _build_district_payload(
 		"businesses": businesses,
 		"supplyRelationships": edges,
 		"npcs": npcs,
-		"facts": fact_bundle.get("facts", []),
-		"npcFactKnowledge": fact_bundle.get("npcFactKnowledge", []),
+		"facts": all_facts,
+		"npcFactKnowledge": all_knowledge,
 		"socialNpcIds": social_npc_ids,
 		"diagnostics": {
 			"templateCounts": _template_counts(businesses),
 			"slotCount": slot_ids.size(),
+			"operationalFactCount": (fact_bundle.get("facts", []) as Array).size(),
+			"socialFactCount": (social_bundle.get("facts", []) as Array).size(),
 		},
 	}
 
@@ -551,7 +566,7 @@ static func _build_operational_facts(
 	var knowledge: Array = []
 	var issue_types: Array = CommunityChainCatalog.operational_issue_types()
 	if issue_types.is_empty():
-		return {"facts": facts, "npcFactKnowledge": knowledge}
+		return {"facts": facts, "npcFactKnowledge": knowledge, "nextFactIndex": 1}
 
 	var fact_index := 1
 	for edge_variant in edges:
@@ -581,6 +596,7 @@ static func _build_operational_facts(
 
 		var fact_id := CommunityIds.fact_id(district_id, fact_index)
 		fact_index += 1
+		var topic_tags: Array = issue.get("topicTags", ["supply"])
 		facts.append({
 			"id": fact_id,
 			"factType": "operational",
@@ -594,6 +610,7 @@ static func _build_operational_facts(
 				"severity": _issue_severity(rng),
 				"summary": summary,
 				"flow": flow_label,
+				"topicTags": topic_tags,
 			},
 			"sensitivity": int(issue.get("sensitivity", 2)),
 			"leverageTags": issue.get("leverageTags", []),
@@ -620,7 +637,126 @@ static func _build_operational_facts(
 				"willingnessToDisclose": rng.randf_range(0.45, 0.9),
 			})
 
-	return {"facts": facts, "npcFactKnowledge": knowledge}
+	return {"facts": facts, "npcFactKnowledge": knowledge, "nextFactIndex": fact_index}
+
+
+static func _build_social_facts(
+	businesses: Dictionary,
+	npcs: Array,
+	district_id: String,
+	rng: SeededRng,
+	start_fact_index: int = 1,
+) -> Dictionary:
+	var facts: Array = []
+	var knowledge: Array = []
+	var social_types: Array = CommunityChainCatalog.social_fact_types()
+	if social_types.is_empty() or npcs.is_empty():
+		return {"facts": facts, "npcFactKnowledge": knowledge, "nextFactIndex": start_fact_index}
+
+	var business_ids: Array = businesses.keys()
+	var fact_index := maxi(start_fact_index, 1)
+	for npc_variant in npcs:
+		if typeof(npc_variant) != TYPE_DICTIONARY:
+			continue
+		var npc: Dictionary = npc_variant
+		var npc_id := str(npc.get("id", ""))
+		var business_id := str(npc.get("primaryBusinessId", ""))
+		var business: Dictionary = businesses.get(business_id, {})
+		if npc_id.is_empty() or business.is_empty():
+			continue
+		var display_name := str(business.get("displayName", "this shop"))
+
+		# Seed 2–3 social/atmospheric facts per owner for chat variety.
+		var picks: Array = _pick_social_fact_types(social_types, rng, 2 + (1 if rng.randf() < 0.55 else 0))
+		for type_variant in picks:
+			if typeof(type_variant) != TYPE_DICTIONARY:
+				continue
+			var social_type: Dictionary = type_variant
+			var summaries: Array = social_type.get("summaries", [])
+			if summaries.is_empty():
+				continue
+			var template := str(summaries[rng.randi_range(0, summaries.size() - 1)])
+			var summary := template
+			var other_business_id := ""
+			if bool(social_type.get("needsOtherBusiness", false)):
+				other_business_id = _pick_other_business_id(business_ids, business_id, rng)
+				if other_business_id.is_empty():
+					continue
+				var other_name := str(businesses.get(other_business_id, {}).get("displayName", "another shop"))
+				if template.find("%s") >= 0:
+					summary = template % [display_name, other_name]
+				else:
+					summary = template
+			elif template.find("%s") >= 0:
+				summary = template % display_name
+
+			var fact_id := CommunityIds.fact_id(district_id, fact_index)
+			fact_index += 1
+			var fact_type := str(social_type.get("factType", "atmospheric"))
+			var topic_tags: Array = social_type.get("topicTags", [fact_type])
+			var sensitivity := int(social_type.get("sensitivity", 1))
+			facts.append({
+				"id": fact_id,
+				"factType": fact_type,
+				"subjectType": "business",
+				"subjectId": business_id,
+				"truthState": "true",
+				"canonicalPayload": {
+					"issueType": str(social_type.get("id", fact_type)),
+					"summary": summary,
+					"topicTags": topic_tags,
+					"otherBusinessId": other_business_id,
+				},
+				"sensitivity": sensitivity,
+				"leverageTags": social_type.get("leverageTags", []),
+				"disclosureThreshold": _disclosure_threshold_for_sensitivity(sensitivity),
+				"createdTurn": 0,
+			})
+			knowledge.append({
+				"npcId": npc_id,
+				"factId": fact_id,
+				"knowledgeState": "knows",
+				"confidence": rng.randf_range(0.8, 1.0),
+				"willingnessToDisclose": rng.randf_range(0.5, 0.95),
+			})
+
+	return {"facts": facts, "npcFactKnowledge": knowledge, "nextFactIndex": fact_index}
+
+
+static func _pick_social_fact_types(social_types: Array, rng: SeededRng, count: int) -> Array:
+	if social_types.is_empty() or count <= 0:
+		return []
+	var pool: Array = social_types.duplicate()
+	# Mild shuffle.
+	for i in range(pool.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp: Variant = pool[i]
+		pool[i] = pool[j]
+		pool[j] = tmp
+	var out: Array = []
+	var used_ids: Dictionary = {}
+	for type_variant in pool:
+		if out.size() >= count:
+			break
+		if typeof(type_variant) != TYPE_DICTIONARY:
+			continue
+		var type_id := str((type_variant as Dictionary).get("id", ""))
+		if used_ids.has(type_id):
+			continue
+		used_ids[type_id] = true
+		out.append(type_variant)
+	return out
+
+
+static func _pick_other_business_id(business_ids: Array, self_id: String, rng: SeededRng) -> String:
+	var candidates: Array = []
+	for id_variant in business_ids:
+		var bid := str(id_variant)
+		if bid != self_id and not bid.is_empty():
+			candidates.append(bid)
+	if candidates.is_empty():
+		return ""
+	return str(candidates[rng.randi_range(0, candidates.size() - 1)])
 
 
 static func _business_display_name(template_id: String, index: int, rng: SeededRng) -> String:

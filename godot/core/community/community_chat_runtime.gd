@@ -109,7 +109,7 @@ static func send_player_message(state: RunState, npc_id: String, player_message:
 	sessions[npc_id] = session
 	state.community["activeChatSessions"] = sessions
 
-	var context := CommunityContextBuilder.build(state, session)
+	var context := CommunityContextBuilder.build(state, session, trimmed)
 	var request := CommunityChatPrompt.build_request(state, context, trimmed)
 	request["context"] = context
 	request["requestId"] = str(session.get("sessionId", ""))

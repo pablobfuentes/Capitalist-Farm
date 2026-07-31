@@ -9,6 +9,7 @@ extends Control
 
 var _improve_panel: Window = null
 var _negotiation_panel: CanvasLayer = null
+var _certificate_modal: CanvasLayer = null
 var _shortage_modal: Window = null
 var _edge_modal: Window = null
 var _supply_chain_view: Window = null
@@ -31,6 +32,9 @@ func _ready() -> void:
 	_negotiation_panel = preload("res://ui/screens/negotiation_panel.tscn").instantiate()
 	add_child(_negotiation_panel)
 	_negotiation_panel.closed.connect(_refresh)
+
+	_certificate_modal = preload("res://ui/screens/acquisition_certificate_modal.tscn").instantiate()
+	add_child(_certificate_modal)
 
 	_shortage_modal = preload("res://ui/screens/supply_shortage_modal.tscn").instantiate()
 	add_child(_shortage_modal)
@@ -168,6 +172,9 @@ func _on_buy_re_pressed(opportunity_id: String) -> void:
 	var result: Dictionary = Game.apply_command(GameCommand.acquire_real_estate(opportunity_id))
 	if not bool(result.get("ok", false)):
 		_feedback("Purchase failed: %s" % str(result.get("error", "unknown")))
+		return
+	await _present_acquisition_certificate(result)
+	_refresh()
 
 
 func _on_sell_pressed(asset_kind: String, asset_id: String) -> void:
@@ -230,6 +237,18 @@ func _on_buy_pressed(opportunity_id: String) -> void:
 	var result: Dictionary = Game.apply_command(GameCommand.acquire_business(opportunity_id))
 	if not bool(result.get("ok", false)):
 		_feedback("Purchase failed: %s" % str(result.get("error", "unknown")))
+		return
+	await _present_acquisition_certificate(result)
+	_refresh()
+
+
+func _present_acquisition_certificate(result: Dictionary) -> void:
+	if _certificate_modal == null:
+		return
+	var CertScript = preload("res://ui/screens/acquisition_certificate_modal.gd")
+	if not CertScript.is_acquisition_result(result):
+		return
+	await _certificate_modal.present(CertScript.deal_from_command_result(result))
 
 
 func _on_negotiate_pressed(opportunity_id: String) -> void:

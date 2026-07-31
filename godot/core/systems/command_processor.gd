@@ -91,7 +91,17 @@ static func _acquire_business(state: RunState, command: Dictionary) -> Dictionar
 	var result: Dictionary = AcquisitionSystem.acquire_business(state, opp_id, price_override)
 	if not bool(result.get("ok", false)):
 		return result
-	return {"ok": true, "state": state, "business": result.get("business")}
+	return {
+		"ok": true,
+		"state": state,
+		"business": result.get("business"),
+		"price": result.get("price", 0),
+		"finance": result.get("finance", {}),
+		"offer": {
+			"totalPrice": int(result.get("price", 0)),
+			"cashAtClosing": int(result.get("price", 0)),
+		},
+	}
 
 
 static func _acquire_real_estate(state: RunState, command: Dictionary) -> Dictionary:
@@ -100,7 +110,17 @@ static func _acquire_real_estate(state: RunState, command: Dictionary) -> Dictio
 	var result: Dictionary = AcquisitionSystem.acquire_real_estate(state, opp_id, price_override)
 	if not bool(result.get("ok", false)):
 		return result
-	return {"ok": true, "state": state, "realEstate": result.get("realEstate")}
+	return {
+		"ok": true,
+		"state": state,
+		"realEstate": result.get("realEstate"),
+		"price": result.get("price", 0),
+		"finance": result.get("finance", {}),
+		"offer": {
+			"totalPrice": int(result.get("price", 0)),
+			"cashAtClosing": int(result.get("price", 0)),
+		},
+	}
 
 
 static func _set_supply_policy(state: RunState, command: Dictionary) -> Dictionary:

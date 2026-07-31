@@ -225,16 +225,19 @@ static func _add_entry(state: RunState, entry: Dictionary) -> Dictionary:
 
 static func _category_for_fact(fact: Dictionary) -> String:
 	var tags: Array = fact.get("leverageTags", [])
-	if "preference" in tags:
+	var fact_type := str(fact.get("factType", "")).to_lower()
+	if "preference" in tags or fact_type == "preference":
 		return "preference"
+	if "fear" in tags or fact_type == "fear":
+		return "fear"
 	if "supplier_client" in tags:
 		return "supplier_client"
 	if "leverage" in tags:
 		return "leverage"
-	if "fear" in tags:
-		return "fear"
-	if str(fact.get("factType", "")) == "operational":
+	if fact_type == "operational":
 		return "operational"
+	if fact_type in ["atmospheric", "staff", "seasonal", "rival_rumor"]:
+		return "preference" if fact_type == "atmospheric" else "operational"
 	return "operational"
 
 

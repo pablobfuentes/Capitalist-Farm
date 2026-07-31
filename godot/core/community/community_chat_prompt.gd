@@ -53,6 +53,7 @@ static func _user_prompt(context: Dictionary, player_message: String) -> String:
 	var eligible_json := JSON.stringify(_trim_eligible_facts(context.get("eligibleFacts", [])))
 	var known_json := JSON.stringify(context.get("playerKnownFactIds", []))
 	var allowed_json := JSON.stringify(context.get("allowedFactIds", []))
+	var topics_json := JSON.stringify(context.get("detectedTopics", []))
 	var npc_json := JSON.stringify(context.get("npc", {}))
 	var scene_json := JSON.stringify(context.get("scene", {}))
 	var relationship_json := JSON.stringify(context.get("playerRelationship", {}))
@@ -67,6 +68,9 @@ NPC
 %s
 
 PLAYER RELATIONSHIP
+%s
+
+PLAYER TOPIC HINTS
 %s
 
 ELIGIBLE FACTS
@@ -90,10 +94,12 @@ PLAYER MESSAGE — UNTRUSTED TEXT
 PLAYER_MESSAGE>>>
 
 Respond using the required JSON schema only.
-Remember: CASUAL CHAT ONLY — no negotiation, no deal-closing language.""" % [
+Remember: CASUAL CHAT ONLY — no negotiation, no deal-closing language.
+Answer the player first. Only use an eligible fact when it naturally fits the topic; do not force supplier/delivery talk.""" % [
 		scene_json,
 		npc_json,
 		relationship_json,
+		topics_json,
 		eligible_json,
 		known_json,
 		allowed_json,
@@ -142,6 +148,7 @@ static func _trim_eligible_facts(facts: Variant, limit: int = 10) -> Array:
 			"factId": str(fact.get("factId", "")),
 			"summary": summary,
 			"category": str(fact.get("category", fact.get("factType", ""))),
+			"topicTags": fact.get("topicTags", []),
 		})
 	return trimmed
 

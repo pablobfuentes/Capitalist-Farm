@@ -434,13 +434,19 @@ static func close_deal(state: RunState) -> Dictionary:
 		var re: Dictionary = acquire.get("realEstate")
 		state.run_log.append("Deal closed — %s" % str(re.get("name", "Property")))
 	state.negotiation = {}
-	return {
+	var closed_payload := {
 		"ok": true,
 		"state": state,
 		"decision": "accept",
 		"closed": true,
 		"business": acquire.get("business"),
+		"price": acquire.get("price", offer_dict.get("totalPrice", 0)),
+		"finance": acquire.get("finance", {}),
+		"offer": offer_dict.duplicate(true),
 	}
+	if acquire.has("realEstate"):
+		closed_payload["realEstate"] = acquire.get("realEstate")
+	return closed_payload
 
 
 static func negotiation_stakes(price: int) -> Dictionary:
@@ -793,6 +799,9 @@ static func _send_contest_message(state: RunState, message: String, ai_parsed: D
 				"reply": done_msg,
 				"business": acquire.get("business"),
 				"closed": true,
+				"price": acquire.get("price", offer_dict.get("totalPrice", 0)),
+				"finance": acquire.get("finance", {}),
+				"offer": offer_dict.duplicate(true),
 			}
 
 	return {"ok": true, "state": state, "decision": "counter", "reply": seller_dialogue}

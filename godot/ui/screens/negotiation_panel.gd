@@ -9,6 +9,7 @@ const _V2Display := preload("res://core/systems/negotiation_v2_display.gd")
 const _Transcript := preload("res://core/systems/negotiation_transcript.gd")
 const _Archetypes := preload("res://core/content/negotiation_archetypes.gd")
 const _ChatBubble := preload("res://ui/components/negotiation_chat_bubble.gd")
+const _CertModal := preload("res://ui/screens/acquisition_certificate_modal.gd")
 
 const DESIGN_SIZE := Vector2(1523, 981)
 const LAYOUT_PATH := "res://assets/ui/negotiation/layout.json"
@@ -87,6 +88,7 @@ var _gauge_feedback_to: float = 0.0
 var _gauge_feedback_v2: Dictionary = {}
 var _gauge_feedback_label: Label
 var _turn_feedback_active := false
+var _certificate_modal: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -114,6 +116,8 @@ func _ready() -> void:
 	%SaveLogButton.hide()
 	%CloseButton.hide()
 	_ensure_feedback_labels()
+	_certificate_modal = preload("res://ui/screens/acquisition_certificate_modal.tscn").instantiate()
+	add_child(_certificate_modal)
 	set_process_unhandled_input(true)
 
 
@@ -964,10 +968,9 @@ func _on_close_deal() -> void:
 		%StatusLabel.text = str(result.get("error", "Could not close deal"))
 		_refresh()
 		return
-	if bool(result.get("closed", false)) and result.has("business"):
+	if bool(result.get("closed", false)) and _result_is_acquisition(result):
 		%StatusLabel.text = "Deal closed!"
-		_refresh()
-		await get_tree().create_timer(1.2).timeout
+		await _present_acquisition_certificate(result)
 		hide()
 		closed.emit()
 	else:
@@ -1010,9 +1013,9 @@ func _on_negotiation_result(result: Dictionary) -> void:
 
 	if bool(result.get("closed", false)):
 		_refresh(true)
-		if result.has("business"):
+		if _result_is_acquisition(result):
 			%StatusLabel.text = "Deal closed!"
-			await get_tree().create_timer(1.2).timeout
+			await _present_acquisition_certificate(result)
 			hide()
 			closed.emit()
 			return
@@ -1029,6 +1032,18 @@ func _on_negotiation_result(result: Dictionary) -> void:
 
 	_refresh(true)
 	call_deferred("_focus_message_input")
+
+
+func _result_is_acquisition(result: Dictionary) -> bool:
+	return _CertModal.is_acquisition_result(result)
+
+
+func _present_acquisition_certificate(result: Dictionary) -> void:
+	if _certificate_modal == null:
+		_certificate_modal = preload("res://ui/screens/acquisition_certificate_modal.tscn").instantiate()
+		add_child(_certificate_modal)
+	var deal: Dictionary = _CertModal.deal_from_command_result(result)
+	await _certificate_modal.present(deal)
 
 
 func _on_walk() -> void:

@@ -113,10 +113,15 @@ func apply_command(command: Dictionary) -> Dictionary:
 			_emit_map_state_if_2d()
 		GameCommand.START_NEGOTIATION:
 			EventBus.negotiation_started.emit(state)
-		GameCommand.SEND_NEGOTIATION_MESSAGE:
+		GameCommand.SEND_NEGOTIATION_MESSAGE, GameCommand.CLOSE_NEGOTIATION_DEAL:
 			if bool(result.get("closed", false)):
-				if result.has("business"):
+				if result.get("business") is BusinessInstance:
 					EventBus.asset_acquired.emit("business", (result.get("business") as BusinessInstance).id)
+				elif typeof(result.get("realEstate")) == TYPE_DICTIONARY:
+					EventBus.asset_acquired.emit(
+						"realestate",
+						str((result.get("realEstate") as Dictionary).get("id", "")),
+					)
 				else:
 					EventBus.negotiation_ended.emit(state)
 		GameCommand.END_NEGOTIATION:
