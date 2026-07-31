@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "promiseTypes": [
+    {
+      "id": "retain_employees",
+      "label": "Retain employees",
+      "description": "Keep headcount stable for N turns after acquisition or commitment.",
+      "fulfillmentKey": "headcount_unchanged"
+    },
+    {
+      "id": "pay_invoice_on_time",
+      "label": "Pay invoice on time",
+      "description": "Cash payment to NPC or vendor by deadline turn.",
+      "fulfillmentKey": "cash_payment_by_turn"
+    },
+    {
+      "id": "use_local_supplier",
+      "label": "Use local supplier",
+      "description": "Supply policy set to named local supplier for M turns.",
+      "fulfillmentKey": "supply_policy_match"
+    },
+    {
+      "id": "return_with_information",
+      "label": "Return with information",
+      "description": "Discover and notebook-record a specified fact by deadline.",
+      "fulfillmentKey": "notebook_fact_confirmed"
+    },
+    {
+      "id": "capacity_commitment_soft",
+      "label": "Soft capacity commitment",
+      "description": "Allocate spare capacity to client for duration with friendly review.",
+      "fulfillmentKey": "capacity_allocation_soft"
+    },
+    {
+      "id": "capacity_commitment_strict",
+      "label": "Strict capacity commitment",
+      "description": "Allocate required capacity or contract enters breach.",
+      "fulfillmentKey": "capacity_allocation_strict"
+    },
+    {
+      "id": "delivery_reliability",
+      "label": "Delivery reliability",
+      "description": "Keep supplier link strain below threshold for N turns.",
+      "fulfillmentKey": "supply_strain_below"
+    },
+    {
+      "id": "price_hold",
+      "label": "Price hold",
+      "description": "Hold offer or contract price unchanged for N turns.",
+      "fulfillmentKey": "price_unchanged"
+    },
+    {
+      "id": "exclusive_supply",
+      "label": "Exclusive supply",
+      "description": "No alternate supplier policy for tagged input for N turns.",
+      "fulfillmentKey": "exclusive_supply_policy"
+    },
+    {
+      "id": "renegotiate_after_period",
+      "label": "Renegotiate after period",
+      "description": "Engage scheduled renegotiation when the period ends.",
+      "fulfillmentKey": "renegotiation_engaged"
+    }
+  ]
+}

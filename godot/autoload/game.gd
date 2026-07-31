@@ -12,6 +12,7 @@ var state: RunState = null
 
 func _ready() -> void:
 	Content.load_farm_content()
+	CommunityConfig.load_config()
 	NegotiationArchetypes.ensure_loaded()
 
 
@@ -68,8 +69,9 @@ func load_from_file(path: String = DEFAULT_SAVE_PATH) -> bool:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		push_error("Game.load_from_file: invalid JSON in %s" % path)
 		return false
-	load_from_dict(parsed)
+	load_from_dict(CommunityMigration.migrate_run_dict(parsed))
 	ParcelOwnershipSystem.sync_from_state(state)
+	CommunityDebugLogService.write_from_state(state)
 	return true
 
 

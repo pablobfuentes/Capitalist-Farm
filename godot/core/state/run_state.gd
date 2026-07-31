@@ -47,6 +47,8 @@ var parcel_assignments: Dictionary = {}
 var unlocked_districts: Array = []
 var district_unlock_dev_bypass: bool = false
 var bank_loan_drawn_turn: int = -1
+var community_schema_version: int = 0
+var community: Dictionary = {}
 
 
 static func create_new(run_mode: String = CAPITAL_FARM_MODE) -> RunState:
@@ -73,49 +75,53 @@ static func create_new(run_mode: String = CAPITAL_FARM_MODE) -> RunState:
 
 
 static func from_dict(d: Dictionary) -> RunState:
+	var data := CommunityMigration.migrate_run_dict(d.duplicate(true))
 	var s := RunState.new()
-	s.run_seed = int(d.get("seed", 0))
-	s.mode = str(d.get("mode", "simulator"))
-	s.turn = int(d.get("turn", 1))
-	s.max_turns = int(d.get("maxTurns", d.get("max_turns", 30)))
-	s.cash = int(d.get("cash", 0))
-	s.reputation = int(d.get("reputation", 0))
-	s.action_points = int(d.get("actionPoints", d.get("action_points", 2)))
-	s.market_state = d.get("marketState", d.get("market_state", {}))
-	s.portfolio = Portfolio.from_dict(d.get("portfolio", {}))
-	s.loans = d.get("loans", [])
-	s.strategic_edges = d.get("strategicEdges", d.get("strategic_edges", []))
-	s.opportunities = d.get("opportunities", [])
-	s.supply_policies = d.get("supplyPolicies", d.get("supply_policies", {}))
-	s.starter_deal_offered = bool(d.get("starterDealOffered", d.get("starter_deal_offered", false)))
-	s.farm_upgrade_v2 = bool(d.get("farmUpgradeV2", d.get("farm_upgrade_v2", true)))
-	s.game_over = d.get("gameOver", d.get("game_over"))
-	s.run_log = d.get("log", [])
-	s.last_advance_report = d.get("lastAdvanceReport", d.get("last_advance_report", {}))
-	s.period_snapshot = d.get("periodSnapshot", d.get("period_snapshot", {}))
-	s.pending_turn_debrief = d.get("pendingTurnDebrief", d.get("pending_turn_debrief", {}))
-	s.debrief_expanded = bool(d.get("debriefExpanded", d.get("debrief_expanded", false)))
-	s.negotiation = d.get("negotiation", {})
-	s.rival_contest_applied_turn = int(d.get("rivalContestAppliedTurn", d.get("rival_contest_applied_turn", 0)))
-	s.active_rival_contest_opp_id = str(d.get("activeRivalContestOppId", d.get("active_rival_contest_opp_id", "")))
-	s.supply_shortage_ack_turn = int(d.get("supplyShortageAckTurn", d.get("supply_shortage_ack_turn", -1)))
-	s.last_chain_hint_turn = int(d.get("lastChainHintTurn", d.get("last_chain_hint_turn", 0)))
-	s.synergy_snapshot = d.get("synergySnapshot", d.get("synergy_snapshot", []))
-	s.urgent_problems = d.get("urgentProblems", d.get("urgent_problems", []))
-	s.milestone_stage = str(d.get("milestoneStage", d.get("milestone_stage", "survival")))
-	s.milestones_hit = d.get("milestonesHit", d.get("milestones_hit", []))
-	s.edge_choices_pending = d.get("edgeChoicesPending", d.get("edge_choices_pending", []))
-	s.wildcard_event = d.get("wildcardEvent", d.get("wildcard_event", {}))
-	s.wildcard_triggered = bool(d.get("wildcardTriggered", d.get("wildcard_triggered", false)))
-	s.sec_prices = d.get("secPrices", d.get("sec_prices", {}))
-	s.run_stats = d.get("runStats", d.get("run_stats", {}))
-	s.turn_history = d.get("turnHistory", d.get("turn_history", []))
-	s.contracts = d.get("contracts", [])
-	s.active_district_id = str(d.get("activeDistrictId", d.get("active_district_id", "meadowgate_commons")))
-	s.parcel_assignments = d.get("parcelAssignments", d.get("parcel_assignments", {}))
-	s.unlocked_districts = d.get("unlockedDistricts", d.get("unlocked_districts", []))
-	s.district_unlock_dev_bypass = bool(d.get("districtUnlockDevBypass", d.get("district_unlock_dev_bypass", false)))
-	s.bank_loan_drawn_turn = int(d.get("bankLoanDrawnTurn", d.get("bank_loan_drawn_turn", -1)))
+	s.run_seed = int(data.get("seed", 0))
+	s.mode = str(data.get("mode", "simulator"))
+	s.turn = int(data.get("turn", 1))
+	s.max_turns = int(data.get("maxTurns", data.get("max_turns", 30)))
+	s.cash = int(data.get("cash", 0))
+	s.reputation = int(data.get("reputation", 0))
+	s.action_points = int(data.get("actionPoints", data.get("action_points", 2)))
+	s.market_state = data.get("marketState", data.get("market_state", {}))
+	s.portfolio = Portfolio.from_dict(data.get("portfolio", {}))
+	s.loans = data.get("loans", [])
+	s.strategic_edges = data.get("strategicEdges", data.get("strategic_edges", []))
+	s.opportunities = data.get("opportunities", [])
+	s.supply_policies = data.get("supplyPolicies", data.get("supply_policies", {}))
+	s.starter_deal_offered = bool(data.get("starterDealOffered", data.get("starter_deal_offered", false)))
+	s.farm_upgrade_v2 = bool(data.get("farmUpgradeV2", data.get("farm_upgrade_v2", true)))
+	s.game_over = data.get("gameOver", data.get("game_over"))
+	s.run_log = data.get("log", [])
+	s.last_advance_report = data.get("lastAdvanceReport", data.get("last_advance_report", {}))
+	s.period_snapshot = data.get("periodSnapshot", data.get("period_snapshot", {}))
+	s.pending_turn_debrief = data.get("pendingTurnDebrief", data.get("pending_turn_debrief", {}))
+	s.debrief_expanded = bool(data.get("debriefExpanded", data.get("debrief_expanded", false)))
+	s.negotiation = data.get("negotiation", {})
+	s.rival_contest_applied_turn = int(data.get("rivalContestAppliedTurn", data.get("rival_contest_applied_turn", 0)))
+	s.active_rival_contest_opp_id = str(data.get("activeRivalContestOppId", data.get("active_rival_contest_opp_id", "")))
+	s.supply_shortage_ack_turn = int(data.get("supplyShortageAckTurn", data.get("supply_shortage_ack_turn", -1)))
+	s.last_chain_hint_turn = int(data.get("lastChainHintTurn", data.get("last_chain_hint_turn", 0)))
+	s.synergy_snapshot = data.get("synergySnapshot", data.get("synergy_snapshot", []))
+	s.urgent_problems = data.get("urgentProblems", data.get("urgent_problems", []))
+	s.milestone_stage = str(data.get("milestoneStage", data.get("milestone_stage", "survival")))
+	s.milestones_hit = data.get("milestonesHit", data.get("milestones_hit", []))
+	s.edge_choices_pending = data.get("edgeChoicesPending", data.get("edge_choices_pending", []))
+	s.wildcard_event = data.get("wildcardEvent", data.get("wildcard_event", {}))
+	s.wildcard_triggered = bool(data.get("wildcardTriggered", data.get("wildcard_triggered", false)))
+	s.sec_prices = data.get("secPrices", data.get("sec_prices", {}))
+	s.run_stats = data.get("runStats", data.get("run_stats", {}))
+	s.turn_history = data.get("turnHistory", data.get("turn_history", []))
+	s.contracts = data.get("contracts", [])
+	s.active_district_id = str(data.get("activeDistrictId", data.get("active_district_id", "meadowgate_commons")))
+	s.parcel_assignments = data.get("parcelAssignments", data.get("parcel_assignments", {}))
+	s.unlocked_districts = data.get("unlockedDistricts", data.get("unlocked_districts", []))
+	s.district_unlock_dev_bypass = bool(data.get("districtUnlockDevBypass", data.get("district_unlock_dev_bypass", false)))
+	s.bank_loan_drawn_turn = int(data.get("bankLoanDrawnTurn", data.get("bank_loan_drawn_turn", -1)))
+	s.community_schema_version = int(data.get("communitySchemaVersion", data.get("community_schema_version", 0)))
+	s.community = data.get("community", {})
+	CommunityState.ensure_initialized(s)
 	return s
 
 
@@ -163,6 +169,8 @@ func to_dict() -> Dictionary:
 		"unlockedDistricts": unlocked_districts,
 		"districtUnlockDevBypass": district_unlock_dev_bypass,
 		"bankLoanDrawnTurn": bank_loan_drawn_turn,
+		"communitySchemaVersion": community_schema_version,
+		"community": community,
 	}
 
 

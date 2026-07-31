@@ -1,0 +1,60 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_community_debug_log"]
+
+[ext_resource type="Script" path="res://ui/screens/community_debug_log_modal.gd" id="1_log"]
+
+[node name="CommunityDebugLogModal" type="Window"]
+visible = false
+oversampling_override = 1.0
+initial_position = 1
+size = Vector2i(920, 640)
+script = ExtResource("1_log")
+
+[node name="Root" type="VBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="Root"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Community supply map"
+
+[node name="StatusLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Status"
+
+[node name="PathLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Path"
+
+[node name="BodyText" type="TextEdit" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+editable = false
+wrap_mode = 0
+scroll_smooth = true
+
+[node name="Footer" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 8
+
+[node name="RefreshButton" type="Button" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Refresh"
+
+[node name="CloseButton" type="Button" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"

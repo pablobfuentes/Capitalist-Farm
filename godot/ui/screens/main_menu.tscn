@@ -59,6 +59,12 @@ custom_minimum_size = Vector2(280, 44)
 layout_mode = 2
 text = "Load Saved Game"
 
+[node name="CommunityLogButton" type="Button" parent="Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 44)
+layout_mode = 2
+text = "Community Map Log"
+
 [node name="SmokeTestButton" type="Button" parent="Center/VBox"]
 custom_minimum_size = Vector2(280, 36)
 layout_mode = 2
@@ -67,4 +73,5 @@ text = "Run Smoke Test"
 [connection signal="pressed" from="Center/VBox/CapitalFarmButton" to="." method="_on_capital_farm_pressed"]
 [connection signal="pressed" from="Center/VBox/New2DRunButton" to="." method="_on_new_2d_run_pressed"]
 [connection signal="pressed" from="Center/VBox/LoadButton" to="." method="_on_load_pressed"]
+[connection signal="pressed" from="Center/VBox/CommunityLogButton" to="." method="_on_community_log_pressed"]
 [connection signal="pressed" from="Center/VBox/SmokeTestButton" to="." method="_on_smoke_test_pressed"]

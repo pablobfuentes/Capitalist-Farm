@@ -17,10 +17,16 @@ Godot port of **EconomyGame MVP 6** (Capital Farm supply-chain sim).
    ```bash
    npm run export:farm-content
    ```
-3. Press **F5** — runs `scenes/smoke_test.tscn` (content load + synergy + turn advance).
-4. Run unit tests with **GUT** (already in `addons/gut/`):
-   - Project → Tools → GUT → Run All
-   - Or run `tests/test_synergy_system.gd` from the GUT panel
+3. Press **F5** — runs the main menu (`ui/screens/main_menu.tscn`).
+4. **Run unit tests (recommended)** — bypasses GUT bottom-panel config entirely:
+   - Open `scenes/run_gut_tests.tscn`
+   - Press **F6** (Run Current Scene)
+   - Tests load settings from `res://.gutconfig.json` (`res://tests`, prefix `test_`)
+   - Or from repo root: `npm run test:gut` (headless; requires Godot on PATH or `GODOT_BIN`)
+
+   **Avoid the GUT bottom panel “Run All”** if you see `Nil` → `bool` errors — that path uses separate editor user settings that can corrupt. The scene above does not.
+
+   Optional: **Project → Tools → GUT** still works for browsing individual test scripts once settings are loaded via **Settings → Load → `res://.gutconfig.json`** (use the full file in repo root `godot/.gutconfig.json`).
 
 ## Project layout
 

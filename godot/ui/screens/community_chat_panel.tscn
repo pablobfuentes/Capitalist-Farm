@@ -1,0 +1,304 @@
+[gd_scene load_steps=16 format=3 uid="uid://econgame_community_chat_panel"]
+
+[ext_resource type="Script" path="res://ui/screens/community_chat_panel.gd" id="1_chat"]
+[ext_resource type="Shader" path="res://ui/shaders/modal_backdrop_blur.gdshader" id="2_shader"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/frame.png" id="2_frame"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/header_panel.png" id="3_header"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/name_banner.png" id="4_banner"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/chat_background.png" id="7_chat_bg"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/input_tray.png" id="8_tray"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/input_field.png" id="9_field"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/btn_send.png" id="12_send"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/btn_walk_away.png" id="13_walk"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/notebook_background.png" id="10_notebook"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/notebook_divider.png" id="11_divider"]
+[ext_resource type="Texture2D" path="res://assets/ui/negotiation/crest_bottom.png" id="15_crest"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_blur"]
+shader = ExtResource("2_shader")
+shader_parameter/blur_strength = 2.2
+shader_parameter/dim_color = Color(0.08, 0.08, 0.1, 0.18)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_input"]
+
+[node name="CommunityChatPanel" type="CanvasLayer"]
+layer = 128
+visible = false
+script = ExtResource("1_chat")
+
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Backdrop" type="Control" parent="Overlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="BackdropImage" type="TextureRect" parent="Overlay/Backdrop"]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_blur")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Root" type="Control" parent="Overlay"]
+unique_name_in_owner = true
+z_index = 1
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="FrameBg" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_frame")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeaderPanel" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("3_header")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeaderText" type="Control" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 5
+layout_mode = 0
+mouse_filter = 2
+clip_contents = true
+
+[node name="HeaderCenter" type="CenterContainer" parent="Overlay/Root/HeaderText"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HeaderStack" type="VBoxContainer" parent="Overlay/Root/HeaderText/HeaderCenter"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+alignment = 1
+
+[node name="HeaderLabel" type="Label" parent="Overlay/Root/HeaderText/HeaderCenter/HeaderStack"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "Neighbor visit"
+
+[node name="SubheaderLabel" type="Label" parent="Overlay/Root/HeaderText/HeaderCenter/HeaderStack"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "Community chat"
+
+[node name="PortraitSlot" type="Control" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="PortraitPlaceholder" type="Label" parent="Overlay/Root/PortraitSlot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = -20.0
+offset_right = 120.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "Character portrait"
+
+[node name="NameBanner" type="TextureRect" parent="Overlay/Root"]
+z_index = 2
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("4_banner")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NpcNameLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 4
+layout_mode = 0
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "Neighbor"
+
+[node name="ChatBackground" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("7_chat_bg")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ChatScroll" type="ScrollContainer" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 10
+layout_mode = 0
+mouse_filter = 0
+clip_contents = true
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
+
+[node name="ChatMessages" type="VBoxContainer" parent="Overlay/Root/ChatScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_constants/separation = 6
+
+[node name="InputTray" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("8_tray")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="InputField" type="NinePatchRect" parent="Overlay/Root"]
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+texture = ExtResource("9_field")
+patch_margin_left = 16
+patch_margin_top = 16
+patch_margin_right = 16
+patch_margin_bottom = 16
+
+[node name="MessageInput" type="LineEdit" parent="Overlay/Root/InputField"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 18.0
+offset_top = 14.0
+offset_right = -18.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.28, 0.18, 0.1, 1)
+theme_override_colors/font_placeholder_color = Color(0.45, 0.38, 0.3, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxEmpty_input")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_input")
+theme_override_styles/read_only = SubResource("StyleBoxEmpty_input")
+flat = true
+caret_blink = true
+
+[node name="SendButton" type="TextureButton" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+ignore_texture_size = true
+stretch_mode = 5
+texture_normal = ExtResource("12_send")
+
+[node name="WalkButton" type="TextureButton" parent="Overlay/Root"]
+unique_name_in_owner = true
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+ignore_texture_size = true
+stretch_mode = 5
+texture_normal = ExtResource("13_walk")
+
+[node name="NotebookBg" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("10_notebook")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NotebookDivider" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("11_divider")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NotesScroll" type="ScrollContainer" parent="Overlay/Root"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+horizontal_scroll_mode = 0
+
+[node name="NotesLabel" type="Label" parent="Overlay/Root/NotesScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+text = "Community intel discovered here will appear in your negotiation notebook."
+
+[node name="DiligenceScroll" type="ScrollContainer" parent="Overlay/Root"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+horizontal_scroll_mode = 0
+
+[node name="DiligenceLabel" type="Label" parent="Overlay/Root/DiligenceScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+text = "5 messages left this visit"
+
+[node name="StatusLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+layout_mode = 0
+autowrap_mode = 3
+horizontal_alignment = 1
+
+[node name="AiStatusLabel" type="Label" parent="Overlay/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+theme_override_font_sizes/font_size = 10
+autowrap_mode = 3
+
+[node name="CrestBottom" type="TextureRect" parent="Overlay/Root"]
+layout_mode = 0
+mouse_filter = 2
+texture = ExtResource("15_crest")
+expand_mode = 1
+stretch_mode = 5

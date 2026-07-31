@@ -242,6 +242,7 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 	var owner_state := str(resolved.get("state", _Ownership.OWNER_NPC))
 	var business_id := str(resolved.get("business_id", ""))
 	var opportunity_id := str(resolved.get("opportunity_id", ""))
+	var community_business_id := str(resolved.get("community_business_id", ""))
 	var biz := _find_business(state, business_id) if business_id != "" else null
 
 	var details_lines: PackedStringArray = []
@@ -273,6 +274,22 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 				"negotiateLabel": str(opp_row.get("negotiateLabel", "Negotiate (1 AP)")),
 				"buyLabel": "Buy · %s (1 AP)" % MathUtil.fmt_money(price) if price > 0 else "Buy Now (1 AP)",
 			}
+	elif community_business_id != "":
+		var community_business: Dictionary = CommunityGenerator.get_business(state, community_business_id)
+		if not community_business.is_empty():
+			details_lines = _community_parcel_details(state, community_business)
+			var chat_gate: Dictionary = CommunityChatRuntime.can_open_chat(state, community_business)
+			var npc_id := str(community_business.get("ownerNpcId", ""))
+			actions = {
+				"kind": "community",
+				"communityBusinessId": community_business_id,
+				"npcId": npc_id,
+				"parcelId": str(entry.get("id", "")),
+				"districtId": str(district.get("id", "")),
+				"canChat": bool(chat_gate.get("allowed", false)),
+				"chatLabel": "Chat (free)",
+				"chatDisabledReason": str(chat_gate.get("message", "")),
+			}
 	else:
 		details_lines.append(
 			"%s · Parcel (%d, %d)" % [
@@ -300,6 +317,16 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 	if biz != null:
 		title = biz.name
 		role_line = owned_parcel_role_label(biz, district, entry)
+	elif community_business_id != "":
+		var community_business: Dictionary = CommunityGenerator.get_business(state, community_business_id)
+		if not community_business.is_empty():
+			title = str(community_business.get("displayName", title))
+			var npc: Dictionary = CommunityGenerator.get_npc(
+				state,
+				str(community_business.get("ownerNpcId", "")),
+			)
+			var npc_name := str(npc.get("displayName", resolved.get("operator_name", "")))
+			role_line = "Community visit · %s" % npc_name if not npc_name.is_empty() else "Community visit"
 	elif opportunity_id != "":
 		var opp: Dictionary = OpportunitySystem.find_opportunity(state, opportunity_id)
 		if not opp.is_empty():
@@ -328,6 +355,31 @@ static func _append_template_lines(lines: PackedStringArray, entry: Dictionary) 
 		lines.append("Layer: %s" % tmpl.layer_label)
 	else:
 		lines.append("Template: %s" % template_id)
+
+
+static func _community_parcel_details(state: RunState, business: Dictionary) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	var template_id := str(business.get("templateId", ""))
+	if not template_id.is_empty():
+		var tmpl := Content.get_template(template_id)
+		if tmpl != null:
+			lines.append("Template: %s" % tmpl.name)
+			lines.append("Layer: %s" % tmpl.layer_label)
+		else:
+			lines.append("Template: %s" % template_id)
+	var npc: Dictionary = CommunityGenerator.get_npc(state, str(business.get("ownerNpcId", "")))
+	if not npc.is_empty():
+		var species := str(npc.get("speciesId", "")).capitalize()
+		if not species.is_empty():
+			lines.append("Owner: %s (%s)" % [str(npc.get("displayName", "")), species])
+	var sale_state := str(business.get("saleState", "not_for_sale"))
+	if sale_state == "not_for_sale":
+		lines.append("Status: Not for sale — social visit available")
+	elif sale_state == "under_negotiation":
+		lines.append("Status: In active negotiation")
+	elif sale_state == "available":
+		lines.append("Status: Listed for acquisition")
+	return lines
 
 
 static func _find_business(state: RunState, business_id: String) -> BusinessInstance:

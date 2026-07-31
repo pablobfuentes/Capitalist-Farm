@@ -26,6 +26,10 @@ static func prepare_new_run(state: RunState) -> void:
 	state.period_snapshot = _Debrief.snapshot_period_state(state)
 	state.pending_turn_debrief = {}
 	state.debrief_expanded = false
+	CommunityState.ensure_initialized(state)
+	if CommunityFeatureFlags.is_enabled(CommunityFeatureFlags.FLAG_COMMUNITY_GENERATION, state):
+		CommunityGenerator.ensure_district_generated(state, CommunityConfig.mvp_district_id())
+		CommunityDebugLogService.write_from_state(state)
 
 
 static func default_market_state() -> Dictionary:

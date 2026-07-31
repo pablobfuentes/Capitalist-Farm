@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "generatorVersion": "1.0.0",
+  "schemaVersion": 1,
+  "personalRelationship": {
+    "min": -5,
+    "max": 5,
+    "neutral": 0
+  },
+  "speciesPersonalGaugeWeight": {
+    "pig": 2,
+    "donkey": 2,
+    "sheep": 4,
+    "goat": 2,
+    "horse": 3,
+    "hen": 1
+  },
+  "chatSession": {
+    "maxPlayerMessages": 5
+  },
+  "generation": {
+    "businessesPerDistrictTarget": 20,
+    "businessesPerDistrictMin": 18,
+    "businessesPerDistrictMax": 22,
+    "connectedBusinessMinimum": 15,
+    "chainSkeletonCountMin": 2,
+    "chainSkeletonCountMax": 4,
+    "supplyGraphMaxAttempts": 12,
+    "mvpDistrictId": "meadowgate_commons",
+    "crossDistrictEdgesEnabled": false
+  },
+  "featureFlags": {
+    "community_chat": true,
+    "community_generation": true,
+    "negotiation_personal_relationship": true,
+    "notebook_intel": true,
+    "rumor_propagation": true,
+    "promise_fulfillment": true
+  },
+  "promiseCatalogPath": "res://data/community_promises.json",
+  "socialEffectsPath": "res://data/community_social_effects.json",
+  "dialogueSchemaVersion": 1,
+  "aiRequirement": {
+    "communityChatRequiresAi": true,
+    "offlineBlockMessage": "Community chat requires the local AI server. Start Ollama and the proxy (npm start), then try again."
+  },
+  "notebookCategories": {
+    "investigate": ["tactic", "floor_hint", "phrase_unlock", "moved_most_by"],
+    "chat": ["leverage", "preference", "operational", "supplier_client", "fear"]
+  }
+}

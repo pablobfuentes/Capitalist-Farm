@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "firstNames": {
+    "pig": ["Harold", "Penny", "Marcus", "Greta", "Wilbur"],
+    "donkey": ["Jack", "Martha", "Clyde", "Iris", "Benjamin"],
+    "sheep": ["Woolsey", "Mabel", "Clover", "Finn", "Hattie"],
+    "goat": ["Gideon", "Nora", "Rufus", "Tessa", "Vince"],
+    "horse": ["Arthur", "Eleanor", "Sterling", "Daphne", "Clayton"],
+    "hen": ["Hilda", "Peep", "Clara", "Dot", "Marge"]
+  },
+  "lastNames": [
+    "Rowe", "Bramble", "Westfield", "Holloway", "Creek", "Meadowgate", "Sunmarket", "Thistle", "Oakley", "Vale",
+    "Porter", "Granger", "Whitfield", "Carr", "Hawthorn", "Brooks", "Fenn", "Ledger", "Sutter", "Yarrow"
+  ],
+  "businessSuffixes": {
+    "grain_farm": ["Grain Farm", "Family Grain", "Fields Co."],
+    "vegetable_farm": ["Vegetable Farm", "Greens & Roots", "Produce Farm"],
+    "dairy_barn": ["Dairy Barn", "Dairy Exchange", "Creamery"],
+    "poultry_coop": ["Poultry Coop", "Egg Co-op", "Broiler Barn"],
+    "feed_mill": ["Feed Mill", "Feed & Supply", "Milling Co."],
+    "bakery": ["Bakery", "Village Bakery", "Bakehouse"],
+    "farmhouse_restaurant": ["Farmhouse Restaurant", "Hearth & Table", "Kitchen"],
+    "general_store": ["General Store", "Market", "Trading Post"],
+    "equipment_repair": ["Repair Shed", "Equipment & Repair", "Workshop"],
+    "delivery_cold_storage": ["Cold Storage", "Delivery Hub", "Logistics Yard"]
+  },
+  "operationalIssueTypes": [
+    {
+      "id": "late_delivery",
+      "summaries": [
+        "%s deliveries average %d days late.",
+        "%s shipments often miss the promised window by %d days.",
+        "Recent %s runs have slipped about %d days."
+      ],
+      "sensitivity": 2,
+      "leverageTags": ["supplier_leverage", "operational"]
+    },
+    {
+      "id": "quality_variance",
+      "summaries": [
+        "%s quality has been inconsistent this quarter.",
+        "The last %s batch failed inspection once already.",
+        "%s product quality dipped enough to worry downstream buyers."
+      ],
+      "sensitivity": 3,
+      "leverageTags": ["operational", "supplier_leverage"]
+    },
+    {
+      "id": "payment_delay",
+      "summaries": [
+        "%s invoices are often paid a week late.",
+        "Cash timing on %s deliveries has been uneven.",
+        "%s accounts payable slips when demand spikes."
+      ],
+      "sensitivity": 3,
+      "leverageTags": ["financial", "operational"]
+    },
+    {
+      "id": "spare_capacity",
+      "summaries": [
+        "%s has spare capacity that could serve another client.",
+        "%s could take on more volume without new equipment.",
+        "There is unused %s capacity on the current schedule."
+      ],
+      "sensitivity": 1,
+      "leverageTags": ["supplier_client", "leverage"]
+    },
+    {
+      "id": "contract_strain",
+      "summaries": [
+        "The %s contract is under strain but still active.",
+        "Both sides are frustrated with the current %s arrangement.",
+        "%s terms are being tested by recent misses."
+      ],
+      "sensitivity": 4,
+      "leverageTags": ["operational", "leverage"]
+    }
+  ]
+}

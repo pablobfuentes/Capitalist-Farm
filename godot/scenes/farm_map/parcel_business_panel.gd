@@ -6,6 +6,7 @@ signal sell_business(business_id: String)
 signal buy_opportunity(opportunity_id: String)
 signal investigate_opportunity(opportunity_id: String)
 signal negotiate_opportunity(opportunity_id: String)
+signal chat_community_business(community_business_id: String, parcel_id: String, district_id: String)
 
 @onready var _title_label: Label = %TitleLabel
 @onready var _role_label: Label = %RoleLabel
@@ -110,6 +111,24 @@ func _populate_actions(actions: Variant) -> void:
 					func() -> void: negotiate_opportunity.emit(opportunity_id),
 					not bool(action_map.get("canNegotiate", false)),
 				)
+		"community":
+			var community_business_id := str(action_map.get("communityBusinessId", ""))
+			var parcel_id := str(action_map.get("parcelId", ""))
+			var district_id := str(action_map.get("districtId", ""))
+			if action_map.has("canChat"):
+				var chat_label := str(action_map.get("chatLabel", "Chat (free)"))
+				var can_chat := bool(action_map.get("canChat", false))
+				var btn := Button.new()
+				btn.text = chat_label
+				btn.disabled = not can_chat
+				if not can_chat:
+					var reason := str(action_map.get("chatDisabledReason", "")).strip_edges()
+					if not reason.is_empty():
+						btn.tooltip_text = reason
+				btn.pressed.connect(func() -> void:
+					chat_community_business.emit(community_business_id, parcel_id, district_id)
+				)
+				_actions_row.add_child(btn)
 
 
 func _add_action_button(label: String, callback: Callable, disabled: bool = false) -> void:

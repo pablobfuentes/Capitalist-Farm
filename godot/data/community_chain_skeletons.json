@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "requiredTemplates": ["grain_farm", "general_store"],
+  "fillTemplates": [
+    "grain_farm",
+    "vegetable_farm",
+    "dairy_barn",
+    "poultry_coop",
+    "feed_mill",
+    "bakery",
+    "farmhouse_restaurant",
+    "general_store",
+    "equipment_repair",
+    "delivery_cold_storage"
+  ],
+  "chains": [
+    {
+      "id": "field_to_table",
+      "label": "Grain → feed → dairy → bakery → store",
+      "templates": ["grain_farm", "feed_mill", "dairy_barn", "bakery", "general_store"]
+    },
+    {
+      "id": "protein_retail",
+      "label": "Feed → poultry → bakery → store",
+      "templates": ["feed_mill", "poultry_coop", "bakery", "general_store"]
+    },
+    {
+      "id": "fresh_produce_channel",
+      "label": "Vegetables → restaurant → store",
+      "templates": ["vegetable_farm", "farmhouse_restaurant", "general_store"]
+    },
+    {
+      "id": "cold_chain_logistics",
+      "label": "Cold storage → dairy → store",
+      "templates": ["delivery_cold_storage", "dairy_barn", "general_store"]
+    },
+    {
+      "id": "grain_bakery_dining",
+      "label": "Grain → bakery → restaurant",
+      "templates": ["grain_farm", "bakery", "farmhouse_restaurant"]
+    },
+    {
+      "id": "infrastructure_support",
+      "label": "Equipment repair → feed → poultry",
+      "templates": ["equipment_repair", "feed_mill", "poultry_coop"]
+    }
+  ],
+  "districtSlots": {
+    "meadowgate_commons": [
+      "mg_01", "mg_02", "mg_03", "mg_04", "mg_05", "mg_06", "mg_07", "mg_08", "mg_09", "mg_10",
+      "mg_11", "mg_12", "mg_13", "mg_14", "mg_15", "mg_17",
+      "mg_18", "mg_19", "mg_21", "mg_24"
+    ]
+  }
+}

@@ -706,8 +706,12 @@ func _update_chat(neg: Dictionary) -> void:
 
 	await get_tree().process_frame
 	var scroll_w := maxf(%ChatScroll.size.x, 220.0)
+	var bar: VScrollBar = %ChatScroll.get_v_scroll_bar()
+	if bar != null:
+		scroll_w = maxf(scroll_w - maxf(bar.size.x, bar.get_combined_minimum_size().x) - 4.0, 220.0)
 	box.custom_minimum_size.x = scroll_w
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	box.add_theme_constant_override("separation", int(6 * _ui_scale()))
 	var bubble_scale := _ui_scale()
 	for msg_variant in neg.get("messages", []):
@@ -720,6 +724,15 @@ func _update_chat(neg: Dictionary) -> void:
 		var role := str(msg.get("role", msg.get("speaker", ""))).to_lower()
 		var kind: int = _ChatBubble.kind_from_role(role)
 		box.add_child(_ChatBubble.create(text, kind, scroll_w, bubble_scale))
+	var bottom_pad := Control.new()
+	bottom_pad.custom_minimum_size = Vector2(1.0, 18.0 * bubble_scale)
+	bottom_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(bottom_pad)
+
+	await get_tree().process_frame
+	for child in box.get_children():
+		if child is Control:
+			_ChatBubble.sync_min_height(child as Control)
 
 	if follow_bottom:
 		call_deferred("_scroll_chat_to_bottom")
@@ -783,7 +796,12 @@ func _format_notes(neg: Dictionary) -> String:
 			_get_v2_preview(neg),
 		).get("coachLine", "Lead with species-aligned terms, then price.")
 
-	return "Species: %s\nLikes: %s\nAvoid: %s\nOffer: %s" % [species_label, likes, avoid, offer]
+	var notes := "Species: %s\nLikes: %s\nAvoid: %s\nOffer: %s" % [species_label, likes, avoid, offer]
+	if Game.state != null:
+		var snapshot: String = CommunityNegotiationBridge.format_modifier_snapshot(Game.state, v2, cp)
+		if not snapshot.is_empty():
+			notes = "%s\n\n%s" % [notes, snapshot]
+	return notes
 
 
 func _format_diligence(neg: Dictionary) -> String:
@@ -835,7 +853,10 @@ func _update_seller_name_text(cp: Dictionary) -> String:
 
 func _update_notebook(neg: Dictionary) -> void:
 	%NotesLabel.text = _format_notes(neg)
-	%DiligenceLabel.text = _format_diligence(neg)
+	var diligence_text := _format_diligence(neg)
+	if Game.state != null and CommunityFeatureFlags.is_enabled(CommunityFeatureFlags.FLAG_NOTEBOOK_INTEL, Game.state):
+		diligence_text = CommunityNotebookService.format_diligence_with_notebook(Game.state, diligence_text, neg)
+	%DiligenceLabel.text = diligence_text
 	var unlocked := bool(neg.get("intelUnlocked", false))
 	%DiligenceLabel.modulate = Color.WHITE if unlocked else Color(0.72, 0.68, 0.62, 1.0)
 	call_deferred("_sync_notebook_scroll_widths")

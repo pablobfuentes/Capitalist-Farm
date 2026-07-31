@@ -56,12 +56,33 @@ static func start_negotiation(state: RunState, opportunity_id: String) -> Dictio
 		counterparty["leverageScore"] = 0.5
 	if not counterparty.has("relationshipMemory"):
 		counterparty["relationshipMemory"] = {"trust": counterparty.get("trust", 0.5), "promisesKept": 0, "promisesBroken": 0, "grievances": []}
+	CommunityNegotiationBridge.enrich_counterparty(state, counterparty, opp)
 
 	var situation: Dictionary = _V2Data.SITUATIONS.get(str(counterparty.get("businessSituation", "")), {})
 	var v2_profile: Dictionary
 	var preview_raw: Variant = opp.get("v2Preview")
 	if preview_raw is Dictionary and (preview_raw as Dictionary).has("profile"):
 		v2_profile = ((preview_raw as Dictionary)["profile"] as Dictionary).duplicate(true)
+		var leverage_score: float = float(counterparty.get("leverageScore", 0.5))
+		var leverage_band: Dictionary = _V2Data.leverage_from_score(leverage_score)
+		v2_profile["leverageGaugeAdj"] = int(leverage_band.get("gaugeAdj", 0))
+		v2_profile["leverageEconomicAdj"] = float(leverage_band.get("econAdj", 0.0))
+		v2_profile["leverageLabel"] = str(leverage_band.get("label", "Balanced"))
+		v2_profile["communityIntelLeverageScore"] = leverage_score
+		v2_profile = CommunityNegotiationBridge.apply_profile_fields(state, counterparty, v2_profile)
+		var personal_adj := int(v2_profile.get("personalRelationshipGaugeAdj", 0))
+		var gauge_start := clampi(
+			_V2Data.GAUGE_BASE
+			+ int(v2_profile.get("reputationGaugeAdj", 0))
+			+ int(v2_profile.get("memoryGaugeAdj", 0))
+			+ int(v2_profile.get("leverageGaugeAdj", 0))
+			+ personal_adj,
+			0,
+			100,
+		)
+		v2_profile["gaugeStart"] = gauge_start
+		v2_profile["gauge"] = gauge_start
+		v2_profile["previousGauge"] = gauge_start
 	else:
 		v2_profile = _V2.initialize_profile(
 			price,

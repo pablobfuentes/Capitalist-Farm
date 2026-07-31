@@ -244,6 +244,8 @@ static func investigate_opportunity(state: RunState, opportunity_id: String) -> 
 		" · ".join(log_parts),
 	])
 
+	CommunityNotebookService.record_investigate_entries(state, opp)
+
 	return {"ok": true, "state": state, "opportunity": opp}
 
 

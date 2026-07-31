@@ -39,17 +39,23 @@ static func build(
 	var memory_adj: int = _Data.summarize_memory_gauge(counterparty)
 	var leverage_score: float = float(counterparty.get("leverageScore", 0.5))
 	var leverage: Dictionary = _Data.leverage_from_score(leverage_score)
+	var personal_adj: int = CommunityNegotiationBridge.personal_relationship_gauge_adj(
+		state,
+		str(counterparty.get("communityNpcId", "")),
+		species_id,
+	)
 
 	var gauge_start: int = clampi(
 		_Data.GAUGE_BASE
 		+ int(rep.get("gaugeAdj", 0))
 		+ memory_adj
-		+ int(leverage.get("gaugeAdj", 0)),
+		+ int(leverage.get("gaugeAdj", 0))
+		+ personal_adj,
 		0,
 		100,
 	)
 
-	return {
+	var profile := {
 		"version": 2,
 		"askPrice": ask_price,
 		"hardFloor": hard_floor,
@@ -67,6 +73,8 @@ static func build(
 		"reputationGaugeAdj": int(rep.get("gaugeAdj", 0)),
 		"memoryGaugeAdj": memory_adj,
 		"moralityGaugeAdj": 0,
+		"personalRelationshipGaugeAdj": personal_adj,
+		"communityIntelLeverageScore": leverage_score,
 		"gaugeStart": gauge_start,
 		"speciesProgress": 0.0,
 		"situationProgress": 0.0,
@@ -84,6 +92,7 @@ static func build(
 		"discoveredFacts": [],
 		"permittedTerms": [],
 	}
+	return CommunityNegotiationBridge.apply_profile_fields(state, counterparty, profile)
 
 
 static func recalculate_economics(profile: Dictionary) -> Dictionary:

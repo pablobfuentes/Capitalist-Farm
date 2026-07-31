@@ -181,6 +181,60 @@ async function handleHealth(res) {
   }
 }
 
+async function handleCommunityChat(req, res) {
+  let body;
+  try {
+    body = await readBody(req);
+  } catch (e) {
+    return send(res, 400, { error: e.message });
+  }
+
+  const prompt = typeof body.prompt === 'string' && body.prompt.trim()
+    ? body.prompt.trim()
+    : `${body.systemPrompt || ''}\n\n${body.userPrompt || ''}`.trim();
+  if (!prompt) {
+    return send(res, 400, { error: 'Missing prompt' });
+  }
+
+  const schemaHint = `Reply with ONLY a raw JSON object (no markdown fences, no extra text) matching exactly:
+{"dialogue":"1-3 sentence in-character reply","tone":"neutral|warm|irritated|guarded|amused|hostile","social_action":"none|small_talk|compliment|apology|gift_offer|request|promise|disclosure|refusal","fact_disclosures":[{"fact_id":"string","mode":"direct|hint|rumor","confidence_language":"certain|likely|uncertain"}],"gift":null,"promise_proposal":null,"interaction_classification":{"sincerity":"low|medium|high","respectfulness":"low|medium|high","manipulation_signal":"none|mild|strong","repetition":"new|repeated|excessive"},"new_fact_proposals":[]}`;
+
+  const fullPrompt = `${prompt}\n\n${schemaHint}`;
+  try {
+    let text = await ollamaChat(fullPrompt);
+    try {
+      return send(res, 200, normalizeCommunityChatResult(parseNegotiationJson(text)));
+    } catch {
+      text = await ollamaChat(fullPrompt, { repair: true });
+      return send(res, 200, normalizeCommunityChatResult(parseNegotiationJson(text)));
+    }
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Ollama timeout' : e.message || 'Ollama failed';
+    return send(res, 502, { error: msg });
+  }
+}
+
+function normalizeCommunityChatResult(parsed) {
+  if (!parsed || typeof parsed !== 'object') throw new Error('Empty model result');
+  return {
+    dialogue: typeof parsed.dialogue === 'string' ? parsed.dialogue : '',
+    tone: parsed.tone || 'neutral',
+    social_action: parsed.social_action || 'none',
+    fact_disclosures: Array.isArray(parsed.fact_disclosures) ? parsed.fact_disclosures : [],
+    gift: parsed.gift ?? null,
+    promise_proposal: parsed.promise_proposal ?? null,
+    interaction_classification: parsed.interaction_classification && typeof parsed.interaction_classification === 'object'
+      ? parsed.interaction_classification
+      : {
+          sincerity: 'medium',
+          respectfulness: 'medium',
+          manipulation_signal: 'none',
+          repetition: 'new',
+        },
+    new_fact_proposals: Array.isArray(parsed.new_fact_proposals) ? parsed.new_fact_proposals : [],
+  };
+}
+
 async function handleNegotiate(req, res) {
   let body;
   try {
@@ -253,6 +307,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/negotiate') {
       return await handleNegotiate(req, res);
     }
+    if (req.method === 'POST' && url.pathname === '/community-chat') {
+      return await handleCommunityChat(req, res);
+    }
     if (req.method === 'GET') {
       return serveStatic(req, res, url);
     }
@@ -268,4 +325,5 @@ server.listen(PORT, HOST, () => {
   console.log(`  Ollama: ${OLLAMA_URL}  model: ${MODEL}`);
   console.log(`  GET  /health`);
   console.log(`  POST /negotiate`);
+  console.log(`  POST /community-chat`);
 });

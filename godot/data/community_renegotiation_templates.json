@@ -1,0 +1,67 @@
+{
+  "majorClientDependenceMin": 0.55,
+  "triggerDelayTurns": 1,
+  "defaultDurationTurns": 3,
+  "templates": [
+    {
+      "id": "friendly_capacity_expansion",
+      "contractHealth": "strong",
+      "relationshipBand": "good",
+      "capacityIncreasePct": 0.30,
+      "durationTurns": 3,
+      "strictCovenants": false,
+      "terminationRisk": false,
+      "summaryTemplate": "%s asks for ~30%% additional capacity over %d quarters — friendly terms, review at period end."
+    },
+    {
+      "id": "standard_renewal",
+      "contractHealth": "strong",
+      "relationshipBand": "neutral",
+      "capacityIncreasePct": 0.10,
+      "durationTurns": 3,
+      "strictCovenants": false,
+      "terminationRisk": false,
+      "summaryTemplate": "%s wants a standard renewal with a modest volume increase (~10%%)."
+    },
+    {
+      "id": "strained_but_willing",
+      "contractHealth": "strained",
+      "relationshipBand": "good",
+      "capacityIncreasePct": 0.15,
+      "durationTurns": 2,
+      "strictCovenants": true,
+      "terminationRisk": false,
+      "summaryTemplate": "%s is willing to renegotiate despite past issues — expects tighter delivery terms and ~15%% more capacity."
+    },
+    {
+      "id": "strict_termination_ultimatum",
+      "contractHealth": "strained",
+      "relationshipBand": "bad",
+      "capacityIncreasePct": 0.50,
+      "durationTurns": 2,
+      "strictCovenants": true,
+      "terminationRisk": true,
+      "summaryTemplate": "%s demands ~50%% of your capacity or threatens termination — strict payment and delivery covenants."
+    },
+    {
+      "id": "neutral_strained_review",
+      "contractHealth": "strained",
+      "relationshipBand": "neutral",
+      "capacityIncreasePct": 0.25,
+      "durationTurns": 2,
+      "strictCovenants": true,
+      "terminationRisk": false,
+      "summaryTemplate": "%s schedules a hard review — past reliability issues mean tighter terms and a ~25%% capacity ask."
+    },
+    {
+      "id": "good_neutral_welcome",
+      "contractHealth": "neutral",
+      "relationshipBand": "good",
+      "capacityIncreasePct": 0.12,
+      "durationTurns": 3,
+      "strictCovenants": false,
+      "terminationRisk": false,
+      "summaryTemplate": "%s welcomes the new owner and proposes a modest ~12%% capacity bump on friendly terms."
+    }
+  ]
+}

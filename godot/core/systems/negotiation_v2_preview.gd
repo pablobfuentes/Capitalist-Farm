@@ -150,6 +150,7 @@ static func _ensure_counterparty_v2_fields(
 	state: RunState,
 	price: int,
 ) -> void:
+	CommunityNegotiationBridge.enrich_counterparty(state, counterparty, opp)
 	if not counterparty.has("businessSituation"):
 		counterparty["businessSituation"] = _V2Data.pick_situation(opp, SeededRng.new(state.run_seed + price))
 	if not counterparty.has("leverageScore"):

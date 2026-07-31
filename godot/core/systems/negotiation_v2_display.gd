@@ -21,6 +21,9 @@ static func format_context_summary(
 	var role := str(counterparty.get("role", "seller"))
 	var situation_label := str(v2.get("situationLabel", ""))
 	var leverage := str(v2.get("leverageLabel", "Balanced"))
+	var personal_label := str(v2.get("personalRelationshipLabel", "")).strip_edges()
+	if not personal_label.is_empty() and personal_label != "Stranger":
+		leverage = "%s · %s rapport" % [leverage, personal_label]
 	var species_progress: float = float(v2.get("speciesProgress", 0.0))
 	var situation_progress: float = float(v2.get("situationProgress", 0.0))
 	var discount_pct: float = float(v2.get("unlockedDiscount", 0.0)) * 100.0

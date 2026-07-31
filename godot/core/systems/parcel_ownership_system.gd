@@ -273,6 +273,30 @@ static func resolve(state: RunState, parcel: Dictionary, district: Dictionary = 
 				"operator_name": str(opp.get("name", "")),
 			}
 
+	var community_business_id := str(assignment.get("community_business_id", ""))
+	if community_business_id.is_empty():
+		var district_id := str(district.get("id", ""))
+		var community_business: Dictionary = CommunityGenerator.get_business_for_parcel(
+			state,
+			parcel_id,
+			district_id,
+		)
+		if not community_business.is_empty():
+			community_business_id = str(community_business.get("id", ""))
+	if community_business_id != "":
+		var community_business: Dictionary = CommunityGenerator.get_business(state, community_business_id)
+		if not community_business.is_empty():
+			var operator_name := str(community_business.get("displayName", assignment.get("npc_label", "")))
+			return {
+				"state": OWNER_NPC,
+				"headline": "NPC-operated",
+				"detail": "Run by %s" % operator_name,
+				"business_id": "",
+				"community_business_id": community_business_id,
+				"opportunity_id": "",
+				"operator_name": operator_name,
+			}
+
 	var owner := str(assignment.get("owner", OWNER_NPC))
 	match owner:
 		OWNER_VACANT:

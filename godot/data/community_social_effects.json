@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "dimensionRange": { "min": -100, "max": 100 },
+  "personalRelationshipWeights": {
+    "warmth": 0.25,
+    "trust": 0.30,
+    "businessRespect": 0.20,
+    "gratitude": 0.15,
+    "familiarity": 0.05,
+    "resentment": -0.25,
+    "suspicion": -0.20
+  },
+  "maxDeltaPerInteraction": 8,
+  "meaningfulActionsPerTurnCap": 3,
+  "disclosureDefaultThreshold": 0.35,
+  "disclosureWeights": {
+    "gossipTendency": 0.20,
+    "familiarity": 0.15,
+    "trust": 0.25,
+    "topicRelevance": 0.15,
+    "emotionalPressure": 0.10,
+    "questionQuality": 0.10,
+    "sensitivity": -0.35,
+    "loyaltyToSubject": -0.25,
+    "confidentialityObligation": -0.40
+  },
+  "repetitionMultipliers": {
+    "new": 1.0,
+    "repeated": 0.35,
+    "excessive": -0.5
+  },
+  "sincerityMultipliers": {
+    "low": 0.5,
+    "medium": 1.0,
+    "high": 1.15
+  },
+  "respectfulnessMultipliers": {
+    "low": 0.7,
+    "medium": 1.0,
+    "high": 1.1
+  },
+  "socialActions": {
+    "none": {},
+    "small_talk": { "familiarity": 2, "warmth": 1 },
+    "compliment": { "warmth": 2, "trust": 1 },
+    "apology": { "trust": 2, "warmth": 1, "resentment": -3 },
+    "gift_offer": { "warmth": 3, "gratitude": 2, "trust": 1 },
+    "request": { "businessRespect": 1 },
+    "promise": { "trust": 2, "businessRespect": 1 },
+    "disclosure": { "familiarity": 1, "trust": 1 },
+    "refusal": { "warmth": -1, "businessRespect": -1, "suspicion": 1 }
+  },
+  "giftBonuses": {
+    "preferenceMatch": { "warmth": 2, "gratitude": 1 },
+    "firstTime": { "warmth": 1, "trust": 1 }
+  },
+  "gratitudeDecayPerTurn": 1,
+  "rumorPropagation": {
+    "baseSpreadRate": 0.38,
+    "confidenceDecayPerHop": 0.18,
+    "minSourceConfidence": 0.40,
+    "maxHops": 2,
+    "supplyEdgeMultiplier": 1.25,
+    "maxSpreadsPerTurn": 14,
+    "willingnessBase": 0.28
+  },
+  "promiseFulfillment": {
+    "defaultDurationTurns": 3,
+    "defaultDeadlineGraceTurns": 0,
+    "headcountTolerancePct": 0.08,
+    "deliveryReliabilityMinHealth": 65,
+    "capacitySoftReliabilityFloor": 0.85,
+    "capacityStrictReliabilityFloor": 0.70,
+    "localSupplierPolicies": ["portfolio_first", "contract_first"],
+    "exclusivePolicies": ["portfolio_first", "contract_first", "balanced"],
+    "consequences": {
+      "fulfilled": { "trust": 3, "gratitude": 4, "businessRespect": 2 },
+      "broken": { "trust": -5, "resentment": 4, "businessRespect": -3 },
+      "expired": { "trust": -3, "resentment": 2 }
+    }
+  }
+}

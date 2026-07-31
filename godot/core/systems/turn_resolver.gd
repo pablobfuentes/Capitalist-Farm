@@ -105,6 +105,13 @@ func advance_turn(state: RunState) -> RunState:
 			next.edge_choices_pending = _Progression.pick_milestone_edge_choices(next, rng)
 
 	_Rules.apply_turn_increment(next)
+	if CommunityFeatureFlags.is_enabled(CommunityFeatureFlags.FLAG_COMMUNITY_GENERATION, next):
+		CommunitySocialRules.apply_turn_decay(next)
+		CommunityRenegotiationService.process_turn(next)
+		if CommunityFeatureFlags.is_enabled(CommunityFeatureFlags.FLAG_RUMOR_PROPAGATION, next):
+			CommunityRumorService.process_turn(next)
+		if CommunityFeatureFlags.is_enabled(CommunityFeatureFlags.FLAG_PROMISE_FULFILLMENT, next):
+			CommunityPromiseService.process_turn(next)
 	_Rules.apply_end_of_turn_victory_checks(next)
 	if next.game_over != null:
 		next.pending_turn_debrief = {}

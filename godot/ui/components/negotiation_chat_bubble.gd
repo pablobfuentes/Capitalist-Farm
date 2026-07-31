@@ -14,6 +14,9 @@ const MAX_WIDTH_FRAC := 0.78
 const COLUMN_PAD := 16.0
 const TIP_W_BASE := 12.0
 const TIP_H_BASE := 16.0
+## Extra height so WORD_SMART wrap / glyph descent never clips a line.
+const HEIGHT_FUDGE_FRAC := 0.45
+
 
 const _NPC_BG := Color(0.165, 0.29, 0.43, 1.0)
 const _NPC_BORDER := Color(0.77, 0.65, 0.45, 1.0)
@@ -49,24 +52,26 @@ static func create(text: String, kind: Kind, column_width: float, ui_scale: floa
 	var pad := COLUMN_PAD * s
 	var tip_w := TIP_W_BASE * s
 	# Inner width available for the bubble body (pointer sits in the pad/reserve).
-	var usable := maxf(column_width - pad * 2.0 - tip_w, 120.0)
+	# Slightly under-estimate usable width so measured height is never shorter than
+	# the real wrapped Label once the scrollbar/layout settles.
+	var usable := maxf(column_width - pad * 2.0 - tip_w - 8.0 * s, 120.0)
 
 	match kind:
 		Kind.SYSTEM:
 			return _make_bubble(
-				text, usable * 0.90, font_size, s, pad, tip_w,
+				text, usable * 0.90, font_size, s, pad, tip_w, column_width,
 				_SYSTEM_BG, _SYSTEM_BORDER, _SYSTEM_TEXT,
 				Vector4(14, 8, 14, 8), true, 0,
 			)
 		Kind.PLAYER:
 			return _make_bubble(
-				text, usable * MAX_WIDTH_FRAC, font_size, s, pad, tip_w,
+				text, usable * MAX_WIDTH_FRAC, font_size, s, pad, tip_w, column_width,
 				_PLAYER_BG, _PLAYER_BORDER, _PLAYER_TEXT,
 				Vector4(16, 12, 16, 12), false, 1,
 			)
 		_:
 			return _make_bubble(
-				text, usable * MAX_WIDTH_FRAC, font_size, s, pad, tip_w,
+				text, usable * MAX_WIDTH_FRAC, font_size, s, pad, tip_w, column_width,
 				_NPC_BG, _NPC_BORDER, _NPC_TEXT,
 				Vector4(16, 12, 16, 12), false, -1,
 			)
@@ -80,6 +85,7 @@ static func _make_bubble(
 	s: float,
 	column_pad: float,
 	tip_w: float,
+	column_width: float,
 	bg: Color,
 	border: Color,
 	font_color: Color,
@@ -93,20 +99,23 @@ static func _make_bubble(
 	var font: Font = ThemeDB.fallback_font
 	var measured := _measure(text, font, font_size, max_text_w)
 	var text_w := clampf(measured.x + 1.0, MIN_TEXT_W * s, max_text_w)
+	# Remeasure at the final text width, then add fudge for WORD_SMART vs measure.
 	measured = _measure(text, font, font_size, text_w)
 	var text_h := maxf(measured.y, float(font_size) * 1.25)
+	text_h += float(font_size) * HEIGHT_FUDGE_FRAC
 
 	var pad_l := content_m.x
 	var pad_t := content_m.y
 	var pad_r := content_m.z
 	var pad_b := content_m.w
+	var border_w := float(maxi(1, int(round(2.0 * s))))
 	var panel_w := text_w + pad_l + pad_r
-	var panel_h := text_h + pad_t + pad_b
+	var panel_h := text_h + pad_t + pad_b + border_w * 2.0
 
 	var style := StyleBoxFlat.new()
 	style.bg_color = bg
 	style.border_color = border
-	style.set_border_width_all(maxi(1, int(round(2.0 * s))))
+	style.set_border_width_all(int(border_w))
 	style.set_corner_radius_all(int(round(14.0 * s)))
 	style.content_margin_left = int(round(pad_l))
 	style.content_margin_top = int(round(pad_t))
@@ -120,12 +129,17 @@ static func _make_bubble(
 	label.add_theme_color_override("font_color", font_color)
 	if center_text:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Lock width; height comes from measured wrap (+ fudge) so containers can't squash text.
 	label.custom_minimum_size = Vector2(text_w, text_h)
+	label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	label.clip_text = false
 
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.clip_contents = false
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	panel.add_child(label)
 
 	var bubble_root: Control = panel
@@ -134,28 +148,49 @@ static func _make_bubble(
 
 	var row := HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_theme_constant_override("separation", 0)
 	if side < 0:
 		row.add_child(bubble_root)
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(spacer)
 	elif side > 0:
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(spacer)
 		row.add_child(bubble_root)
 	else:
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_child(bubble_root)
 
+	var margin_t := int(round(4.0 * s))
+	var margin_b := int(round(4.0 * s))
 	var wrap := MarginContainer.new()
 	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	wrap.clip_contents = false
 	wrap.add_theme_constant_override("margin_left", int(round(column_pad)))
 	wrap.add_theme_constant_override("margin_right", int(round(column_pad)))
-	wrap.add_theme_constant_override("margin_top", int(round(4.0 * s)))
-	wrap.add_theme_constant_override("margin_bottom", int(round(4.0 * s)))
+	wrap.add_theme_constant_override("margin_top", margin_t)
+	wrap.add_theme_constant_override("margin_bottom", margin_b)
 	wrap.add_child(row)
+	# Force the chat VBox to reserve the full bubble height (prevents overlap).
+	var body_h := panel_h
+	wrap.custom_minimum_size = Vector2(
+		maxf(column_width, panel_w + tip_w + column_pad * 2.0),
+		body_h + float(margin_t + margin_b),
+	)
+	wrap.set_meta("bubble_label", label)
+	wrap.set_meta("bubble_panel", panel)
+	wrap.set_meta("bubble_root", bubble_root)
+	wrap.set_meta("bubble_side", side)
+	wrap.set_meta("bubble_tip_w", tip_w)
+	wrap.set_meta("bubble_pad_y", Vector2(pad_t, pad_b))
+	wrap.set_meta("bubble_border_w", border_w)
+	wrap.set_meta("bubble_margin_y", Vector2(margin_t, margin_b))
 	return wrap
 
 
@@ -172,7 +207,9 @@ static func _with_side_pointer(
 	var tip_h := TIP_H_BASE * s
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.clip_contents = false
 	holder.custom_minimum_size = Vector2(panel_w + tip_w, panel_h)
+	holder.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 
 	var panel_x := tip_w if side < 0 else 0.0
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
@@ -209,6 +246,46 @@ static func _with_side_pointer(
 		])
 	holder.add_child(tip)
 	return holder
+
+
+## Call after the bubble is in the tree and has a real width, to correct any wrap mismatch.
+static func sync_min_height(wrap: Control) -> void:
+	if wrap == null or not wrap.has_meta("bubble_label"):
+		return
+	var label: Label = wrap.get_meta("bubble_label") as Label
+	var panel: PanelContainer = wrap.get_meta("bubble_panel") as PanelContainer
+	var bubble_root: Control = wrap.get_meta("bubble_root") as Control
+	if label == null or panel == null:
+		return
+	var text_w := label.size.x if label.size.x > 1.0 else label.custom_minimum_size.x
+	if text_w <= 1.0:
+		text_w = label.custom_minimum_size.x
+	if text_w <= 1.0:
+		return
+	var font: Font = label.get_theme_font("font")
+	if font == null:
+		font = ThemeDB.fallback_font
+	var font_size := label.get_theme_font_size("font_size")
+	var measured := _measure(label.text, font, font_size, text_w)
+	var text_h := maxf(measured.y, float(font_size) * 1.25)
+	text_h += float(font_size) * HEIGHT_FUDGE_FRAC
+	label.custom_minimum_size = Vector2(text_w, text_h)
+
+	var pad_y: Vector2 = wrap.get_meta("bubble_pad_y") if wrap.has_meta("bubble_pad_y") else Vector2(12, 12)
+	var border_w: float = float(wrap.get_meta("bubble_border_w")) if wrap.has_meta("bubble_border_w") else 2.0
+	var panel_h := text_h + pad_y.x + pad_y.y + border_w * 2.0
+	var panel_w := panel.custom_minimum_size.x
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+
+	var tip_w: float = float(wrap.get_meta("bubble_tip_w")) if wrap.has_meta("bubble_tip_w") else 0.0
+	var side: int = int(wrap.get_meta("bubble_side")) if wrap.has_meta("bubble_side") else 0
+	if side != 0 and bubble_root != null and bubble_root != panel:
+		bubble_root.custom_minimum_size = Vector2(panel_w + tip_w, panel_h)
+		panel.offset_bottom = panel_h
+		panel.offset_top = 0.0
+
+	var margin_y: Vector2 = wrap.get_meta("bubble_margin_y") if wrap.has_meta("bubble_margin_y") else Vector2(4, 4)
+	wrap.custom_minimum_size.y = panel_h + margin_y.x + margin_y.y
 
 
 static func kind_from_role(role: String) -> Kind:
