@@ -1,0 +1,47 @@
+[gd_scene load_steps=2 format=3 uid="uid://econgame_sc_path_controls"]
+
+[ext_resource type="Script" path="res://ui/screens/supply_chain_path_controls.gd" id="1_script"]
+
+[node name="SupplyChainPathControls" type="PanelContainer"]
+custom_minimum_size = Vector2(260, 0)
+offset_right = 260.0
+offset_bottom = 48.0
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 6
+
+[node name="Row" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PrevButton" type="Button" parent="Margin/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 28)
+layout_mode = 2
+text = "‹"
+
+[node name="PathLabel" type="Label" parent="Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "Path 1 of 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PauseButton" type="Button" parent="Margin/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 28)
+layout_mode = 2
+text = "Pause"
+
+[node name="NextButton" type="Button" parent="Margin/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 28)
+layout_mode = 2
+text = "›"

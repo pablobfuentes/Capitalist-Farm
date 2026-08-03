@@ -207,4 +207,5 @@ static func _default_stats() -> Dictionary:
 		"templatesAcquired": {},
 		"profitStreak": 0,
 		"trustedSeals": {},
+		"supplyChainCompleteAck": {},
 	}

@@ -33,6 +33,10 @@ var supply_shortage_ack_turn: int = -1
 var last_chain_hint_turn: int = 0
 var synergy_snapshot: Array = []
 var urgent_problems: Array = []
+## Per commercial relationship: issuePressure, roundsSinceIssue, serviceBuffer, pendingIssueId, …
+var relationship_issue_states: Dictionary = {}
+## Active supply strains from unresolved supplier urgencies: key "connId:customerBizId" → { fulfillMult, expiresTurn, ... }
+var relationship_supply_strain: Dictionary = {}
 var milestone_stage: String = "survival"
 var milestones_hit: Array = []
 var edge_choices_pending: Array = []
@@ -105,6 +109,10 @@ static func from_dict(d: Dictionary) -> RunState:
 	s.last_chain_hint_turn = int(data.get("lastChainHintTurn", data.get("last_chain_hint_turn", 0)))
 	s.synergy_snapshot = data.get("synergySnapshot", data.get("synergy_snapshot", []))
 	s.urgent_problems = data.get("urgentProblems", data.get("urgent_problems", []))
+	var ris: Variant = data.get("relationshipIssueStates", data.get("relationship_issue_states", {}))
+	s.relationship_issue_states = ris if typeof(ris) == TYPE_DICTIONARY else {}
+	var rss: Variant = data.get("relationshipSupplyStrain", data.get("relationship_supply_strain", {}))
+	s.relationship_supply_strain = rss if typeof(rss) == TYPE_DICTIONARY else {}
 	s.milestone_stage = str(data.get("milestoneStage", data.get("milestone_stage", "survival")))
 	s.milestones_hit = data.get("milestonesHit", data.get("milestones_hit", []))
 	s.edge_choices_pending = data.get("edgeChoicesPending", data.get("edge_choices_pending", []))
@@ -155,6 +163,8 @@ func to_dict() -> Dictionary:
 		"lastChainHintTurn": last_chain_hint_turn,
 		"synergySnapshot": synergy_snapshot,
 		"urgentProblems": urgent_problems,
+		"relationshipIssueStates": relationship_issue_states,
+		"relationshipSupplyStrain": relationship_supply_strain,
 		"milestoneStage": milestone_stage,
 		"milestonesHit": milestones_hit,
 		"edgeChoicesPending": edge_choices_pending,

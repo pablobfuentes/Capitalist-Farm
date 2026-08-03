@@ -229,17 +229,43 @@ You provide dialogue and JSON fields only — the game engine decides acceptance
 	]
 
 
-static func _history_block(negotiation: Dictionary) -> String:
-	var history_lines: PackedStringArray = []
-	for msg_variant in negotiation.get("messages", []):
-		if typeof(msg_variant) != TYPE_DICTIONARY:
-			continue
-		var msg: Dictionary = msg_variant
-		if str(msg.get("role", "")) == "system":
-			continue
-		var who := str(msg.get("speaker", msg.get("role", ""))).to_upper()
-		history_lines.append("%s: %s" % [who, str(msg.get("text", ""))])
-	return "\n".join(history_lines)
+static func _relationship_listing_block(ctx: Dictionary) -> String:
+	var ask: int = int(ctx.get("price", 0))
+	if ask <= 0:
+		return ""
+	var problem: Dictionary = ctx.get("problem", {}) if typeof(ctx.get("problem")) == TYPE_DICTIONARY else {}
+	var ask_stmt := str(ctx.get("askStatement", "")).strip_edges()
+	var role := str(ctx.get("relationshipRole", "Counterparty"))
+	var issue := str(problem.get("issueType", ""))
+	return """
+RELATIONSHIP URGENCY (NOT an asset purchase — supply-chain terms):
+- Role: %s. Issue type: %s.
+- Reference $/qtr (%s) = revenue at risk, cost impact, or surcharge — NOT a purchase price.
+- Opening ask: %s
+- The player may settle with written service guarantees, delivery SLAs, volume commitments, or explicit $/qtr concessions depending on the issue.
+- Do NOT demand cash kickbacks when the player offered a service guarantee or SLA that matches the issue.
+- Do NOT treat the player's threats, insults, or rejections as cash offers. Numbers they mention while refusing are rhetoric, not payment.
+- Only use intent "offer" when the player explicitly proposes terms this turn (cash $/qtr OR concrete service/volume commitments).
+- Never invent offer.totalPrice from numbers the client/supplier mentioned earlier unless the player explicitly agreed to pay that amount.
+You provide dialogue and JSON only — the game engine decides Close Deal.""" % [
+		role,
+		issue if not issue.is_empty() else "relationship strain",
+		MathUtil.fmt_money(ask),
+		ask_stmt if not ask_stmt.is_empty() else "see conversation",
+	]
+
+
+static func _relationship_intent_suffix() -> String:
+	return """
+Classify the PLAYER's latest message carefully:
+- "question": default — discussion, pushback, threats, or non-numeric rhetoric.
+- "offer": ONLY if the player explicitly proposed concrete terms this message (cash $/qtr, a written guarantee, SLA, or volume commitment).
+- "accept": ONLY if the player explicitly agreed to accept terms already on the table.
+- "walk": ONLY if the player explicitly ended the negotiation.
+Never invent numbers. Rejections like "that's a bribe" are "question", NOT "offer". Percentages about volume penalties or price threats are NOT cash offers.
+
+Reply with ONLY a raw JSON object (no markdown fences, no extra text) matching exactly:
+{"dialogue": "in-character reply, 1-3 sentences", "intent": "question|offer|accept|walk", "offer": {"totalPrice": number|null, "cashAtClosing": number|null, "closingSpeed": "fast|standard|extended", "termsOffered": [string], "priceAdjustment": number|null, "concessionSize": number|null}}"""
 
 
 static func _intent_json_suffix() -> String:
@@ -253,6 +279,19 @@ Never invent numbers the player did not say. If intent is "question", every fiel
 
 Reply with ONLY a raw JSON object (no markdown fences, no extra text) matching exactly:
 {"dialogue": "in-character reply, 1-3 sentences", "intent": "question|offer|accept|walk", "offer": {"totalPrice": number|null, "cashAtClosing": number|null, "closingSpeed": "fast|standard|extended", "termsOffered": [string], "priceAdjustment": number|null, "concessionSize": number|null}}"""
+
+
+static func _history_block(negotiation: Dictionary) -> String:
+	var history_lines: PackedStringArray = []
+	for msg_variant in negotiation.get("messages", []):
+		if typeof(msg_variant) != TYPE_DICTIONARY:
+			continue
+		var msg: Dictionary = msg_variant
+		if str(msg.get("role", "")) == "system":
+			continue
+		var who := str(msg.get("speaker", msg.get("role", ""))).to_upper()
+		history_lines.append("%s: %s" % [who, str(msg.get("text", ""))])
+	return "\n".join(history_lines)
 
 
 static func build_default_prompt(state: RunState, negotiation: Dictionary, player_message: String) -> String:
@@ -313,7 +352,8 @@ static func build_farm_prompt(state: RunState, negotiation: Dictionary, player_m
 	var preferred := ", ".join(preferred_parts)
 	var portfolio_facts := format_portfolio_facts(state, ctx)
 	var claim_block := claim_verification_rules(portfolio_facts)
-	var listing_block := _listing_block(ctx, opp)
+	var is_relationship := str(negotiation.get("kind", "")) == "relationship"
+	var listing_block := _relationship_listing_block(ctx) if is_relationship else _listing_block(ctx, opp)
 	var diligence_done := bool(ctx.get("diligenceDone", false))
 	var hidden := str(cp.get("hiddenInfo", ""))
 	var hidden_line := (
@@ -323,10 +363,12 @@ static func build_farm_prompt(state: RunState, negotiation: Dictionary, player_m
 	)
 	var species_block := _NpcSpecies.species_prompt_block(cp)
 	var memory_block := _NpcSpecies.relationship_memory_block(cp)
-	var numbers_block := verified_negotiation_numbers_block(negotiation, player_message)
+	var numbers_block := "" if is_relationship else verified_negotiation_numbers_block(negotiation, player_message)
 	var engine_block := engine_result_block(negotiation)
 	var situation_label := profile_situation_label(negotiation)
 	var arch_line := situation_label if negotiation.has("v2") else "%s (%s)" % [str(arch.get("name", "Negotiator")), str(arch.get("flavor", ""))]
+	var intent_suffix := _relationship_intent_suffix() if is_relationship else _intent_json_suffix()
+	var priority_rules := "" if is_relationship else negotiation_priority_rules()
 
 	return """You are role-playing a counterparty in Capital Farm — a turn-based farm economy where animals negotiate like serious businesspeople.
 Name: %s. Role: %s. %s.
@@ -352,7 +394,7 @@ PLAYER: %s
 		listing_block,
 		numbers_block,
 		engine_block,
-		("Asking/reference price: %d." % price) if price > 0 else "",
+		("Reference $/qtr at stake: %s." % MathUtil.fmt_money(price)) if is_relationship and price > 0 else (("Asking/reference price: %d." % price) if price > 0 else ""),
 		str(cp.get("urgency", 0.4)),
 		str(cp.get("trust", 0.45)),
 		str(cp.get("riskTolerance", 0.3)),
@@ -360,9 +402,10 @@ PLAYER: %s
 		hidden_line,
 		memory_block,
 		claim_block,
+		priority_rules,
 		_history_block(negotiation),
 		player_message,
-		_intent_json_suffix(),
+		intent_suffix,
 	]
 
 

@@ -82,6 +82,23 @@ func get_district_for_hit(hit: Dictionary) -> Dictionary:
 	return {}
 
 
+func find_hit_for_business(business_id: String) -> Dictionary:
+	if business_id.is_empty() or Game.state == null:
+		return {}
+	for pick_variant in _pick_cache:
+		var pick: Dictionary = pick_variant
+		var hit: Dictionary = pick.get("hit", {})
+		if hit.is_empty():
+			continue
+		var parcel_id := str(hit.get("id", ""))
+		if parcel_id.is_empty():
+			continue
+		var assignment: Dictionary = Game.state.parcel_assignments.get(parcel_id, {})
+		if str(assignment.get("business_id", "")) == business_id:
+			return hit.duplicate(true)
+	return {}
+
+
 func pick_at_world_pos(world_point: Vector2) -> Dictionary:
 	var hits: Array = []
 	for pick_variant in _pick_cache:
@@ -116,12 +133,17 @@ func get_parcel_frame(hit: Dictionary) -> Dictionary:
 	return {
 		"center": _Grid.tile_rect_center(world_rect, _region_offset),
 		"bounds": _Grid.tile_rect_bounds(world_rect, _region_offset),
+		"diamond_size": _Grid.tile_rect_diamond_size(world_rect, _region_offset),
 		"world_rect": world_rect,
 	}
 
 
 func get_selection() -> Dictionary:
 	return _selected
+
+
+func get_hover() -> Dictionary:
+	return _hover
 
 
 func flash_acquisition(entry: Dictionary = {}) -> void:
@@ -154,6 +176,15 @@ func set_hover(entry: Dictionary) -> void:
 		return
 	_hover = next
 	_overlay_layer.set_hover(_hover)
+
+
+func set_supply_chain_highlights(enabled: bool, neighbors: Array = []) -> void:
+	if _overlay_layer != null and _overlay_layer.has_method("set_supply_chain_highlights"):
+		_overlay_layer.set_supply_chain_highlights(enabled, neighbors)
+	_update_blink_process()
+	if is_processing():
+		_overlay_layer.set_blink_phase(_blink_phase)
+		_building_layer.set_blink_phase(_blink_phase)
 
 
 func refresh_ownership() -> void:
@@ -206,9 +237,19 @@ func _rebuild_pick_cache() -> void:
 
 
 func _update_blink_process() -> void:
+	var sc_active := (
+		_overlay_layer != null
+		and _overlay_layer.has_method("is_supply_chain_mode")
+		and bool(_overlay_layer.is_supply_chain_mode())
+	)
 	var need: bool = (
 		int(_overlay_layer.get_opportunity_count()) > 0
 		or int(_building_layer.get_owned_count()) > 0
+		or (
+			_building_layer.has_method("get_urgency_count")
+			and int(_building_layer.get_urgency_count()) > 0
+		)
+		or sc_active
 	)
 	set_process(need)
 	if not is_processing():

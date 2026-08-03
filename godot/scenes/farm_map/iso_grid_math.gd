@@ -64,6 +64,17 @@ static func tile_rect_bounds(tile_rect: Rect2i, offset: Vector2 = Vector2.ZERO) 
 	return Rect2(min_v, max_v - min_v)
 
 
+static func tile_rect_diamond_size(tile_rect: Rect2i, offset: Vector2 = Vector2.ZERO) -> Vector2:
+	var outline := tile_rect_outline(tile_rect, offset)
+	if outline.size() < 4:
+		return Vector2(TILE_W, TILE_H)
+	var nw: Vector2 = outline[0]
+	var ne: Vector2 = outline[1]
+	var se: Vector2 = outline[2]
+	var sw: Vector2 = outline[3]
+	return Vector2(ne.x - sw.x, se.y - nw.y)
+
+
 static func lot_outline(lot: Rect2i, offset: Vector2 = Vector2.ZERO) -> PackedVector2Array:
 	return tile_rect_outline(lot, offset)
 

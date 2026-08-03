@@ -176,6 +176,9 @@ func _apply_layouts() -> void:
 	_apply_scaled_fonts()
 	_layout_header_stack()
 	_sync_notebook_scroll_widths()
+	var portrait_slot: Node = get_node_or_null("Overlay/Root/PortraitSlot")
+	if portrait_slot != null and portrait_slot.has_method("refresh_layout"):
+		portrait_slot.call("refresh_layout")
 
 
 func _configure_interaction() -> void:
@@ -364,6 +367,9 @@ func _open_session() -> void:
 func _focus_message_input() -> void:
 	if not visible or _busy or not %MessageInput.editable:
 		return
+	%MessageInput.caret_blink = true
+	%MessageInput.caret_force_displayed = true
+	%MessageInput.add_theme_color_override("caret_color", Color(0.22, 0.12, 0.06, 1.0))
 	%MessageInput.grab_focus()
 	%MessageInput.caret_column = %MessageInput.text.length()
 
@@ -431,6 +437,7 @@ func _refresh(animate_turn: bool = false) -> void:
 	%HeaderLabel.text = listing_name
 	call_deferred("_layout_header_stack")
 	_update_seller_name(cp)
+	_update_portrait(cp)
 	_update_context_summary(neg)
 	_update_rival_ui(neg)
 	_update_notebook(neg)
@@ -466,6 +473,10 @@ func _refresh(animate_turn: bool = false) -> void:
 		_turn_feedback_active = false
 	elif not v2.is_empty():
 		_update_gauge(neg)
+	elif str(neg.get("kind", "")) == "relationship":
+		# Relationship urgencies always show starting momentum (gauge is advisory only).
+		%GaugePointer.show()
+		_set_gauge_pointer(float(neg.get("v2", {}).get("gauge", 50)), neg.get("v2", {}))
 	else:
 		%GaugePointer.hide()
 
@@ -488,16 +499,30 @@ func _refresh(animate_turn: bool = false) -> void:
 	elif bool(neg.get("readyToClose", false)):
 		var pending: Dictionary = neg.get("pendingOffer", neg.get("playerLastOffer", {}))
 		var close_total: int = int(pending.get("totalPrice", 0))
-		if close_total > 0:
+		if str(neg.get("kind", "")) == "relationship" and close_total > 0:
+			%StatusLabel.text = "Ready to close at %s/qtr" % MathUtil.fmt_money(close_total)
+		elif str(neg.get("kind", "")) == "relationship" and bool(pending.get("serviceTermsOnly", false)):
+			%StatusLabel.text = "Service terms agreed — click Close Deal"
+		elif close_total > 0:
 			%StatusLabel.text = "Ready to close at %s" % MathUtil.fmt_money(close_total)
 		else:
 			%StatusLabel.text = "Both gates passed — click Close Deal."
 	elif not v2.is_empty():
 		var display: Dictionary = _V2.gauge_display(v2)
-		%StatusLabel.text = "%s · %s" % [
-			last_decision if last_decision != "" else "—",
-			display.get("zoneHint", ""),
-		]
+		if str(neg.get("kind", "")) == "relationship":
+			if bool(neg.get("readyToClose", false)):
+				%StatusLabel.text = "Terms agreed — click Close Deal"
+			else:
+				var acceptable := int(v2.get("acceptableValue", int(ctx.get("price", 0))))
+				%StatusLabel.text = "Need ~%s/qtr to close · %s" % [
+					MathUtil.fmt_money(acceptable),
+					display.get("zoneHint", ""),
+				]
+		else:
+			%StatusLabel.text = "%s · %s" % [
+				last_decision if last_decision != "" else "—",
+				display.get("zoneHint", ""),
+			]
 	elif last_decision != "":
 		%StatusLabel.text = "Last response: %s" % last_decision
 	else:
@@ -518,7 +543,11 @@ func _refresh(animate_turn: bool = false) -> void:
 
 func _update_price_labels(ctx: Dictionary, v2: Dictionary, discount_pct_override: float = -1.0) -> void:
 	var ask: int = int(ctx.get("price", 0))
-	%AskLabel.text = "Ask %s" % MathUtil.fmt_money(ask)
+	var is_relationship := str(Game.state.negotiation.get("kind", "")) == "relationship" if Game.state else false
+	if is_relationship:
+		%AskLabel.text = "Ask %s/qtr" % MathUtil.fmt_money(ask)
+	else:
+		%AskLabel.text = "Ask %s" % MathUtil.fmt_money(ask)
 	if v2.is_empty():
 		%DiscountLabel.text = ""
 		return
@@ -526,6 +555,9 @@ func _update_price_labels(ctx: Dictionary, v2: Dictionary, discount_pct_override
 	var acceptable: int = int(v2.get("acceptableValue", ask))
 	if discount_pct_override >= 0.0:
 		acceptable = maxi(int(v2.get("hardFloor", 0)), int(round(float(ask) * (1.0 - discount_pct / 100.0))))
+	if is_relationship:
+		%DiscountLabel.text = "Opening ask on the table"
+		return
 	if discount_pct <= 0.05:
 		%DiscountLabel.text = "No discount unlocked yet"
 	else:
@@ -536,9 +568,18 @@ func _update_price_labels(ctx: Dictionary, v2: Dictionary, discount_pct_override
 func _update_seller_name(cp: Dictionary) -> void:
 	var name := str(cp.get("npcName", "")).strip_edges()
 	if name.is_empty():
+		name = str(cp.get("orgName", "")).strip_edges()
+	if name.is_empty():
 		var arch: Dictionary = _Archetypes.get_archetype(str(cp.get("archetypeId", "")))
 		name = str(arch.get("name", "Seller"))
 	%SellerNameLabel.text = name
+
+
+func _update_portrait(cp: Dictionary) -> void:
+	var species_id := str(cp.get("speciesId", ""))
+	var portrait_slot: Node = get_node_or_null("Overlay/Root/PortraitSlot")
+	if portrait_slot != null and portrait_slot.has_method("set_species"):
+		portrait_slot.call("set_species", species_id)
 
 
 func _update_gauge(neg: Dictionary) -> void:
@@ -806,6 +847,7 @@ func _on_chat_scroll_changed() -> void:
 func _format_notes(neg: Dictionary) -> String:
 	var cp: Dictionary = neg.get("counterparty", {})
 	var v2: Dictionary = neg.get("v2", {})
+	var ctx: Dictionary = neg.get("context", {})
 	var species_id := str(v2.get("speciesId", cp.get("speciesId", "")))
 	var species_label := species_id.capitalize() if not species_id.is_empty() else "—"
 
@@ -842,7 +884,27 @@ func _format_notes(neg: Dictionary) -> String:
 			_get_v2_preview(neg),
 		).get("coachLine", "Lead with species-aligned terms, then price.")
 
-	var notes := "Species: %s\nLikes: %s\nAvoid: %s\nOffer: %s" % [species_label, likes, avoid, offer]
+	var lines: PackedStringArray = []
+	if str(neg.get("kind", "")) == "relationship":
+		var role := str(ctx.get("relationshipRole", "")).strip_edges()
+		if role.is_empty():
+			role = "Client" if str(cp.get("role", "")) == "client" else "Supplier"
+		var cp_biz := str(ctx.get("counterpartyBusinessName", cp.get("orgName", ""))).strip_edges()
+		var flow := str(ctx.get("flow", cp.get("flow", ""))).strip_edges()
+		lines.append("Role: %s" % role)
+		if not cp_biz.is_empty():
+			lines.append("Their business: %s" % cp_biz)
+		if not flow.is_empty():
+			lines.append("Supply link: %s" % flow)
+		var ask_stmt := str(ctx.get("askStatement", "")).strip_edges()
+		if not ask_stmt.is_empty():
+			lines.append("Starting ask: %s" % ask_stmt)
+		lines.append("")
+	lines.append("Species: %s" % species_label)
+	lines.append("Likes: %s" % likes)
+	lines.append("Avoid: %s" % avoid)
+	lines.append("Offer: %s" % offer)
+	var notes := "\n".join(lines)
 	if Game.state != null:
 		var snapshot: String = CommunityNegotiationBridge.format_modifier_snapshot(Game.state, v2, cp)
 		if not snapshot.is_empty():
@@ -870,6 +932,21 @@ func _format_diligence(neg: Dictionary) -> String:
 	var situation := str(v2.get("situationLabel", "")).strip_edges()
 	if not situation.is_empty():
 		lines.append(situation)
+
+	if str(neg.get("kind", "")) == "relationship":
+		var role := str(ctx.get("relationshipRole", "Counterparty"))
+		var flow := str(ctx.get("flow", "")).strip_edges()
+		lines.append("They are a %s on your %s link." % [
+			role.to_lower(),
+			flow if not flow.is_empty() else "supply",
+		])
+		lines.append("Moved most by: concrete $/qtr terms and credible commitments.")
+		lines.append("Why pressing now: pressure built on this supply-chain relationship.")
+		lines.append("If negotiated well: settle below their opening ask without walking.")
+		var hidden := str(cp.get("hiddenInfo", "")).strip_edges()
+		if not hidden.is_empty():
+			lines.append("Hidden leverage — %s" % hidden.capitalize())
+		return "\n".join(lines)
 
 	var preview_raw: Variant = opp.get("v2Preview")
 	if preview_raw is Dictionary and not (preview_raw as Dictionary).is_empty():
@@ -1185,6 +1262,9 @@ func _apply_close_deal_affordability(neg: Dictionary, ready: bool) -> void:
 	var btn: Control = %CloseDealButton
 	if not ready:
 		btn.modulate = Color(1, 1, 1, 0.55)
+		return
+	if str(neg.get("kind", "")) == "relationship":
+		btn.modulate = Color.WHITE
 		return
 	var pending: Dictionary = neg.get("pendingOffer", neg.get("playerLastOffer", {}))
 	var need: int = int(pending.get("cashAtClosing", pending.get("totalPrice", 0)))

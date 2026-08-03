@@ -68,15 +68,14 @@ func _add_improvement_row(state: RunState, asset: Dictionary, imp: Dictionary) -
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var cost: int = _RealEstate.improve_cost(asset, imp)
-	info.text = "%s — %s\nCost %s (1 AP)" % [
+	info.text = "%s — %s" % [
 		str(imp.get("name", "")),
 		str(imp.get("note", "")),
-		MathUtil.fmt_money(cost),
 	]
 	row.add_child(info)
 
 	var apply_btn := Button.new()
-	apply_btn.text = "Apply"
+	apply_btn.text = "1AP + %s" % MathUtil.fmt_money(cost)
 	var imp_id: String = str(imp.get("id", ""))
 	apply_btn.disabled = state.action_points < 1 or state.cash < cost
 	apply_btn.pressed.connect(_on_apply_pressed.bind(imp_id))

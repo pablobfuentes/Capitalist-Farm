@@ -6,6 +6,7 @@ signal sell_business(business_id: String)
 signal buy_opportunity(opportunity_id: String)
 signal investigate_opportunity(opportunity_id: String)
 signal negotiate_opportunity(opportunity_id: String)
+signal negotiate_urgency(problem_id: String)
 signal chat_community_business(community_business_id: String, parcel_id: String, district_id: String)
 
 @onready var _title_label: Label = %TitleLabel
@@ -24,6 +25,14 @@ func _ready() -> void:
 	var details_scroll: ScrollContainer = %DetailsScroll
 	if details_scroll != null:
 		FeedbackBus.wire_scroll(details_scroll)
+	# Keep a little transparency, but opaque enough that map detail doesn't wash out text.
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.14, 0.12, 0.94)
+	style.set_corner_radius_all(8)
+	style.set_content_margin_all(4)
+	style.border_color = Color(0.42, 0.48, 0.38, 0.85)
+	style.set_border_width_all(1)
+	add_theme_stylebox_override("panel", style)
 
 
 func show_parcel(entry: Dictionary, district: Dictionary) -> void:
@@ -89,6 +98,17 @@ func _populate_actions(actions: Variant) -> void:
 	match kind:
 		"business":
 			var business_id := str(action_map.get("businessId", ""))
+			if action_map.has("canNegotiateUrgency"):
+				var problem_id := str(action_map.get("urgencyProblemId", ""))
+				_add_action_button(
+					str(action_map.get("negotiateUrgencyLabel", "Negotiate terms (1 AP)")),
+					func() -> void: negotiate_urgency.emit(problem_id),
+					not bool(action_map.get("canNegotiateUrgency", false)),
+					{
+						"apCost": 1,
+						"blockedReason": str(action_map.get("negotiateUrgencyBlockedReason", "Need 1 AP")),
+					},
+				)
 			if action_map.has("canImprove"):
 				_add_action_button(
 					str(action_map.get("improveLabel", "Improve (−1 AP)")),

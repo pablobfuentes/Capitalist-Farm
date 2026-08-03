@@ -119,7 +119,8 @@ static func _run_post_turn(next: RunState) -> void:
 				str(neglect_note.get("label", "relationship health slipping")),
 			])
 		UpgradeSystem.apply_manager_passive_drift(next)
-		next.urgent_problems = UrgentSystem.generate_urgent_problems(next)
+		SynergySystem.tick_relationship_supply_strain(next)
+		next.urgent_problems = RelationshipIssuePressureSystem.process_turn(next)
 	RunStatsSystem.snapshot_turn(next, next.last_advance_report)
 
 

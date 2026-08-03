@@ -140,6 +140,31 @@ static func business_display(state: RunState, biz: BusinessInstance) -> Dictiona
 	}
 
 
+static func portfolio_card_data(state: RunState, biz: BusinessInstance) -> Dictionary:
+	if UpgradeSystem.is_active(state):
+		UpgradeSystem.ensure_business_upgrades(biz)
+	var tmpl := Content.get_template(biz.template_id)
+	var layer_text := tmpl.layer_label if tmpl else biz.layer
+	var type_label := tmpl.name if tmpl else biz.template_id
+	var current_value: int = PortfolioSystem.business_market_value(state, biz)
+	var paid: int = biz.purchase_price
+	var pct_delta := 0.0
+	if paid > 0:
+		pct_delta = (float(current_value - paid) / float(paid)) * 100.0
+	return {
+		"id": biz.id,
+		"name": biz.name,
+		"typeLabel": type_label,
+		"layerLabel": layer_text,
+		"level": biz.level,
+		"currentValue": current_value,
+		"pctDelta": pct_delta,
+		"profitPerTurn": biz.revenue_per_turn - biz.operating_costs,
+		"revenuePerTurn": biz.revenue_per_turn,
+		"costPerTurn": biz.operating_costs,
+	}
+
+
 static func parcel_role_label(role: String) -> String:
 	match role:
 		"core":
@@ -250,7 +275,13 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 
 	if biz != null:
 		details_lines = business_parcel_details(state, biz)
+		var urgency: Dictionary = RelationshipIssuePressureSystem.pending_problem_for_business(state, business_id)
+		if not urgency.is_empty():
+			var urgency_lines := urgent_problem_detail_lines(urgency)
+			if not urgency_lines.is_empty():
+				details_lines = urgency_lines + PackedStringArray([""]) + details_lines
 		var sell_proceeds: int = PortfolioSystem.estimate_business_sell_proceeds(state, biz)
+		var negotiating: bool = not state.negotiation.is_empty() and bool(state.negotiation.get("active", false))
 		actions = {
 			"kind": "business",
 			"businessId": business_id,
@@ -259,6 +290,13 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 			"improveLabel": "Improve (1 AP)",
 			"sellLabel": "Sell · ~%s (1 AP)" % MathUtil.fmt_money(sell_proceeds),
 		}
+		if not urgency.is_empty():
+			actions["urgencyProblemId"] = str(urgency.get("id", ""))
+			actions["canNegotiateUrgency"] = state.action_points >= 1 and not negotiating
+			actions["negotiateUrgencyLabel"] = "Negotiate terms (1 AP)"
+			actions["negotiateUrgencyBlockedReason"] = (
+				"Negotiation already in progress" if negotiating else "Need 1 AP"
+			)
 	elif opportunity_id != "":
 		var opp: Dictionary = OpportunitySystem.find_opportunity(state, opportunity_id)
 		if not opp.is_empty():
@@ -319,6 +357,11 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 	if biz != null:
 		title = biz.name
 		role_line = owned_parcel_role_label(biz, district, entry)
+		var urgency_hdr: Dictionary = RelationshipIssuePressureSystem.pending_problem_for_business(state, business_id)
+		if not urgency_hdr.is_empty():
+			var side := str(urgency_hdr.get("type", ""))
+			var side_label := "client" if side == "client" else ("supplier" if side == "supplier" else "relationship")
+			role_line = "⚠ Urgent %s issue — negotiate terms" % side_label
 	elif community_business_id != "":
 		var community_business: Dictionary = CommunityGenerator.get_business(state, community_business_id)
 		if not community_business.is_empty():
@@ -438,12 +481,43 @@ static func loan_row(state: RunState, loan: Dictionary) -> Dictionary:
 	}
 
 
+static func urgent_problem_detail_lines(prob: Dictionary) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	var side := str(prob.get("type", ""))
+	var severity := str(prob.get("severity", "concern")).capitalize()
+	var side_label := "Client concern" if side == "client" else ("Supplier concern" if side == "supplier" else "Relationship concern")
+	lines.append("⚠ %s — %s" % [severity, side_label])
+	var cp_biz := str(prob.get("counterpartyBusinessName", "")).strip_edges()
+	var flow := str(prob.get("flow", "")).strip_edges()
+	if not cp_biz.is_empty():
+		lines.append("From: %s%s" % [cp_biz, (" · %s" % flow) if not flow.is_empty() else ""])
+	var issue_label := RelationshipIssuePressureSystem.issue_type_label(str(prob.get("issueType", "")))
+	if not issue_label.is_empty():
+		lines.append("Issue: %s" % issue_label)
+	var ask := str(prob.get("askStatement", "")).strip_edges()
+	if ask.is_empty():
+		var ask_dict: Dictionary = prob.get("ask", {}) if typeof(prob.get("ask", {})) == TYPE_DICTIONARY else {}
+		ask = str(ask_dict.get("statement", "")).strip_edges()
+	if not ask.is_empty():
+		lines.append("Their ask: %s" % ask)
+	var reason := str(prob.get("reasonLine", "")).strip_edges()
+	if not reason.is_empty():
+		lines.append("Why: %s" % reason)
+	lines.append(RelationshipIssuePressureSystem.stake_consequence_line(prob))
+	return lines
+
+
 static func urgent_problem_row(state: RunState, prob: Dictionary) -> Dictionary:
 	var negotiating: bool = not state.negotiation.is_empty() and bool(state.negotiation.get("active", false))
+	var side := str(prob.get("type", ""))
+	var side_label := "Client" if side == "client" else ("Supplier" if side == "supplier" else "Relationship")
+	var issue_label := RelationshipIssuePressureSystem.issue_type_label(str(prob.get("issueType", "")))
+	var stake_line := RelationshipIssuePressureSystem.stake_consequence_line(prob)
+	var summary := "%s · %s — %s" % [side_label, issue_label, stake_line]
 	return {
 		"id": str(prob.get("id", "")),
 		"kind": "urgent",
-		"summary": str(prob.get("text", "Relationship issue")),
+		"summary": summary,
 		"canNegotiate": state.action_points >= 1 and not negotiating,
 	}
 

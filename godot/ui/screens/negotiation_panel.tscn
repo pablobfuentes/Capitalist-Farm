@@ -16,11 +16,12 @@
 [ext_resource type="Texture2D" path="res://assets/ui/negotiation/btn_walk_away.png" id="13_walk"]
 [ext_resource type="Texture2D" path="res://assets/ui/negotiation/btn_close_deal.png" id="14_close"]
 [ext_resource type="Texture2D" path="res://assets/ui/negotiation/crest_bottom.png" id="15_crest"]
+[ext_resource type="Script" path="res://ui/components/character_portrait_slot.gd" id="16_portrait"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_blur"]
 shader = ExtResource("2_shader")
-shader_parameter/blur_strength = 2.2
-shader_parameter/dim_color = Color(0.08, 0.08, 0.1, 0.18)
+shader_parameter/blur_strength = 3.2
+shader_parameter/dim_color = Color(0.08, 0.07, 0.06, 0.52)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_input"]
 
@@ -137,8 +138,18 @@ autowrap_mode = 3
 text = "No discount unlocked yet"
 
 [node name="PortraitSlot" type="Control" parent="Overlay/Root"]
+z_index = 6
 layout_mode = 0
 mouse_filter = 2
+clip_contents = false
+script = ExtResource("16_portrait")
+
+[node name="PortraitSprite" type="TextureRect" parent="Overlay/Root/PortraitSlot"]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 4
 
 [node name="PortraitPlaceholder" type="Label" parent="Overlay/Root/PortraitSlot"]
 unique_name_in_owner = true
@@ -167,7 +178,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="NameBanner" type="TextureRect" parent="Overlay/Root"]
-z_index = 2
+z_index = 8
 layout_mode = 0
 mouse_filter = 2
 texture = ExtResource("4_banner")
@@ -176,7 +187,7 @@ stretch_mode = 5
 
 [node name="SellerNameLabel" type="Label" parent="Overlay/Root"]
 unique_name_in_owner = true
-z_index = 4
+z_index = 9
 layout_mode = 0
 text = "Seller"
 
@@ -258,12 +269,15 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.28, 0.18, 0.1, 1)
 theme_override_colors/font_placeholder_color = Color(0.45, 0.38, 0.3, 1)
+theme_override_colors/caret_color = Color(0.22, 0.12, 0.06, 1)
 theme_override_font_sizes/font_size = 15
 theme_override_styles/normal = SubResource("StyleBoxEmpty_input")
 theme_override_styles/focus = SubResource("StyleBoxEmpty_input")
 theme_override_styles/read_only = SubResource("StyleBoxEmpty_input")
 flat = true
 caret_blink = true
+caret_blink_interval = 0.45
+caret_force_displayed = true
 
 [node name="SendButton" type="TextureButton" parent="Overlay/Root"]
 unique_name_in_owner = true

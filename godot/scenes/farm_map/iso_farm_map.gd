@@ -13,13 +13,20 @@ const _Bank := preload("res://core/systems/bank_system.gd")
 @onready var _title: Label = $UI/Hud/TopBar/Row/Title
 @onready var _run_stats: Label = %RunStats
 @onready var _overview_button: Button = %OverviewButton
+@onready var _supply_chain_toggle: Button = %SupplyChainToggleButton
 @onready var _advance_button: Button = %AdvanceButton
 @onready var _district_lock_toggle: Button = %DistrictLockToggleButton
 @onready var _back_button: Button = %BackButton
 @onready var _parcel_panel: PanelContainer = %ParcelBusinessPanel
+@onready var _portfolio_sidebar: PanelContainer = %PortfolioSidebar
+@onready var _sc_path_controls: PanelContainer = %SupplyChainPathControls
+@onready var _sc_route_tooltip: PanelContainer = %SupplyChainRouteTooltip
+@onready var _sc_route_tooltip_label: RichTextLabel = %TooltipLabel
 
 const _ICON_LOCK := preload("res://assets/ui/icons/icon_lock.svg")
 const _ICON_LOCK_OPEN := preload("res://assets/ui/icons/icon_lock_open.svg")
+const _SupplyChainController := preload("res://scenes/farm_map/supply_chain_view_controller.gd")
+const _SupplyChainRouteLayer := preload("res://scenes/farm_map/supply_chain_route_layer.gd")
 
 const MIN_ZOOM := 0.18
 const MAX_ZOOM := 2.0
@@ -28,7 +35,6 @@ const OVERVIEW_ZOOM := 0.30
 const DISTRICT_ZOOM := 0.92
 const CAMERA_LERP := 7.0
 const PARCEL_FOCUS_FILL := 0.88
-const PARCEL_FOCUS_SIDE_MARGIN := 24.0
 const ADVANCE_BUTTON_RESERVE := 80.0
 
 var _region: Dictionary = {}
@@ -45,6 +51,9 @@ var _edge_modal: Window = null
 var _shortage_modal: Window = null
 var _turn_debrief_modal: Window = null
 var _bank_modal: Window = null
+var _supply_chain: Node = null
+var _supply_chain_routes: Node2D = null
+var _quit_confirm: ConfirmationDialog = null
 
 
 func _ready() -> void:
@@ -59,6 +68,10 @@ func _ready() -> void:
 	_center_world()
 	_lots.selection_cleared.connect(_on_selection_cleared)
 	_parcel_panel.closed.connect(_on_panel_closed)
+	if _portfolio_sidebar != null and _portfolio_sidebar.has_signal("expanded_toggled"):
+		_portfolio_sidebar.expanded_toggled.connect(_on_portfolio_expanded_toggled)
+	if _portfolio_sidebar != null and _portfolio_sidebar.has_signal("business_selected"):
+		_portfolio_sidebar.business_selected.connect(_on_portfolio_business_selected)
 	_connect_parcel_panel_actions()
 	_edge_modal = preload("res://ui/components/edge_choice_modal.gd").new()
 	add_child(_edge_modal)
@@ -79,14 +92,17 @@ func _ready() -> void:
 	_bank_modal.closed.connect(_on_bank_modal_closed)
 
 	_wire_map_events()
+	_setup_supply_chain_view()
 	_overview_button.pressed.connect(_on_overview_pressed)
 	_district_lock_toggle.pressed.connect(_on_district_lock_toggle_pressed)
 	FeedbackBus.wire_button(_overview_button)
 	FeedbackBus.wire_button(_advance_button)
 	FeedbackBus.wire_button(_district_lock_toggle)
 	FeedbackBus.wire_button(_back_button)
+	FeedbackBus.wire_button(_supply_chain_toggle)
 	_style_icon_button(_back_button)
 	_style_icon_button(_district_lock_toggle)
+	_style_icon_button(_supply_chain_toggle)
 	_apply_view_context()
 	_go_to_overview(false)
 	_bootstrap_map()
@@ -129,6 +145,7 @@ func _connect_parcel_panel_actions() -> void:
 	_parcel_panel.buy_opportunity.connect(_on_parcel_buy)
 	_parcel_panel.investigate_opportunity.connect(_on_parcel_investigate)
 	_parcel_panel.negotiate_opportunity.connect(_on_parcel_negotiate)
+	_parcel_panel.negotiate_urgency.connect(_on_parcel_negotiate_urgency)
 	_parcel_panel.chat_community_business.connect(_on_parcel_chat)
 
 
@@ -153,6 +170,7 @@ func _on_parcel_sell(business_id: String) -> void:
 	_refresh_selected_parcel()
 	if _parcel_panel != null:
 		_parcel_panel.hide_panel()
+	_sync_supply_chain_blocks()
 
 
 func _on_parcel_buy(opportunity_id: String) -> void:
@@ -202,6 +220,23 @@ func _on_parcel_negotiate(opportunity_id: String) -> void:
 	if _parcel_panel != null:
 		_parcel_panel.hide_panel()
 	_negotiation_panel.open_for_opportunity(opportunity_id)
+	_sync_supply_chain_blocks()
+
+
+func _on_parcel_negotiate_urgency(problem_id: String) -> void:
+	var selected: Dictionary = _lots.get_selection() if _lots != null else {}
+	if not selected.is_empty():
+		_focus_parcel(selected)
+		_snap_camera_to_targets()
+	var result: Dictionary = Game.apply_command(GameCommand.start_urgent_negotiation(problem_id))
+	if not bool(result.get("ok", false)):
+		_deny_with_reason(str(result.get("error", "Urgent negotiation failed")))
+		_refresh_selected_parcel()
+		return
+	if _parcel_panel != null:
+		_parcel_panel.hide_panel()
+	_negotiation_panel.open_active()
+	_sync_supply_chain_blocks()
 
 
 func _on_parcel_chat(community_business_id: String, parcel_id: String, district_id: String) -> void:
@@ -213,6 +248,7 @@ func _on_parcel_chat(community_business_id: String, parcel_id: String, district_
 		_parcel_panel.hide_panel()
 	if _community_chat_panel != null:
 		_community_chat_panel.open_for_community_business(community_business_id, parcel_id, district_id)
+	_sync_supply_chain_blocks()
 
 
 func _snap_camera_to_targets() -> void:
@@ -301,6 +337,7 @@ func _center_world() -> void:
 		return
 	_world.position = get_viewport_rect().size * 0.5
 	_position_parcel_panel()
+	_position_portfolio_sidebar()
 	if _camera_mode == "parcel" and _lots != null:
 		var selected: Dictionary = _lots.get_selection()
 		if not selected.is_empty():
@@ -327,6 +364,53 @@ func _position_parcel_panel() -> void:
 	_parcel_panel.offset_top = top_y
 	_parcel_panel.offset_bottom = top_y + panel_height
 	_parcel_panel.custom_minimum_size = Vector2(panel_width, 0)
+
+
+func _position_portfolio_sidebar() -> void:
+	if _portfolio_sidebar == null:
+		return
+	var view_size := get_viewport_rect().size
+	var top_y := _top_bar_bottom_y()
+	var side_margin := 16.0
+	var panel_width := 272.0
+	if _portfolio_sidebar.has_method("expanded_width"):
+		panel_width = float(_portfolio_sidebar.call("expanded_width"))
+	var bottom_margin := ADVANCE_BUTTON_RESERVE
+	var panel_height := maxf(160.0, view_size.y - top_y - bottom_margin)
+	_portfolio_sidebar.position = Vector2.ZERO
+	_portfolio_sidebar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_portfolio_sidebar.offset_left = side_margin
+	_portfolio_sidebar.offset_right = side_margin + panel_width
+	_portfolio_sidebar.offset_top = top_y
+	_portfolio_sidebar.offset_bottom = top_y + panel_height
+	_portfolio_sidebar.custom_minimum_size = Vector2(panel_width, 0)
+
+
+func _on_portfolio_expanded_toggled(_expanded: bool) -> void:
+	_position_portfolio_sidebar()
+	if _camera_mode == "parcel" and _lots != null:
+		var selected: Dictionary = _lots.get_selection()
+		if not selected.is_empty():
+			_focus_parcel(selected)
+
+
+func _on_portfolio_business_selected(business_id: String) -> void:
+	if business_id.is_empty() or _lots == null:
+		return
+	var hit: Dictionary = _lots.find_hit_for_business(business_id)
+	if hit.is_empty():
+		return
+	var district_id := str(hit.get("district_id", ""))
+	if not district_id.is_empty() and (_view_mode == "overview" or district_id != _focus_district_id):
+		_focus_district(district_id)
+		hit = _lots.find_hit_for_business(business_id)
+		if hit.is_empty():
+			return
+	_lots.set_selection(hit)
+	_parcel_panel.show_parcel(hit, _lots.get_district_for_hit(hit))
+	_position_parcel_panel()
+	_focus_parcel(hit)
+	_sync_supply_chain_blocks()
 
 
 func _world_mouse() -> Vector2:
@@ -384,6 +468,14 @@ func _pointer_over_ui() -> bool:
 		return true
 	if _advance_button != null and (_advance_button == hovered or _advance_button.is_ancestor_of(hovered)):
 		return true
+	if _sc_path_controls != null and _sc_path_controls.visible and (
+		_sc_path_controls == hovered or _sc_path_controls.is_ancestor_of(hovered)
+	):
+		return true
+	if _portfolio_sidebar != null and _portfolio_sidebar.visible:
+		var mouse := get_viewport().get_mouse_position()
+		if _portfolio_sidebar.get_global_rect().has_point(mouse):
+			return true
 	if hovered is BaseButton:
 		return true
 	if _parcel_panel.visible and _parcel_panel.is_ancestor_of(hovered):
@@ -392,17 +484,22 @@ func _pointer_over_ui() -> bool:
 
 
 func _update_hover() -> void:
+	_sync_supply_chain_blocks()
 	if _negotiation_panel != null and _negotiation_panel.visible:
 		_lots.set_hover({})
+		_hide_sc_route_tooltip()
 		return
 	if _community_chat_panel != null and _community_chat_panel.visible:
 		_lots.set_hover({})
+		_hide_sc_route_tooltip()
 		return
 	if _pointer_over_ui():
 		_lots.set_hover({})
+		_hide_sc_route_tooltip()
 		return
 	var hit: Dictionary = _lots.pick_at_world_pos(_world_mouse())
 	_lots.set_hover(hit)
+	_update_sc_route_tooltip()
 
 
 func _handle_map_click() -> void:
@@ -411,10 +508,30 @@ func _handle_map_click() -> void:
 		var district_id := str(hit.get("district_id", _focus_district_id))
 		if _view_mode == "overview":
 			_focus_district(district_id)
+			hit = _lots.pick_at_world_pos(_world_mouse())
+		var viz_second_click := false
+		if (
+			_supply_chain != null
+			and _supply_chain.has_method("is_enabled")
+			and _supply_chain.is_enabled()
+			and not hit.is_empty()
+		):
+			if _supply_chain.handle_parcel_click(hit):
+				_parcel_panel.hide_panel()
+				_sync_supply_chain_blocks()
+				return
+			# Second click on same parcel — open normal panel while keeping viz on.
+			viz_second_click = true
 		var current: Dictionary = _lots.get_selection()
-		if not current.is_empty() and str(hit.get("id", "")) == str(current.get("id", "")) and str(hit.get("district_id", "")) == str(current.get("district_id", "")):
+		if (
+			not viz_second_click
+			and not current.is_empty()
+			and str(hit.get("id", "")) == str(current.get("id", ""))
+			and str(hit.get("district_id", "")) == str(current.get("district_id", ""))
+		):
 			_lots.clear_selection()
 			_parcel_panel.hide_panel()
+			_sync_supply_chain_blocks()
 			return
 		_lots.set_selection(hit)
 		if _Bank.is_bank_parcel(hit):
@@ -424,24 +541,27 @@ func _handle_map_click() -> void:
 			_parcel_panel.show_parcel(hit, _lots.get_district_for_hit(hit))
 			_position_parcel_panel()
 			_focus_parcel(hit)
+		_sync_supply_chain_blocks()
 		return
 
 	var district_entry: Dictionary = _World.find_district_at_point(_region, _world_mouse(), _lots.get_region_offset())
 	if district_entry.is_empty():
 		_lots.clear_selection()
 		_parcel_panel.hide_panel()
+		_sync_supply_chain_blocks()
 		return
 
-	var district_id: String = _World.district_id(district_entry)
-	if not _Unlock.is_unlocked(Game.state, district_id):
+	var empty_district_id: String = _World.district_id(district_entry)
+	if not _Unlock.is_unlocked(Game.state, empty_district_id):
 		_show_locked_district(district_entry)
 		return
 
 	if _view_mode == "overview":
-		_focus_district(district_id)
+		_focus_district(empty_district_id)
 	else:
 		_lots.clear_selection()
 		_parcel_panel.hide_panel()
+		_sync_supply_chain_blocks()
 
 
 func _show_locked_district(entry: Dictionary) -> void:
@@ -471,9 +591,13 @@ func _focus_district(district_id: String) -> void:
 	_update_camera_targets()
 	_refresh_title(true)
 	FeedbackBus.panel_swipe(_title, true)
+	_sync_supply_chain_district()
 
 
 func _go_to_overview(animate: bool = true) -> void:
+	if _supply_chain != null and _supply_chain.has_method("is_enabled") and _supply_chain.is_enabled():
+		_supply_chain.disable_view()
+		_refresh_supply_chain_toggle()
 	_camera_mode = "district"
 	_view_mode = "overview"
 	_apply_view_context()
@@ -513,6 +637,28 @@ func _top_bar_bottom_y() -> float:
 	return 88.0
 
 
+func _map_focus_rect() -> Rect2:
+	var view_size := get_viewport_rect().size
+	var top_y := _top_bar_bottom_y()
+	var side_margin := 16.0
+	var bottom_margin := ADVANCE_BUTTON_RESERVE
+	var left_x := side_margin
+	if _portfolio_sidebar != null and _portfolio_sidebar.visible:
+		var pp_width := 272.0
+		if _portfolio_sidebar.has_method("expanded_width"):
+			pp_width = float(_portfolio_sidebar.call("expanded_width"))
+		left_x = side_margin + pp_width
+	var right_x := view_size.x - side_margin
+	if _parcel_panel != null and _parcel_panel.visible:
+		right_x = view_size.x - side_margin - 300.0
+	return Rect2(
+		left_x,
+		top_y,
+		maxf(right_x - left_x, 1.0),
+		maxf(view_size.y - top_y - bottom_margin, 1.0),
+	)
+
+
 func _focus_parcel(hit: Dictionary) -> void:
 	if hit.is_empty() or _view_mode != "district" or _lots == null:
 		return
@@ -524,15 +670,20 @@ func _focus_parcel(hit: Dictionary) -> void:
 	var bounds: Rect2 = frame.get("bounds", Rect2())
 	var view_size := get_viewport_rect().size
 	var viewport_center := view_size * 0.5
-	var top_y := _top_bar_bottom_y()
-	var left_half_w := view_size.x * 0.5 - PARCEL_FOCUS_SIDE_MARGIN
-	var usable_h := view_size.y - top_y - PARCEL_FOCUS_SIDE_MARGIN
+	var focus_rect := _map_focus_rect()
+	var usable_w := focus_rect.size.x
+	var usable_h := focus_rect.size.y
 	var bounds_w := maxf(bounds.size.x, 1.0)
 	var bounds_h := maxf(bounds.size.y, 1.0)
-	var zoom_val := minf(left_half_w / bounds_w, usable_h / bounds_h) * PARCEL_FOCUS_FILL
+	var zoom_val := minf(usable_w / bounds_w, usable_h / bounds_h) * PARCEL_FOCUS_FILL
 	zoom_val = clampf(zoom_val, MIN_ZOOM, MAX_ZOOM)
 
-	var screen_target := Vector2(view_size.x * 0.25, top_y + usable_h * 0.5)
+	var diamond: Vector2 = frame.get("diamond_size", bounds.size)
+	var focus_center := focus_rect.position + focus_rect.size * 0.5
+	var screen_target := focus_center + Vector2(
+		-diamond.x * zoom_val * 0.5,
+		diamond.y * zoom_val * 0.5,
+	)
 	_camera_mode = "parcel"
 	_camera_target_zoom = Vector2(zoom_val, zoom_val)
 	_camera_target_pos = center - (screen_target - viewport_center) / zoom_val
@@ -561,14 +712,247 @@ func _refresh_title(fade: bool = false) -> void:
 func _on_selection_cleared() -> void:
 	_parcel_panel.hide_panel()
 	_restore_district_camera()
+	_sync_supply_chain_blocks()
 
 
 func _on_panel_closed() -> void:
 	if _lots != null:
 		_lots.clear_selection()
+	_sync_supply_chain_blocks()
+
+
+func _setup_supply_chain_view() -> void:
+	_supply_chain_routes = Node2D.new()
+	_supply_chain_routes.name = "SupplyChainRoutes"
+	_supply_chain_routes.z_index = 4
+	_supply_chain_routes.set_script(_SupplyChainRouteLayer)
+	_world.add_child(_supply_chain_routes)
+	_supply_chain = Node.new()
+	_supply_chain.name = "SupplyChainView"
+	_supply_chain.set_script(_SupplyChainController)
+	add_child(_supply_chain)
+	_supply_chain.configure(_lots, _supply_chain_routes)
+	_supply_chain.message_requested.connect(_on_supply_chain_message)
+	_supply_chain.enabled_changed.connect(_on_supply_chain_enabled_changed)
+	_supply_chain.path_info_changed.connect(_on_supply_chain_path_info)
+	_supply_chain_toggle.pressed.connect(_on_supply_chain_toggle_pressed)
+	if _sc_path_controls != null:
+		_sc_path_controls.prev_pressed.connect(func() -> void:
+			if _supply_chain != null and _supply_chain.has_method("show_previous_path"):
+				_supply_chain.show_previous_path()
+		)
+		_sc_path_controls.next_pressed.connect(func() -> void:
+			if _supply_chain != null and _supply_chain.has_method("show_next_path"):
+				_supply_chain.show_next_path()
+		)
+		_sc_path_controls.pause_toggled.connect(_on_sc_path_pause_toggled)
+		_sc_path_controls.controls_hover_changed.connect(_on_sc_controls_hover_changed)
+	_refresh_supply_chain_toggle()
+
+
+func _on_supply_chain_toggle_pressed() -> void:
+	if _view_mode != "district":
+		# Mode is district-scoped — jump into the focused district first.
+		if not _focus_district_id.is_empty():
+			_focus_district(_focus_district_id)
+	_sync_supply_chain_district()
+	var preferred := ""
+	var sel: Dictionary = _lots.get_selection() if _lots != null else {}
+	preferred = str(sel.get("id", ""))
+	_supply_chain.toggle_view(preferred)
+	_refresh_supply_chain_toggle()
+	_sync_supply_chain_blocks()
+
+
+func _on_supply_chain_enabled_changed(on: bool) -> void:
+	_refresh_supply_chain_toggle()
+	if on:
+		_parcel_panel.hide_panel()
+	else:
+		if _sc_path_controls != null and _sc_path_controls.has_method("hide_controls"):
+			_sc_path_controls.hide_controls()
+		_hide_sc_route_tooltip()
+	_sync_supply_chain_blocks()
+
+
+func _on_supply_chain_path_info(index: int, total: int, paused: bool) -> void:
+	if _sc_path_controls == null:
+		return
+	if _supply_chain == null or not _supply_chain.is_enabled():
+		_sc_path_controls.hide_controls()
+		return
+	_sc_path_controls.set_path_info(index, total, paused)
+
+
+func _on_sc_path_pause_toggled(paused: bool) -> void:
+	if _supply_chain == null:
+		return
+	if paused:
+		_supply_chain.pause_cycling()
+	else:
+		_supply_chain.resume_cycling()
+
+
+func _on_sc_controls_hover_changed(hovered: bool) -> void:
+	if _supply_chain != null and _supply_chain.has_method("set_blocked"):
+		_supply_chain.set_blocked("controls_hover", hovered)
+
+
+func _on_supply_chain_message(text: String) -> void:
+	if text.strip_edges().is_empty():
+		return
+	FeedbackBus.show_chip(text, _supply_chain_toggle, 2.0)
+
+
+func _refresh_supply_chain_toggle() -> void:
+	if _supply_chain_toggle == null:
+		return
+	var on: bool = (
+		_supply_chain != null
+		and _supply_chain.has_method("is_enabled")
+		and bool(_supply_chain.is_enabled())
+	)
+	_supply_chain_toggle.tooltip_text = "Hide Supply Chain" if on else "Supply Chain"
+	_supply_chain_toggle.modulate = Color(1.15, 1.05, 0.55, 1.0) if on else Color(1, 1, 1, 1)
+
+
+func _sync_supply_chain_blocks() -> void:
+	if _supply_chain == null or not _supply_chain.has_method("set_blocked"):
+		return
+	if not _supply_chain.is_enabled():
+		return
+	var panel_open := _parcel_panel != null and _parcel_panel.visible
+	var modal_open := _any_blocking_modal_open()
+	var game_paused := get_tree() != null and get_tree().paused
+	_supply_chain.set_blocked("panel", panel_open)
+	_supply_chain.set_blocked("modal", modal_open)
+	_supply_chain.set_blocked("game_pause", game_paused)
+
+
+func _any_blocking_modal_open() -> bool:
+	if _negotiation_panel != null and _negotiation_panel.visible:
+		return true
+	if _community_chat_panel != null and _community_chat_panel.visible:
+		return true
+	if _certificate_modal != null and _certificate_modal.visible:
+		return true
+	if _improve_panel != null and _improve_panel.visible:
+		return true
+	if _bank_modal != null and _bank_modal.visible:
+		return true
+	if _edge_modal != null and _edge_modal.visible:
+		return true
+	if _shortage_modal != null and _shortage_modal.visible:
+		return true
+	if _turn_debrief_modal != null and _turn_debrief_modal.visible:
+		return true
+	return false
+
+
+func _update_sc_route_tooltip() -> void:
+	if (
+		_sc_route_tooltip == null
+		or _sc_route_tooltip_label == null
+		or _supply_chain == null
+		or not _supply_chain.is_enabled()
+	):
+		_hide_sc_route_tooltip()
+		return
+	var hit: Dictionary = _lots.get_hover() if _lots != null and _lots.has_method("get_hover") else {}
+	if hit.is_empty():
+		hit = _lots.pick_at_world_pos(_world_mouse()) if _lots != null else {}
+	var on_route := false
+	if _supply_chain.has_method("tooltip_at_world"):
+		on_route = not _supply_chain.tooltip_at_world(_world_mouse()).is_empty()
+	if hit.is_empty() and not on_route:
+		_hide_sc_route_tooltip()
+		return
+	if not _supply_chain.has_method("chain_hover_info"):
+		_hide_sc_route_tooltip()
+		return
+	var info: Dictionary = _supply_chain.chain_hover_info()
+	if info.is_empty():
+		_hide_sc_route_tooltip()
+		return
+	_ensure_sc_tooltip_style()
+	_sc_route_tooltip_label.text = _format_sc_chain_tooltip(info)
+	_sc_route_tooltip.visible = true
+	_sc_route_tooltip.reset_size()
+	var screen := get_viewport().get_mouse_position()
+	var tip_size := _sc_route_tooltip.size
+	if tip_size.x < 8.0:
+		tip_size = _sc_route_tooltip.get_combined_minimum_size()
+	var vp := get_viewport_rect().size
+	var pos := screen + Vector2(18, 20)
+	pos.x = minf(pos.x, vp.x - tip_size.x - 12.0)
+	pos.y = minf(pos.y, vp.y - tip_size.y - 12.0)
+	_sc_route_tooltip.position = pos
+
+
+func _format_sc_chain_tooltip(info: Dictionary) -> String:
+	const LIGHT := "#ffb85c"
+	const DARK := "#e86a14"
+	var parts: PackedStringArray = PackedStringArray()
+	var prev: Dictionary = info.get("prev", {})
+	var selected: Dictionary = info.get("selected", {})
+	var next: Dictionary = info.get("next", {})
+	if not prev.is_empty():
+		parts.append(_sc_tooltip_node_bbcode(prev, LIGHT, true))
+	if not selected.is_empty():
+		parts.append(_sc_tooltip_node_bbcode(selected, DARK, false))
+	if not next.is_empty():
+		parts.append(_sc_tooltip_node_bbcode(next, LIGHT, true))
+	return " → ".join(parts)
+
+
+func _sc_tooltip_node_bbcode(node: Dictionary, color_hex: String, show_profit: bool) -> String:
+	const LOSS := "#e05040"
+	var name := str(node.get("name", "?"))
+	var text := "[color=%s]%s[/color]" % [color_hex, name]
+	# Acquisition upside only for businesses the player does not already own.
+	if show_profit and not bool(node.get("owned", false)):
+		var profit := int(node.get("profit", 0))
+		if profit > 0:
+			text += "[color=%s] +%s[/color]" % [color_hex, MathUtil.fmt_money(profit)]
+		elif profit < 0:
+			text += "[color=%s] %s[/color]" % [LOSS, MathUtil.fmt_money(profit)]
+	return text
+
+
+func _ensure_sc_tooltip_style() -> void:
+	if _sc_route_tooltip == null or _sc_route_tooltip.has_meta("_styled"):
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.14, 0.12, 0.94)
+	style.set_corner_radius_all(8)
+	style.set_content_margin_all(0)
+	style.border_color = Color(0.42, 0.48, 0.38, 0.85)
+	style.set_border_width_all(1)
+	_sc_route_tooltip.add_theme_stylebox_override("panel", style)
+	_sc_route_tooltip.set_meta("_styled", true)
+
+
+func _hide_sc_route_tooltip() -> void:
+	if _sc_route_tooltip != null:
+		_sc_route_tooltip.visible = false
+
+
+func _sync_supply_chain_district() -> void:
+	if _supply_chain == null or not _supply_chain.has_method("set_district_context"):
+		return
+	if _view_mode != "district" or _focus_district_id.is_empty():
+		return
+	var entry: Dictionary = _World.find_entry_by_id(_region, _focus_district_id)
+	if entry.is_empty():
+		return
+	var district: Dictionary = _World.load_district_from_entry(entry)
+	_supply_chain.set_district_context(_focus_district_id, district)
 
 
 func _on_overview_pressed() -> void:
+	if _supply_chain != null and _supply_chain.has_method("is_enabled") and _supply_chain.is_enabled():
+		_supply_chain.disable_view()
+		_refresh_supply_chain_toggle()
 	_go_to_overview()
 	_lots.clear_selection()
 	_parcel_panel.hide_panel()
@@ -658,12 +1042,14 @@ func _on_run_ended(_state: RunState) -> void:
 
 func _on_bank_modal_closed() -> void:
 	_refresh_hud()
+	_sync_supply_chain_blocks()
 
 
 func _on_modal_closed_refresh_parcels() -> void:
 	_refresh_hud()
 	_refresh_parcels()
 	_refresh_selected_parcel()
+	_sync_supply_chain_blocks()
 
 
 func _bootstrap_map() -> void:
@@ -686,6 +1072,9 @@ func _refresh_parcels() -> void:
 	if _lots == null:
 		return
 	_lots.refresh_ownership()
+	if _supply_chain != null and _supply_chain.has_method("is_enabled") and _supply_chain.is_enabled():
+		_sync_supply_chain_district()
+		_supply_chain.rebuild(true)
 
 
 func _refresh_terrain() -> void:
@@ -815,4 +1204,17 @@ func _process(delta: float) -> void:
 
 
 func _on_back_pressed() -> void:
+	if _quit_confirm == null:
+		_quit_confirm = ConfirmationDialog.new()
+		_quit_confirm.title = "Leave run"
+		_quit_confirm.dialog_text = "Are you sure you want to quit?"
+		_quit_confirm.ok_button_text = "Quit"
+		_quit_confirm.cancel_button_text = "Cancel"
+		_quit_confirm.unresizable = true
+		add_child(_quit_confirm)
+		_quit_confirm.confirmed.connect(_on_quit_confirmed)
+	_quit_confirm.popup_centered()
+
+
+func _on_quit_confirmed() -> void:
 	Game.go_to_main_menu()

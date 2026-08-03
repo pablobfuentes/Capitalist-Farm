@@ -58,7 +58,8 @@ static func compute_synergies(state: RunState) -> Array[Dictionary]:
 				continue
 			var link: Dictionary = link_variant
 			var key := "%s:%s" % [str(link.get("connectionId", "")), str(link.get("customerId", ""))]
-			fulfill_map[key] = link.get("fulfill", 1.0)
+			var base_f := float(link.get("fulfill", 1.0))
+			fulfill_map[key] = base_f * _relationship_supply_strain_mult(state, key)
 
 	var active: Array[Dictionary] = []
 	for conn: SupplyConnection in Content.connections:
@@ -303,6 +304,51 @@ static func _utilization_ratio(demand: float, capacity: float) -> Dictionary:
 		"demand": demand,
 		"capacity": capacity,
 	}
+
+
+static func _relationship_supply_strain_mult(state: RunState, link_key: String) -> float:
+	if state == null or link_key.is_empty():
+		return 1.0
+	var raw: Variant = state.relationship_supply_strain.get(link_key)
+	if typeof(raw) != TYPE_DICTIONARY:
+		return 1.0
+	var entry: Dictionary = raw
+	if state.turn > int(entry.get("expiresTurn", 0)):
+		return 1.0
+	return clampf(float(entry.get("fulfillMult", 1.0)), 0.35, 1.0)
+
+
+static func apply_relationship_supply_strain(
+	state: RunState,
+	connection_id: String,
+	customer_business_id: String,
+	fulfill_mult: float,
+	duration_turns: int = 4,
+	reason: String = "",
+) -> void:
+	if state == null or connection_id.is_empty() or customer_business_id.is_empty():
+		return
+	var key := "%s:%s" % [connection_id, customer_business_id]
+	state.relationship_supply_strain[key] = {
+		"connectionId": connection_id,
+		"customerBusinessId": customer_business_id,
+		"fulfillMult": clampf(fulfill_mult, 0.35, 1.0),
+		"expiresTurn": state.turn + maxi(1, duration_turns),
+		"reason": reason,
+	}
+
+
+static func tick_relationship_supply_strain(state: RunState) -> void:
+	if state == null or state.relationship_supply_strain.is_empty():
+		return
+	var drop: Array[String] = []
+	for key_variant in state.relationship_supply_strain.keys():
+		var key := str(key_variant)
+		var entry: Dictionary = state.relationship_supply_strain[key]
+		if state.turn > int(entry.get("expiresTurn", 0)):
+			drop.append(key)
+	for key in drop:
+		state.relationship_supply_strain.erase(key)
 
 
 static func _get_supply_policy(state: RunState, template_id: String) -> String:

@@ -38,11 +38,14 @@ func _populate_urgent_problems(state: RunState) -> void:
 	for prob_variant in state.urgent_problems:
 		if typeof(prob_variant) != TYPE_DICTIONARY:
 			continue
-		var row_data: Dictionary = RunView.urgent_problem_row(state, prob_variant as Dictionary)
-		var row := _make_row(str(row_data.get("summary", "")))
+		var prob: Dictionary = prob_variant
+		var row_data: Dictionary = RunView.urgent_problem_row(state, prob)
+		var detail_lines := RunView.urgent_problem_detail_lines(prob)
+		var summary := "\n".join(detail_lines) if not detail_lines.is_empty() else str(row_data.get("summary", ""))
+		var row := _make_row(summary)
 		var problem_id := str(row_data.get("id", ""))
 		var negotiate_btn := Button.new()
-		negotiate_btn.text = "Negotiate (1 AP)"
+		negotiate_btn.text = "Negotiate terms (1 AP)"
 		negotiate_btn.disabled = not bool(row_data.get("canNegotiate", false))
 		negotiate_btn.pressed.connect(func() -> void: urgent_negotiate.emit(problem_id))
 		row.add_child(negotiate_btn)
@@ -122,7 +125,7 @@ func _add_level_up_row(row_data: Dictionary) -> void:
 	else:
 		var invest := Button.new()
 		var price: int = int(row_data.get("price", 0))
-		invest.text = "Level up · %s (1 AP)" % MathUtil.fmt_money(price) if price > 0 else "Level up (1 AP)"
+		invest.text = "1AP + %s" % MathUtil.fmt_money(price) if price > 0 else "1AP"
 		invest.disabled = not bool(row_data.get("canInvest", false))
 		invest.pressed.connect(func() -> void: level_up.emit(opp_id))
 		row.add_child(invest)

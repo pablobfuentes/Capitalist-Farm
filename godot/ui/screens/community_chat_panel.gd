@@ -15,6 +15,7 @@ const _COLOR_MUTED := Color(0.42, 0.34, 0.24, 1.0)
 const _PANEL_NODES: Dictionary = {
 	"HeaderPanel": "header_panel",
 	"PortraitSlot": "portrait_area",
+	"GaugePanel": "gauge_panel",
 	"NameBanner": "name_banner",
 	"ChatBackground": "chat_background",
 	"InputTray": "input_tray",
@@ -43,6 +44,8 @@ const _DECORATIVE_NODES: Array[String] = [
 	"HeaderPanel",
 	"HeaderText",
 	"PortraitSlot",
+	"GaugePanel",
+	"GaugePointer",
 	"NameBanner",
 	"ChatBackground",
 	"InputTray",
@@ -108,6 +111,9 @@ func open_for_community_business(community_business_id: String, parcel_id: Strin
 		_status_override = "Unknown business"
 		return
 	var npc_id := str(business.get("ownerNpcId", ""))
+	# Invalidate any in-flight refresh from a previous visit before swapping NPCs.
+	_refresh_token += 1
+	_clear_chat_messages()
 	var result: Dictionary = CommunityChatRuntime.start_session(
 		Game.state,
 		npc_id,
@@ -121,6 +127,7 @@ func open_for_community_business(community_business_id: String, parcel_id: Strin
 	_npc_id = npc_id
 	_community_business_id = community_business_id
 	_status_override = ""
+	_busy = false
 	_chat_follow_bottom = true
 	_rendered_messages_fingerprint = ""
 	_last_chat_column_width = -1.0
@@ -132,10 +139,15 @@ func open_for_community_business(community_business_id: String, parcel_id: Strin
 	await _capture_backdrop()
 	show()
 	FeedbackBus.set_ambient("negotiation")
+	# Paint greeting before slide-in so it is visible as the panel appears.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _refresh()
 	await FeedbackBus.slide_in_panel(%Root)
 	await _ensure_ai_ready()
-	await _refresh()
-	call_deferred("_focus_message_input")
+	# Status/model only — never rebuild chat here (avoids wiping the greeting).
+	await _refresh(false)
+	_focus_message_input()
 
 
 func _ensure_ai_ready() -> void:
@@ -150,6 +162,7 @@ func _ensure_ai_ready() -> void:
 func _on_walk(polite: bool = false) -> void:
 	if _busy:
 		return
+	_refresh_token += 1
 	if not _npc_id.is_empty() and Game.state != null:
 		CommunityChatRuntime.end_session(Game.state, _npc_id)
 	_npc_id = ""
@@ -161,6 +174,7 @@ func _on_walk(polite: bool = false) -> void:
 	_notebook_line_count = 0
 	_messages_remaining_seen = -1
 	_door_chimed = false
+	_clear_chat_messages()
 	if polite:
 		await FeedbackBus.slide_out_panel(%Root)
 	else:
@@ -169,6 +183,16 @@ func _on_walk(polite: bool = false) -> void:
 	FeedbackBus.set_ambient("map")
 	hide()
 	closed.emit()
+
+
+func _clear_chat_messages() -> void:
+	var box: VBoxContainer = %ChatMessages
+	if box == null:
+		return
+	for child in box.get_children():
+		child.queue_free()
+	_rendered_messages_fingerprint = ""
+	_last_chat_column_width = -1.0
 
 
 func _on_send_pressed() -> void:
@@ -236,7 +260,10 @@ func _play_chat_result_juice(result: Dictionary) -> void:
 func _refresh(rebuild_chat: bool = true) -> void:
 	if Game.state == null or _npc_id.is_empty():
 		return
-	_refresh_token += 1
+	# Only bump the token when rebuilding chat. Status-only refreshes (AI health)
+	# must not abort an in-flight greet/history paint.
+	if rebuild_chat:
+		_refresh_token += 1
 	var token := _refresh_token
 	var session: Dictionary = CommunityChatRuntime.get_active_session(Game.state, _npc_id)
 	var business: Dictionary = CommunityGenerator.get_business(Game.state, _community_business_id)
@@ -260,7 +287,8 @@ func _refresh(rebuild_chat: bool = true) -> void:
 		_door_chimed = true
 	_messages_remaining_seen = remaining
 	_update_notebook()
-	_update_portrait_ai_status()
+	_update_portrait(npc)
+	_update_relationship_gauge(score)
 	if rebuild_chat:
 		await _update_chat(session)
 	if token != _refresh_token:
@@ -320,6 +348,8 @@ func _sync_notebook_scroll_widths() -> void:
 
 
 func _update_chat(session: Dictionary) -> void:
+	var token := _refresh_token
+	var expected_npc := _npc_id
 	var follow_bottom := _chat_follow_bottom
 	var fingerprint := _messages_fingerprint(session)
 	var scroll_w := _chat_column_width()
@@ -335,6 +365,9 @@ func _update_chat(session: Dictionary) -> void:
 		child.queue_free()
 
 	await get_tree().process_frame
+	if token != _refresh_token or expected_npc != _npc_id:
+		_updating_chat = false
+		return
 	scroll_w = _chat_column_width()
 	_last_chat_column_width = scroll_w
 	box.custom_minimum_size = Vector2.ZERO
@@ -363,6 +396,9 @@ func _update_chat(session: Dictionary) -> void:
 	box.add_child(bottom_pad)
 
 	await get_tree().process_frame
+	if token != _refresh_token or expected_npc != _npc_id:
+		_updating_chat = false
+		return
 	for child in box.get_children():
 		if child is Control:
 			_ChatBubble.sync_min_height(child as Control)
@@ -479,9 +515,54 @@ func _update_chat_subheader() -> void:
 		%SubheaderLabel.add_theme_color_override("font_color", Color(0.72, 0.24, 0.18, 1.0))
 
 
-func _update_portrait_ai_status() -> void:
-	%PortraitPlaceholder.text = "Character portrait"
-	%PortraitPlaceholder.add_theme_color_override("font_color", _COLOR_MUTED)
+func _update_portrait(npc: Dictionary) -> void:
+	var species_id := str(npc.get("speciesId", ""))
+	var portrait_slot: Node = get_node_or_null("Overlay/Root/PortraitSlot")
+	if portrait_slot != null and portrait_slot.has_method("set_species"):
+		portrait_slot.call("set_species", species_id)
+
+
+func _update_relationship_gauge(score: int) -> void:
+	var gauge_pointer: Control = get_node_or_null("Overlay/Root/GaugePointer") as Control
+	if gauge_pointer == null:
+		return
+	var range_cfg: Dictionary = CommunityConfig.personal_relationship_range()
+	var min_score := float(range_cfg.get("min", -5))
+	var max_score := float(range_cfg.get("max", 5))
+	var span := maxf(max_score - min_score, 1.0)
+	var gauge := clampf(((float(score) - min_score) / span) * 100.0, 0.0, 100.0)
+	_set_gauge_pointer(gauge, _relationship_label(score))
+
+
+func _gauge_track_anchors() -> Vector4:
+	var track: Dictionary = _layout.get("gauge_track", {"rect": [60, 780, 450, 820]})
+	var track_rect: Array = track["rect"]
+	return Vector4(
+		float(track_rect[0]) / DESIGN_SIZE.x,
+		float(track_rect[1]) / DESIGN_SIZE.y,
+		float(track_rect[2]) / DESIGN_SIZE.x,
+		float(track_rect[3]) / DESIGN_SIZE.y,
+	)
+
+
+func _set_gauge_pointer(gauge: float, tooltip: String = "") -> void:
+	var gauge_pointer: Control = get_node_or_null("Overlay/Root/GaugePointer") as Control
+	if gauge_pointer == null:
+		return
+	var track := _gauge_track_anchors()
+	var t: float = clampf(gauge, 0.0, 100.0) / 100.0
+	gauge_pointer.show()
+	gauge_pointer.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	gauge_pointer.anchor_left = lerpf(track.x, track.z, t)
+	gauge_pointer.anchor_right = gauge_pointer.anchor_left
+	gauge_pointer.anchor_top = track.y
+	gauge_pointer.anchor_bottom = track.w
+	var scale := _ui_scale()
+	gauge_pointer.offset_left = -13.0 * scale
+	gauge_pointer.offset_right = 13.0 * scale
+	gauge_pointer.offset_top = -6.0 * scale
+	gauge_pointer.offset_bottom = 38.0 * scale
+	gauge_pointer.tooltip_text = tooltip
 
 
 func _ai_status_text() -> String:
@@ -536,6 +617,9 @@ func _set_input_enabled(enabled: bool) -> void:
 func _focus_message_input() -> void:
 	if not visible or _busy or not %MessageInput.editable:
 		return
+	%MessageInput.caret_blink = true
+	%MessageInput.caret_force_displayed = true
+	%MessageInput.add_theme_color_override("caret_color", Color(0.22, 0.12, 0.06, 1.0))
 	%MessageInput.grab_focus()
 	%MessageInput.caret_column = %MessageInput.text.length()
 
@@ -602,6 +686,9 @@ func _apply_layouts() -> void:
 	_apply_scaled_fonts()
 	_layout_header_stack()
 	_sync_notebook_scroll_widths()
+	var portrait_slot: Node = get_node_or_null("Overlay/Root/PortraitSlot")
+	if portrait_slot != null and portrait_slot.has_method("refresh_layout"):
+		portrait_slot.call("refresh_layout")
 
 
 func _design_bounds(layout_key: String) -> Vector4:

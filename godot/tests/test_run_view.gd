@@ -91,3 +91,20 @@ func test_business_display_matches_business_row_summary() -> void:
 	var row: Dictionary = RunView.business_row(state, biz)
 	var display: Dictionary = RunView.business_display(state, biz)
 	assert_eq(str(row.get("summary", "")), str(display.get("summary", "")))
+
+
+func test_portfolio_card_data_fields() -> void:
+	var state: RunState = RunState.create_new(GameMode.MODE_CAPITAL_FARM)
+	var biz := BusinessInstance.create_from_template("grain_farm", "Test Farm", 10000, 6000)
+	biz.purchase_price = 10000
+	biz.level = 2
+	biz.revenue_per_turn = 14000
+	biz.operating_costs = 9000
+	state.portfolio.businesses.append(biz)
+	var card: Dictionary = RunView.portfolio_card_data(state, biz)
+	assert_eq(str(card.get("name", "")), "Test Farm")
+	assert_eq(int(card.get("level", 0)), 2)
+	assert_eq(int(card.get("profitPerTurn", -1)), 5000)
+	assert_eq(int(card.get("revenuePerTurn", 0)), 14000)
+	assert_eq(int(card.get("costPerTurn", 0)), 9000)
+	assert_gt(int(card.get("currentValue", 0)), 0)

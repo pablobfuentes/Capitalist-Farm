@@ -374,9 +374,21 @@ static func close_deal(state: RunState) -> Dictionary:
 			problem = {}
 		var pending_rel: Variant = state.negotiation.get("pendingOffer")
 		var rel_offer: Dictionary = pending_rel as Dictionary if pending_rel is Dictionary else {}
+		if bool(rel_offer.get("serviceTermsOnly", false)):
+			rel_offer["totalPrice"] = 0
+			rel_offer["cashAtClosing"] = 0
+		elif int(rel_offer.get("totalPrice", 0)) <= 0:
+			return {"ok": false, "error": "No settled $/qtr or service terms on the table"}
+		var settled := _Urgent.resolve_settled_amount(state, problem, rel_offer)
 		_Urgent.resolve_relationship_deal(state, problem, rel_offer)
 		state.negotiation = {}
-		return {"ok": true, "state": state, "decision": "accept", "closed": true}
+		return {
+			"ok": true,
+			"state": state,
+			"decision": "accept",
+			"closed": true,
+			"settledPerTurn": settled,
+		}
 
 	var pending: Variant = state.negotiation.get("pendingOffer")
 	if pending == null or not (pending is Dictionary) or int((pending as Dictionary).get("totalPrice", 0)) <= 0:
@@ -834,6 +846,12 @@ static func end_negotiation(state: RunState, walked: bool = false) -> Dictionary
 		state.run_log.append("Walked away from negotiation")
 		if str(state.negotiation.get("kind", "")) == "rival_contest":
 			return _rival_wins_contest(state, "Walked away from the contest.")
+		if str(state.negotiation.get("kind", "")) == "relationship":
+			var problem: Dictionary = (state.negotiation.get("context", {}) as Dictionary).get("problem", {})
+			if typeof(problem) == TYPE_DICTIONARY and not problem.is_empty():
+				_Urgent.fail_relationship_deal(state, problem)
+			state.negotiation = {}
+			return {"ok": true, "state": state, "closed": true, "walked": true}
 	state.negotiation = {}
 	return {"ok": true, "state": state, "closed": true}
 
@@ -937,6 +955,28 @@ static func _append_message(state: RunState, role: String, text: String, speaker
 	state.negotiation["messages"] = msgs
 
 
+static func _resolve_relationship_seller_dialogue(
+	ai_parsed: Dictionary,
+	dialogue_decision: String,
+	state: RunState,
+	offer_dict: Dictionary,
+	ready: bool,
+) -> String:
+	var cp: Dictionary = state.negotiation.get("counterparty", {})
+	if ready:
+		if bool(offer_dict.get("serviceTermsOnly", false)):
+			return _NpcSpecies.fallback_dialogue_farm("accept", cp)
+		var total := int(offer_dict.get("totalPrice", 0))
+		if total > 0:
+			return "Agreed — %s/qtr works. Close the deal when you're ready." % MathUtil.fmt_money(total)
+		return "Those terms work — close the deal when you're ready."
+	var ai_dialogue: String = str(ai_parsed.get("dialogue", "")).strip_edges()
+	var dialogue := _NpcSpecies.sanitize_seller_dialogue(ai_dialogue, dialogue_decision)
+	if not dialogue.is_empty():
+		return dialogue
+	return _NpcSpecies.fallback_dialogue_farm(dialogue_decision if dialogue_decision != "ongoing" else "counter", cp)
+
+
 static func _send_relationship_message(state: RunState, message: String, ai_parsed: Dictionary, skip_player_append: bool) -> Dictionary:
 	var text := message.strip_edges()
 	if not skip_player_append:
@@ -944,18 +984,106 @@ static func _send_relationship_message(state: RunState, message: String, ai_pars
 	state.negotiation["round"] = int(state.negotiation.get("round", 0)) + 1
 
 	var parsed_input: Dictionary = ai_parsed if not ai_parsed.is_empty() else {"intent": "question"}
-	if str(parsed_input.get("intent", "")) == "walk":
+	var ctx: Dictionary = state.negotiation.get("context", {})
+	var problem: Dictionary = ctx.get("problem", {}) if typeof(ctx.get("problem")) == TYPE_DICTIONARY else {}
+	var ask_amount := int(ctx.get("price", 0))
+	var stance := _Urgent.relationship_player_stance(text, parsed_input)
+	if stance == "walk" or str(parsed_input.get("intent", "")) == "walk":
 		return end_negotiation(state, true)
 
-	var offer_dict: Dictionary = _Urgent.parse_relationship_offer(text)
-	if str(parsed_input.get("intent", "")) in ["offer", "accept"] or offer_dict.get("concessionSize", 0.0) > 0.0:
+	var offer_dict: Dictionary = _Urgent.build_relationship_offer(
+		text, ask_amount, stance, parsed_input, state.negotiation, problem,
+	)
+	if stance in ["offer", "accept"] and (
+		int(offer_dict.get("totalPrice", 0)) > 0 or bool(offer_dict.get("serviceTermsOnly", false))
+	):
 		state.negotiation["playerLastOffer"] = offer_dict.duplicate(true)
 		state.negotiation["playerLastOfferText"] = text
 
 	var cp: Dictionary = state.negotiation.get("counterparty", {})
-	var utility: float = _Urgent.evaluate_relationship_utility(offer_dict, cp)
 	var max_rounds: int = int(state.negotiation.get("maxRounds", 5))
 	var round_num: int = int(state.negotiation.get("round", 0))
+
+	if state.negotiation.has("v2") and typeof(state.negotiation.get("v2")) == TYPE_DICTIONARY:
+		var profile: Dictionary = state.negotiation.get("v2", {})
+		var v2_result: Dictionary = _V2.process_turn(
+			profile,
+			text,
+			offer_dict,
+			parsed_input,
+			true,
+			round_num,
+			max_rounds,
+		)
+		state.negotiation["v2"] = v2_result.get("profile", profile)
+		state.negotiation["economicStatusHint"] = str(v2_result.get("statusHint", ""))
+		state.negotiation["lastV2"] = v2_result
+
+		var econ_ready := stance != "reject" and _Urgent.relationship_ready_to_close(
+			offer_dict, v2_result, ask_amount, problem,
+		)
+		if econ_ready:
+			var finalized := _Urgent.finalize_relationship_offer(offer_dict, v2_result, ask_amount)
+			if bool(finalized.get("serviceTermsOnly", false)):
+				finalized["totalPrice"] = 0
+				finalized["cashAtClosing"] = 0
+			state.negotiation["readyToClose"] = true
+			state.negotiation["pendingOffer"] = finalized
+			state.negotiation["lastDecision"] = "accept"
+			var seller_reply := _resolve_relationship_seller_dialogue(
+				parsed_input, "accept", state, finalized, true,
+			)
+			_append_message(state, "seller", seller_reply, str(cp.get("npcName", "Contact")))
+			_append_v2_status_message(state, v2_result)
+			return {"ok": true, "state": state, "decision": "accept", "reply": seller_reply, "ready_to_close": true}
+
+		var decision := "reject" if stance == "reject" else _map_v2_decision(str(v2_result.get("decision", "continue")))
+		state.negotiation["lastDecision"] = decision
+		state.negotiation["lastUtility"] = float(v2_result.get("gauge", 0))
+		state.negotiation["readyToClose"] = false
+		if decision == "reject":
+			var reject_reply := _resolve_relationship_seller_dialogue(
+				parsed_input, "reject", state, offer_dict, false,
+			)
+			_append_message(state, "seller", reject_reply, str(cp.get("npcName", "Contact")))
+			_append_v2_status_message(state, v2_result)
+			return {"ok": true, "state": state, "decision": "reject", "reply": reject_reply}
+
+		var player_total := int(offer_dict.get("totalPrice", 0))
+		var acceptable: int = int(v2_result.get("acceptableValue", 0))
+		if stance == "offer" and player_total > 0 and acceptable > 0 and player_total >= acceptable:
+			var finalized := _Urgent.finalize_relationship_offer(offer_dict, v2_result, ask_amount)
+			state.negotiation["readyToClose"] = true
+			state.negotiation["pendingOffer"] = finalized
+			state.negotiation["lastDecision"] = "accept"
+			var accept_reply := _resolve_relationship_seller_dialogue(
+				parsed_input, "accept", state, finalized, true,
+			)
+			_append_message(state, "seller", accept_reply, str(cp.get("npcName", "Contact")))
+			_append_v2_status_message(state, v2_result)
+			return {"ok": true, "state": state, "decision": "accept", "reply": accept_reply, "ready_to_close": true}
+
+		var dialogue_decision := decision if decision != "ongoing" else "counter"
+		var seller_reply := _resolve_relationship_seller_dialogue(
+			parsed_input, dialogue_decision, state, offer_dict, false,
+		)
+		if stance == "offer" and player_total <= 0 and bool(offer_dict.get("serviceTermsOnly", false)):
+			seller_reply = "%s Put the guarantee in writing and we can close on that." % seller_reply
+		elif stance == "offer" and player_total <= 0:
+			var counter_total: int = _V2.build_counter_total(state.negotiation.get("v2", {}), offer_dict)
+			if counter_total > 0:
+				seller_reply = "%s I need about %s/qtr to settle this." % [
+					seller_reply, MathUtil.fmt_money(counter_total),
+				]
+			elif acceptable > 0:
+				seller_reply = "%s I need about %s/qtr to settle this." % [
+					seller_reply, MathUtil.fmt_money(acceptable),
+				]
+		_append_message(state, "seller", seller_reply, str(cp.get("npcName", "Contact")))
+		_append_v2_status_message(state, v2_result)
+		return {"ok": true, "state": state, "decision": "counter", "reply": seller_reply, "utility": float(v2_result.get("gauge", 0))}
+
+	var utility: float = _Urgent.evaluate_relationship_utility(offer_dict, cp)
 	var decision: String = negotiation_decision(utility, round_num, max_rounds)
 	state.negotiation["lastUtility"] = utility
 	state.negotiation["lastDecision"] = decision

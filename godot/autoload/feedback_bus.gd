@@ -8,6 +8,7 @@ const AMBIENT_DUCK_DB := -32.0
 const MUSIC_BASE_DB := -11.0
 const MUSIC_DUCK_DB := -26.0
 const OVERWORLD_MUSIC_PATH := "res://assets/audio/music/Stables_-_Zelda_BoTW.mp3"
+const FARM_SOUNDS_PATH := "res://assets/audio/ambient/FarmSounds.mp3"
 const TOOLTIP_DELAY_SEC := 0.04
 
 var _sfx_players: Array[AudioStreamPlayer] = []
@@ -20,6 +21,7 @@ var _ambient_mode := ""
 var _ambient_ducked := false
 var _ambient_fade: Tween
 var _overworld_music: AudioStream
+var _farm_sounds: AudioStream
 
 
 func _ready() -> void:
@@ -27,6 +29,7 @@ func _ready() -> void:
 	_ensure_buses()
 	_build_streams()
 	_overworld_music = _load_overworld_music()
+	_farm_sounds = _load_looping_mp3(FARM_SOUNDS_PATH, "FarmSounds")
 	for _i in 4:
 		var sfx := AudioStreamPlayer.new()
 		sfx.bus = "SFX"
@@ -729,12 +732,16 @@ func _kill_ambient_fade() -> void:
 
 
 func _load_overworld_music() -> AudioStream:
-	if not ResourceLoader.exists(OVERWORLD_MUSIC_PATH):
-		push_warning("FeedbackBus: overworld music missing at %s" % OVERWORLD_MUSIC_PATH)
+	return _load_looping_mp3(OVERWORLD_MUSIC_PATH, "overworld music")
+
+
+func _load_looping_mp3(path: String, label: String) -> AudioStream:
+	if not ResourceLoader.exists(path):
+		push_warning("FeedbackBus: %s missing at %s" % [label, path])
 		return null
-	var stream: AudioStream = load(OVERWORLD_MUSIC_PATH) as AudioStream
+	var stream: AudioStream = load(path) as AudioStream
 	if stream == null:
-		push_warning("FeedbackBus: failed to load overworld music")
+		push_warning("FeedbackBus: failed to load %s" % label)
 		return null
 	if stream is AudioStreamMP3:
 		(stream as AudioStreamMP3).loop = true
@@ -753,11 +760,16 @@ func _stream_for_ambient_mode(mode: String) -> AudioStream:
 		if _overworld_music != null:
 			return _overworld_music
 		return _streams.get("ambient_map", null) as AudioStream
+	# Negotiation / community chat: farm ambience loop.
+	if _farm_sounds != null:
+		return _farm_sounds
 	return _streams.get("ambient_room", null) as AudioStream
 
 
 func _base_db_for_ambient_mode(mode: String) -> float:
 	if mode == "map" and _overworld_music != null:
+		return MUSIC_BASE_DB
+	if _farm_sounds != null and mode in ["negotiation", "room"]:
 		return MUSIC_BASE_DB
 	return AMBIENT_BASE_DB
 

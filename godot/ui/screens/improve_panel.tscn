@@ -5,7 +5,7 @@
 [node name="ImprovePanel" type="Window"]
 visible = false
 initial_position = 1
-size = Vector2i(640, 480)
+size = Vector2i(640, 520)
 script = ExtResource("1_improve")
 
 [node name="Margin" type="MarginContainer" parent="."]
@@ -42,20 +42,6 @@ autowrap_mode = 3
 theme_override_font_sizes/font_size = 12
 theme_override_colors/font_color = Color(0.82, 0.78, 0.62, 1)
 text = ""
-
-[node name="GhostPreviewLabel" type="Label" parent="Margin/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-theme_override_font_sizes/font_size = 12
-theme_override_colors/font_color = Color(0.78, 0.72, 0.42, 1)
-text = ""
-
-[node name="TracksList" type="VBoxContainer" parent="Margin/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 8
 
 [node name="LevelUpSection" type="PanelContainer" parent="Margin/VBox"]
 unique_name_in_owner = true
@@ -95,12 +81,31 @@ theme_override_constants/separation = 8
 [node name="LevelUpInvestButton" type="Button" parent="Margin/VBox/LevelUpSection/LevelUpVBox/LevelUpActions"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Invest (1 AP)"
+text = "1AP + $0"
 
 [node name="LevelUpNegotiateButton" type="Button" parent="Margin/VBox/LevelUpSection/LevelUpVBox/LevelUpActions"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Negotiate (1 AP)"
+text = "Negotiate · 1AP"
+
+[node name="GhostPreviewLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.78, 0.72, 0.42, 1)
+text = ""
+
+[node name="TracksScroll" type="ScrollContainer" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="TracksList" type="VBoxContainer" parent="Margin/VBox/TracksScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
 
 [node name="CloseButton" type="Button" parent="Margin/VBox"]
 unique_name_in_owner = true

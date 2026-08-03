@@ -18,6 +18,11 @@ const ROLE_COLORS := {
 
 const SELECT_FILL := Color(1.0, 0.92, 0.35, 0.22)
 const SELECT_OUTLINE := Color(1.0, 0.88, 0.20, 0.95)
+## Supply-chain viz: selected lot (dark orange) + path neighbors (light orange).
+const SC_SELECT_FILL := Color(0.90, 0.42, 0.10, 0.22)
+const SC_SELECT_OUTLINE := Color(0.92, 0.42, 0.10, 0.96)
+const SC_NEIGHBOR_FILL := Color(1.0, 0.72, 0.38, 0.14)
+const SC_NEIGHBOR_OUTLINE := Color(1.0, 0.72, 0.38, 0.90)
 const HOVER_FILL := Color(1.0, 1.0, 1.0, 0.12)
 const HOVER_OUTLINE := Color(1.0, 1.0, 1.0, 0.55)
 const REWARD_FILL := Color(1.0, 0.84, 0.28, 0.34)
@@ -37,6 +42,8 @@ var _opportunity_entries: Array = []
 var _reward_flash: Dictionary = {}
 var _reward_flash_until_ms := 0
 var _select_ring_t := 1.0
+var _sc_mode := false
+var _sc_neighbors: Array = [] # parcel hit dictionaries for light-orange outlines
 
 
 func configure(region_offset: Vector2, district_bundles: Array, font: Font = null) -> void:
@@ -58,6 +65,21 @@ func set_view_context(view_mode: String, focus_district_id: String) -> void:
 func set_hover(entry: Dictionary) -> void:
 	_hover = entry.duplicate(true) if typeof(entry) == TYPE_DICTIONARY else {}
 	queue_redraw()
+
+
+func set_supply_chain_highlights(enabled: bool, neighbors: Array = []) -> void:
+	_sc_mode = enabled
+	_sc_neighbors.clear()
+	for entry_variant in neighbors:
+		if typeof(entry_variant) == TYPE_DICTIONARY:
+			_sc_neighbors.append((entry_variant as Dictionary).duplicate(true))
+	if not enabled:
+		_sc_neighbors.clear()
+	queue_redraw()
+
+
+func is_supply_chain_mode() -> bool:
+	return _sc_mode
 
 
 func set_selection(entry: Dictionary) -> void:
@@ -154,9 +176,31 @@ func _draw() -> void:
 	for item_variant in _opportunity_entries:
 		var item: Dictionary = item_variant
 		_draw_opportunity_item(item)
+	_draw_chain_neighbors()
 	_draw_hover()
 	_draw_selection()
 	_draw_reward_flash()
+
+
+func _draw_chain_neighbors() -> void:
+	if not _sc_mode or _sc_neighbors.is_empty():
+		return
+	var pulse := _opportunity_pulse()
+	var fill := SC_NEIGHBOR_FILL
+	fill.a = 0.08 + 0.14 * pulse
+	var outline := SC_NEIGHBOR_OUTLINE
+	outline.a = 0.35 + 0.55 * pulse
+	for entry_variant in _sc_neighbors:
+		if typeof(entry_variant) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = entry_variant
+		if (
+			not _selected.is_empty()
+			and str(entry.get("id", "")) == str(_selected.get("id", ""))
+			and str(entry.get("district_id", "")) == str(_selected.get("district_id", ""))
+		):
+			continue
+		_draw_lot_highlight(entry, fill, outline, 2.0 + pulse)
 
 
 func _draw_opportunity_item(item: Dictionary) -> void:
@@ -164,8 +208,7 @@ func _draw_opportunity_item(item: Dictionary) -> void:
 	var parcel: Dictionary = item.get("hit", {})
 	var district: Dictionary = item.get("district", {})
 	var owner_state := str(item.get("owner_state", _Ownership.OWNER_OPPORTUNITY))
-	var wave := 0.5 + 0.5 * sin(_blink_phase * TAU)
-	var pulse := lerpf(0.28, 1.0, wave)
+	var pulse := _opportunity_pulse()
 	var fill := Color(1.0, 0.92, 0.14, 0.10 + 0.14 * pulse)
 	var outline := Color(1.0, 0.90, 0.12, 0.35 + 0.55 * pulse)
 	if owner_state == _Ownership.OWNER_CONTESTED:
@@ -191,10 +234,22 @@ func _draw_selection() -> void:
 	if _selected.is_empty():
 		return
 	var expand := 1.0 - pow(1.0 - _select_ring_t, 2.0)
+	if _sc_mode:
+		var pulse := _opportunity_pulse()
+		var fill := SC_SELECT_FILL
+		fill.a = 0.10 + 0.16 * pulse
+		var outline := SC_SELECT_OUTLINE
+		outline.a = 0.35 + 0.55 * pulse
+		_draw_lot_highlight(_selected, fill, outline, 2.0 + pulse)
+		return
 	var fill := SELECT_FILL
 	fill.a = SELECT_FILL.a * (0.55 + 0.45 * expand)
-	var outline := SELECT_OUTLINE
-	_draw_lot_highlight(_selected, fill, outline, 2.0 + 2.5 * expand)
+	_draw_lot_highlight(_selected, fill, SELECT_OUTLINE, 2.0 + 2.5 * expand)
+
+
+func _opportunity_pulse() -> float:
+	var wave := 0.5 + 0.5 * sin(_blink_phase * TAU)
+	return lerpf(0.28, 1.0, wave)
 
 
 func _draw_reward_flash() -> void:

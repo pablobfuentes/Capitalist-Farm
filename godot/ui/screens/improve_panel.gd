@@ -79,10 +79,7 @@ func _add_track_row(biz: BusinessInstance, track_id: String) -> void:
 		preview_line = " · %s" % effect_line
 	elif bool(preview.get("canApply", false)):
 		var delta: int = int(preview.get("profitDelta", 0))
-		preview_line = " · +%s/qtr · Cost %s" % [
-			MathUtil.fmt_money(delta),
-			MathUtil.fmt_money(int(preview.get("cost", 0))),
-		]
+		preview_line = " · +%s/qtr" % MathUtil.fmt_money(delta)
 	elif preview.has("reason"):
 		preview_line = " · %s" % str(preview.get("reason", ""))
 
@@ -90,10 +87,11 @@ func _add_track_row(biz: BusinessInstance, track_id: String) -> void:
 	row.add_child(info)
 
 	var apply_btn := Button.new()
-	apply_btn.text = "Apply" if track_id != "manager" else "Hire manager"
+	var cost: int = int(preview.get("cost", 0))
+	apply_btn.text = "1AP + %s" % MathUtil.fmt_money(cost)
 	apply_btn.disabled = (
 		not bool(preview.get("canApply", false))
-		or Game.state.cash < int(preview.get("cost", 0))
+		or Game.state.cash < cost
 		or Game.state.action_points < 1
 	)
 	apply_btn.pressed.connect(_on_apply_pressed.bind(track_id))
@@ -107,33 +105,29 @@ func _add_track_row(biz: BusinessInstance, track_id: String) -> void:
 
 func _refresh_level_up_section(biz: BusinessInstance) -> void:
 	var view: Dictionary = LevelUpSystem.improve_panel_view(Game.state, biz)
-	if not bool(view.get("visible", false)):
+	if not bool(view.get("visible", false)) or not bool(view.get("ready", false)):
 		%LevelUpSection.hide()
+		_pending_level_up_opp_id = ""
 		return
 	%LevelUpSection.show()
-	if not bool(view.get("ready", false)):
-		%LevelUpSection.hide()
-		return
 	%LevelUpTitle.text = "Level %d ready — %s" % [
 		int(view.get("targetLevel", biz.level + 1)),
 		str(view.get("title", "Level up")),
 	]
 	%LevelUpBlurb.text = str(view.get("blurb", ""))
-	%LevelUpReward.text = "%s · Cost %s" % [
-		str(view.get("rewardLine", "")),
-		MathUtil.fmt_money(int(view.get("price", 0))),
-	]
+	%LevelUpReward.text = str(view.get("rewardLine", ""))
 	%LevelUpActions.show()
 	_pending_level_up_opp_id = str(view.get("opportunityId", ""))
 	var price: int = int(view.get("price", 0))
 	if bool(view.get("requiresNegotiation", false)):
 		%LevelUpInvestButton.hide()
 		%LevelUpNegotiateButton.show()
+		%LevelUpNegotiateButton.text = "Negotiate · 1AP"
 		%LevelUpNegotiateButton.disabled = not bool(view.get("canNegotiate", false))
 	else:
 		%LevelUpNegotiateButton.hide()
 		%LevelUpInvestButton.show()
-		%LevelUpInvestButton.text = "Level up · %s (1 AP)" % MathUtil.fmt_money(price)
+		%LevelUpInvestButton.text = "1AP + %s" % MathUtil.fmt_money(price)
 		%LevelUpInvestButton.disabled = not bool(view.get("canInvest", false))
 
 

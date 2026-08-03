@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://econgame_iso_farm_map"]
+[gd_scene load_steps=11 format=3 uid="uid://econgame_iso_farm_map"]
 
 [ext_resource type="Script" path="res://scenes/farm_map/iso_farm_map.gd" id="1_map"]
 [ext_resource type="Script" path="res://scenes/farm_map/iso_farm_terrain.gd" id="2_terrain"]
@@ -7,6 +7,9 @@
 [ext_resource type="PackedScene" uid="uid://econgame_parcel_business_panel" path="res://scenes/farm_map/parcel_business_panel.tscn" id="5_panel"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/icon_close.svg" id="6_close"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/icon_lock.svg" id="7_lock"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_chain.svg" id="8_chain"]
+[ext_resource type="PackedScene" uid="uid://econgame_sc_path_controls" path="res://ui/screens/supply_chain_path_controls.tscn" id="9_sc_controls"]
+[ext_resource type="PackedScene" uid="uid://econgame_portfolio_sidebar" path="res://ui/components/portfolio_sidebar.tscn" id="10_portfolio"]
 
 [node name="IsoFarmMap" type="Control"]
 layout_mode = 3
@@ -85,6 +88,16 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Overview"
 
+[node name="SupplyChainToggleButton" type="Button" parent="UI/Hud/TopBar/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+tooltip_text = "Supply Chain"
+icon = ExtResource("8_chain")
+flat = true
+icon_alignment = 1
+expand_icon = true
+
 [node name="DistrictLockToggleButton" type="Button" parent="UI/Hud/TopBar/Row"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(36, 36)
@@ -135,7 +148,60 @@ offset_bottom = -12.0
 grow_vertical = 0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.88, 0.85)
-text = "Overview: all districts · Click lot to inspect (left) · Info panel on right · Close to zoom back out"
+text = "Overview: all districts · Portfolio (left) · Click lot to inspect · Info panel (right)"
+
+[node name="PortfolioSidebar" parent="UI/Hud" instance=ExtResource("10_portfolio")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 0
+offset_left = 16.0
+offset_top = 88.0
+offset_right = 288.0
+offset_bottom = 360.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="SupplyChainPathControls" parent="UI/Hud" instance=ExtResource("9_sc_controls")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -140.0
+offset_top = -72.0
+offset_right = 140.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="SupplyChainRouteTooltip" type="PanelContainer" parent="UI/Hud"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 420.0
+offset_bottom = 48.0
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="UI/Hud/SupplyChainRouteTooltip"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="TooltipLabel" type="RichTextLabel" parent="UI/Hud/SupplyChainRouteTooltip/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+fit_content = true
+scroll_active = false
+autowrap_mode = 0
+bbcode_enabled = true
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.96, 0.95, 0.9, 1)
+theme_override_font_sizes/normal_font_size = 13
+text = "Chain"
 
 [node name="ParcelBusinessPanel" parent="UI/Hud" instance=ExtResource("5_panel")]
 unique_name_in_owner = true
