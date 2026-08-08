@@ -268,9 +268,11 @@ func _note_offline(state: RunState) -> void:
 
 func _normalize_ai_response(raw: Dictionary) -> Dictionary:
 	var out := {
-		"dialogue": str(raw.get("dialogue", "")),
-		"intent": str(raw.get("intent", "question")),
+		"dialogue": MathUtil.str_or_empty(raw.get("dialogue", "")),
+		"intent": MathUtil.str_or_empty(raw.get("intent", "question")),
 	}
+	if out["intent"].is_empty():
+		out["intent"] = "question"
 	if typeof(raw.get("offer")) == TYPE_DICTIONARY:
 		var offer: Dictionary = {}
 		var raw_offer: Dictionary = raw["offer"]

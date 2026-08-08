@@ -27,7 +27,9 @@ static func build_for_district(state: RunState, district_id: String, district: D
 			continue
 		var parcel: Dictionary = parcel_variant
 		var role := str(parcel.get("role", "core"))
-		if role in ["development", "civic", "bank", "plaza"]:
+		if role in ["civic", "bank", "plaza"]:
+			continue
+		if role == "development" and not _parcel_has_supply_node(state, parcel, district):
 			continue
 		var node: Dictionary = _node_from_parcel(state, district_id, district, parcel)
 		if node.is_empty():
@@ -309,6 +311,30 @@ static func _node_from_parcel(
 		"displayName": display_name,
 		"isInfrastructure": Content.is_infrastructure_template(template_id),
 	}
+
+
+static func find_node_id_for_business(graph: Dictionary, business_id: String) -> String:
+	if business_id.is_empty():
+		return ""
+	var nodes: Dictionary = graph.get("nodes", {})
+	for node_variant in nodes.values():
+		if typeof(node_variant) != TYPE_DICTIONARY:
+			continue
+		var node: Dictionary = node_variant
+		if str(node.get("businessId", "")) == business_id:
+			return str(node.get("id", ""))
+	return ""
+
+
+static func _parcel_has_supply_node(state: RunState, parcel: Dictionary, district: Dictionary) -> bool:
+	var resolved: Dictionary = _Ownership.resolve(state, parcel, district)
+	if str(resolved.get("state", "")) != _Ownership.OWNER_PLAYER:
+		return false
+	var business_id := str(resolved.get("business_id", ""))
+	if business_id.is_empty():
+		return false
+	var biz := _find_business(state, business_id)
+	return biz != null and not str(biz.template_id).is_empty()
 
 
 static func _find_business(state: RunState, business_id: String) -> BusinessInstance:

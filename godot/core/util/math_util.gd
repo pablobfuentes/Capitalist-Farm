@@ -22,3 +22,12 @@ static func fmt_pct(ratio: float) -> String:
 
 static func uid() -> String:
 	return "%08x" % (randi() & 0xFFFFFFFF)
+
+
+static func str_or_empty(v: Variant) -> String:
+	if v == null:
+		return ""
+	var s := str(v).strip_edges()
+	if s.to_lower() == "<null>":
+		return ""
+	return s

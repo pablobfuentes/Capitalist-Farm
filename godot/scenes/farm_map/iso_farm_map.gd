@@ -43,7 +43,6 @@ var _focus_district_id := "meadowgate_commons"
 var _camera_mode := "district"
 var _camera_target_pos := Vector2.ZERO
 var _camera_target_zoom := Vector2(OVERVIEW_ZOOM, OVERVIEW_ZOOM)
-var _improve_panel: Window = null
 var _negotiation_panel: CanvasLayer = null
 var _community_chat_panel: CanvasLayer = null
 var _certificate_modal: CanvasLayer = null
@@ -62,7 +61,9 @@ func _ready() -> void:
 		return
 	_region = _World.load_region()
 	_Unlock.ensure_initialized(Game.state)
-	_Unlock.refresh_auto_unlocks(Game.state, _region)
+	var newly_unlocked: Array = _Unlock.refresh_auto_unlocks(Game.state, _region)
+	if not newly_unlocked.is_empty():
+		OpportunitySystem.spawn_for_unlocked_districts(Game.state, newly_unlocked)
 	resized.connect(_center_world)
 	_camera.make_current()
 	_center_world()
@@ -123,12 +124,6 @@ func _wire_map_events() -> void:
 
 
 func _connect_parcel_panel_actions() -> void:
-	_improve_panel = preload("res://ui/screens/improve_panel.tscn").instantiate()
-	add_child(_improve_panel)
-	_improve_panel.closed.connect(_on_modal_closed_refresh_parcels)
-	_improve_panel.level_up.connect(_on_improve_level_up)
-	_improve_panel.negotiate.connect(_on_parcel_negotiate)
-
 	_negotiation_panel = preload("res://ui/screens/negotiation_panel.tscn").instantiate()
 	add_child(_negotiation_panel)
 	_negotiation_panel.closed.connect(_on_modal_closed_refresh_parcels)
@@ -140,7 +135,9 @@ func _connect_parcel_panel_actions() -> void:
 	add_child(_community_chat_panel)
 	_community_chat_panel.closed.connect(_on_modal_closed_refresh_parcels)
 
-	_parcel_panel.improve_business.connect(_on_parcel_improve)
+	_parcel_panel.upgrade_track.connect(_on_parcel_upgrade)
+	_parcel_panel.level_up.connect(_on_parcel_level_up)
+	_parcel_panel.negotiate_level_up.connect(_on_parcel_negotiate)
 	_parcel_panel.sell_business.connect(_on_parcel_sell)
 	_parcel_panel.buy_opportunity.connect(_on_parcel_buy)
 	_parcel_panel.investigate_opportunity.connect(_on_parcel_investigate)
@@ -149,11 +146,25 @@ func _connect_parcel_panel_actions() -> void:
 	_parcel_panel.chat_community_business.connect(_on_parcel_chat)
 
 
-func _on_parcel_improve(business_id: String) -> void:
-	_improve_panel.open_for_business(business_id)
+func _on_parcel_upgrade(business_id: String, track_id: String) -> void:
+	var before := _economy_snapshot()
+	var result: Dictionary = Game.apply_command(GameCommand.apply_upgrade(business_id, track_id))
+	if not bool(result.get("ok", false)):
+		_deny_with_reason(str(result.get("error", "Upgrade failed")))
+		return
+	_emit_economy_deltas(before)
+	_refresh_hud()
+	_lots.refresh_ownership()
+	_refresh_selected_parcel()
 
 
-func _on_improve_level_up(_opportunity_id: String) -> void:
+func _on_parcel_level_up(opportunity_id: String) -> void:
+	var before := _economy_snapshot()
+	var result: Dictionary = Game.apply_command(GameCommand.do_level_up(opportunity_id))
+	if not bool(result.get("ok", false)):
+		_deny_with_reason(str(result.get("error", "Level up failed")))
+		return
+	_emit_economy_deltas(before)
 	_refresh_hud()
 	_lots.refresh_ownership()
 	_refresh_selected_parcel()
@@ -352,7 +363,7 @@ func _position_parcel_panel() -> void:
 	var view_size := get_viewport_rect().size
 	var top_y := _top_bar_bottom_y()
 	var side_margin := 16.0
-	var panel_width := 300.0
+	var panel_width := 360.0
 	# Leave room above the lower-right Advance Turn button.
 	var bottom_margin := ADVANCE_BUTTON_RESERVE
 	var panel_height := maxf(160.0, view_size.y - top_y - bottom_margin)
@@ -553,6 +564,9 @@ func _handle_map_click() -> void:
 
 	var empty_district_id: String = _World.district_id(district_entry)
 	if not _Unlock.is_unlocked(Game.state, empty_district_id):
+		if _Unlock.can_unlock(Game.state, district_entry):
+			_unlock_and_focus_district(empty_district_id)
+			return
 		_show_locked_district(district_entry)
 		return
 
@@ -577,6 +591,25 @@ func _show_locked_district(entry: Dictionary) -> void:
 		_Unlock.can_unlock(Game.state, entry)
 	)
 	_position_parcel_panel()
+
+
+func _unlock_and_focus_district(district_id: String) -> void:
+	if district_id.is_empty() or Game.state == null:
+		return
+	if _Unlock.is_unlocked(Game.state, district_id):
+		_focus_district(district_id)
+		return
+	var result: Dictionary = _Unlock.try_unlock(Game.state, district_id, _region)
+	if not bool(result.get("ok", false)):
+		return
+	_refresh_terrain()
+	_refresh_parcels()
+	FeedbackBus.celebrate_acquisition()
+	var entry: Dictionary = _World.find_entry_by_id(_region, district_id)
+	var district: Dictionary = _World.load_district_from_entry(entry)
+	var dname := str(district.get("name", district_id))
+	FeedbackBus.show_chip("District unlocked: %s" % dname, _title, 2.4)
+	_focus_district(district_id)
 
 
 func _focus_district(district_id: String) -> void:
@@ -650,7 +683,7 @@ func _map_focus_rect() -> Rect2:
 		left_x = side_margin + pp_width
 	var right_x := view_size.x - side_margin
 	if _parcel_panel != null and _parcel_panel.visible:
-		right_x = view_size.x - side_margin - 300.0
+		right_x = view_size.x - side_margin - 360.0
 	return Rect2(
 		left_x,
 		top_y,
@@ -835,8 +868,6 @@ func _any_blocking_modal_open() -> bool:
 	if _community_chat_panel != null and _community_chat_panel.visible:
 		return true
 	if _certificate_modal != null and _certificate_modal.visible:
-		return true
-	if _improve_panel != null and _improve_panel.visible:
 		return true
 	if _bank_modal != null and _bank_modal.visible:
 		return true
@@ -1030,9 +1061,22 @@ func _on_map_state_changed(_state: RunState) -> void:
 
 
 func _on_asset_acquired(_asset_type: String = "", _asset_id: String = "") -> void:
+	_refresh_district_unlocks()
 	_refresh_hud()
 	_refresh_parcels()
 	_refresh_selected_parcel()
+
+
+func _refresh_district_unlocks() -> void:
+	if Game.state == null:
+		return
+	var newly: Array = _Unlock.refresh_auto_unlocks(Game.state, _region)
+	if newly.is_empty():
+		return
+	OpportunitySystem.spawn_for_unlocked_districts(Game.state, newly)
+	ParcelOwnershipSystem.sync_from_state(Game.state)
+	EventBus.districts_unlocked.emit(Game.state, newly)
+	_refresh_terrain()
 
 
 func _on_run_ended(_state: RunState) -> void:

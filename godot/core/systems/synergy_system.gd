@@ -280,6 +280,33 @@ static func _effective_capacity(state: RunState, template_id: String) -> Variant
 	return int(round(float(base) * mult))
 
 
+static func connection_demand_weight(state: RunState, connection_id: String) -> int:
+	return _connection_demand_weight(connection_id, state)
+
+
+static func is_allocatable_supplier(template_id: String) -> bool:
+	return _is_allocatable_template(template_id)
+
+
+static func find_synergy_for_link(
+	synergies: Array,
+	supplier_id: String,
+	customer_id: String,
+	connection_id: String,
+) -> Dictionary:
+	for syn_variant in synergies:
+		if typeof(syn_variant) != TYPE_DICTIONARY:
+			continue
+		var syn: Dictionary = syn_variant
+		if (
+			str(syn.get("connectionId", "")) == connection_id
+			and str(syn.get("supplierId", "")) == supplier_id
+			and str(syn.get("customerId", "")) == customer_id
+		):
+			return syn
+	return {}
+
+
 static func _connection_demand_weight(connection_id: String, state: RunState) -> int:
 	var base: int = 20
 	if Content.connection_demand.has(connection_id):

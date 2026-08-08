@@ -283,3 +283,18 @@ func test_fail_delivery_issue_applies_supply_strain() -> void:
 	var entry: Dictionary = state.relationship_supply_strain[key]
 	assert_eq(float(entry.get("fulfillMult", 0.0)), 0.72)
 	assert_gt(int(entry.get("expiresTurn", 0)), state.turn)
+
+
+func test_null_ai_dialogue_uses_fallback_not_literal_null() -> void:
+	const NegSystem := preload("res://core/systems/negotiation_system.gd")
+	var state := _farm_state()
+	state.negotiation = {"counterparty": {"speciesId": "hen", "npcName": "Test NPC"}}
+	var reply := NegSystem._resolve_relationship_seller_dialogue(
+		{"dialogue": null, "intent": "question"},
+		"counter",
+		state,
+		{},
+		false,
+	)
+	assert_false(reply.is_empty())
+	assert_false(reply.to_lower().contains("null"))

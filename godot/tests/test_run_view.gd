@@ -48,6 +48,50 @@ func test_parcel_panel_player_business_shares_display() -> void:
 	assert_string_contains(str(actions.get("sellLabel", "")), "Sell · ~")
 
 
+func test_business_supply_balance_view_for_grain_farm() -> void:
+	const _Layout := preload("res://scenes/farm_map/district_layout_data.gd")
+	var state: RunState = RunState.create_new(RunState.FARM_2D_MODE)
+	state.farm_upgrade_v2 = true
+	var district: Dictionary = _Layout.load_district()
+	var biz := BusinessInstance.create_from_template("grain_farm", "Player Grain Farm", 12000, 7000)
+	biz.id = "biz-grain-1"
+	state.portfolio.businesses.append(biz)
+	ParcelOwnershipSystem.on_business_acquired(state, biz, {"templateId": "grain_farm"})
+
+	var parcel: Dictionary = {}
+	for parcel_variant in district.get("parcels", []):
+		if str((parcel_variant as Dictionary).get("id", "")) == "mg_01":
+			parcel = parcel_variant
+			break
+
+	var view: Dictionary = RunView.business_supply_balance_view(state, biz, district, parcel)
+	assert_true(bool(view.get("visible", false)))
+	var capacity: Dictionary = view.get("capacity", {})
+	assert_gt(int(capacity.get("capacity", 0)), 0)
+	assert_false((view.get("clients", []) as Array).is_empty())
+
+
+func test_parcel_panel_includes_supply_balance() -> void:
+	const _Layout := preload("res://scenes/farm_map/district_layout_data.gd")
+	var state: RunState = RunState.create_new(RunState.FARM_2D_MODE)
+	state.farm_upgrade_v2 = true
+	var district: Dictionary = _Layout.load_district()
+	var biz := BusinessInstance.create_from_template("grain_farm", "Player Grain Farm", 12000, 7000)
+	biz.id = "biz-grain-1"
+	state.portfolio.businesses.append(biz)
+	ParcelOwnershipSystem.on_business_acquired(state, biz, {"templateId": "grain_farm"})
+
+	var parcel: Dictionary = {}
+	for parcel_variant in district.get("parcels", []):
+		if str((parcel_variant as Dictionary).get("id", "")) == "mg_01":
+			parcel = parcel_variant
+			break
+
+	var panel: Dictionary = RunView.parcel_panel(state, parcel, district)
+	var supply: Dictionary = panel.get("supplyBalance", {})
+	assert_true(bool(supply.get("visible", false)))
+
+
 func test_parcel_panel_player_on_development_lot_uses_business_name() -> void:
 	const _Layout := preload("res://scenes/farm_map/district_layout_data.gd")
 	var state: RunState = RunState.create_new(RunState.FARM_2D_MODE)

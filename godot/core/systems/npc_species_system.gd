@@ -81,7 +81,9 @@ static func relationship_memory_block(counterparty: Dictionary) -> String:
 
 
 static func sanitize_seller_dialogue(dialogue: String, decision: String) -> String:
-	var d := dialogue.strip_edges()
+	var d := MathUtil.str_or_empty(dialogue)
+	if d.is_empty():
+		return ""
 	if decision != "accept" and RegEx.create_from_string("glad to close|whenever you're ready|close on that|ready to sign|we have a deal").search(d.to_lower()) != null:
 		return ""
 	return d

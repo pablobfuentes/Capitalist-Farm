@@ -309,6 +309,12 @@ static func compute_upgrade_preview(state: RunState, business_id: String, track_
 		"capacityDelta": (int(capacity_after) - int(capacity_before)) if capacity_before != null and capacity_after != null else 0,
 		"demandMultBefore": demand_before,
 		"demandMultAfter": demand_after,
+		"opexMultBefore": float(biz.upgrade_stats.get("opexMult", 1.0)),
+		"opexMultAfter": float(clone_biz.upgrade_stats.get("opexMult", 1.0)),
+		"careCrisisMultBefore": float(biz.upgrade_stats.get("careCrisisMult", 1.0)),
+		"careCrisisMultAfter": float(clone_biz.upgrade_stats.get("careCrisisMult", 1.0)),
+		"autopilotBefore": int(biz.upgrade_stats.get("effectiveAutopilot", 3)),
+		"autopilotAfter": int(clone_biz.upgrade_stats.get("effectiveAutopilot", 3)),
 	}
 
 

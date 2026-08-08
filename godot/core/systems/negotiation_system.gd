@@ -592,7 +592,7 @@ static func _resolve_seller_dialogue(
 	if not v2_result.is_empty() and bool(v2_result.get("readyToClose", false)):
 		return _player_offer_acceptance_line(offer_dict, state)
 
-	var ai_dialogue: String = str(ai_parsed.get("dialogue", "")).strip_edges()
+	var ai_dialogue: String = MathUtil.str_or_empty(ai_parsed.get("dialogue", ""))
 	var cp: Dictionary = state.negotiation.get("counterparty", {})
 	var rng := SeededRng.new(state.run_seed + state.turn * 997 + int(state.negotiation.get("round", 0)))
 	var dialogue := _NpcSpecies.sanitize_seller_dialogue(ai_dialogue, dialogue_decision)
@@ -970,7 +970,7 @@ static func _resolve_relationship_seller_dialogue(
 		if total > 0:
 			return "Agreed — %s/qtr works. Close the deal when you're ready." % MathUtil.fmt_money(total)
 		return "Those terms work — close the deal when you're ready."
-	var ai_dialogue: String = str(ai_parsed.get("dialogue", "")).strip_edges()
+	var ai_dialogue: String = MathUtil.str_or_empty(ai_parsed.get("dialogue", ""))
 	var dialogue := _NpcSpecies.sanitize_seller_dialogue(ai_dialogue, dialogue_decision)
 	if not dialogue.is_empty():
 		return dialogue

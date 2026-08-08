@@ -7,6 +7,22 @@ const _SupplyPolicy := preload("res://core/systems/supply_policy_system.gd")
 const _Rival := preload("res://core/systems/rival_system.gd")
 const _Ownership := preload("res://core/systems/parcel_ownership_system.gd")
 
+const SUPPLY_SEGMENT_COLORS: Array[Color] = [
+	Color(0.42, 0.72, 0.52, 1.0),
+	Color(0.48, 0.62, 0.88, 1.0),
+	Color(0.88, 0.58, 0.38, 1.0),
+	Color(0.76, 0.50, 0.78, 1.0),
+	Color(0.48, 0.80, 0.78, 1.0),
+	Color(0.86, 0.74, 0.38, 1.0),
+	Color(0.62, 0.52, 0.86, 1.0),
+	Color(0.68, 0.68, 0.68, 1.0),
+]
+const SUPPLY_SPARE_COLOR := Color(0.26, 0.28, 0.26, 0.55)
+const SUPPLY_EXTERNAL_COLOR := Color(0.55, 0.58, 0.62, 0.45)
+const DISTRICT_EXTERNAL_LABEL := "Other markets"
+## When a supplier has few district clients, reserve capacity for off-district demand.
+const DISTRICT_CRUTCH_EXTERNAL: Dictionary = {1: 0.60, 2: 0.35}
+
 
 static func header_stats(state: RunState) -> Dictionary:
 	return {
@@ -53,6 +69,528 @@ static func business_upgrade_pips_line(biz: BusinessInstance) -> String:
 	return " · ".join(lever_bits)
 
 
+const UPGRADE_INFO_TOOLTIPS: Dictionary = {
+	"hire": (
+		"Adds staff and production capacity. Each tier increases capacity by 8%, "
+		+ "letting the business serve more volume when demand is available. "
+		+ "Higher capacity improves revenue on capacity-bound businesses."
+	),
+	"marketing": (
+		"Invests in promotion and customer reach. Each tier raises the demand multiplier by 8%, "
+		+ "driving more revenue—especially for customer-facing businesses. "
+		+ "Less effective when upstream supply cannot keep up."
+	),
+	"automation": (
+		"Streamlines operations and cuts waste. Each tier reduces operating costs by about 6% "
+		+ "(compounding), showing up as a lower opex multiplier and higher quarterly profit."
+	),
+	"care": (
+		"Strengthens supplier and client relationships. Each tier reduces crisis severity by 20% "
+		+ "and immediately improves client and supplier health (+8 each on upgrade). "
+		+ "Fewer urgent problems and smoother negotiations over time."
+	),
+	"manager": (
+		"Hires a manager to run day-to-day operations. Adds +1 autopilot (fewer urgent events), "
+		+ "boosts all levers by 3%, and grants 2 extra quarters before neglect penalties. "
+		+ "The manager also slowly improves hire, marketing, and automation over time. "
+		+ "One per business level."
+	),
+}
+
+
+static func business_improvements_view(state: RunState, biz: BusinessInstance) -> Dictionary:
+	if biz == null or not UpgradeSystem.is_active(state):
+		return {"visible": false, "rows": [], "levelUp": {}}
+	UpgradeSystem.ensure_business_upgrades(biz)
+	var rows: Array = []
+	for track_id: String in ["hire", "marketing", "automation", "care", "manager"]:
+		rows.append(_improvement_row(state, biz, track_id))
+	return {
+		"visible": true,
+		"rows": rows,
+		"levelUp": LevelUpSystem.improve_panel_view(state, biz),
+	}
+
+
+static func _improvement_row(state: RunState, biz: BusinessInstance, track_id: String) -> Dictionary:
+	var track: Dictionary = UpgradeSystem.TRACKS.get(track_id, {})
+	var category: String = str(track.get("name", track_id))
+	var max_tier: int = int(track.get("max_tier", 3))
+	var tmpl := Content.get_template(biz.template_id)
+	var preview: Dictionary = UpgradeSystem.compute_upgrade_preview(state, biz.id, track_id)
+	var cost: int = int(preview.get("cost", 0))
+	var can_preview: bool = bool(preview.get("canApply", false))
+	var blocked_reason := str(preview.get("reason", "")).strip_edges()
+
+	if track_id == "marketing" and tmpl != null and not tmpl.marketing_eligible:
+		return {
+			"trackId": track_id,
+			"category": category,
+			"levelText": "—",
+			"statName": "Demand",
+			"currentValue": "N/A",
+			"improvedValue": "—",
+			"profitHint": "",
+			"infoTooltip": UPGRADE_INFO_TOOLTIPS.get(track_id, ""),
+			"canApply": false,
+			"cost": 0,
+			"blockedReason": "Infrastructure asset — use Hire or Automation instead.",
+			"buttonText": "—",
+		}
+
+	if track_id == "manager" and bool(biz.upgrades.get("manager", false)):
+		return {
+			"trackId": track_id,
+			"category": category,
+			"levelText": "Hired",
+			"statName": "Autopilot",
+			"currentValue": UpgradeSystem.autopilot_display(biz),
+			"improvedValue": "—",
+			"profitHint": "",
+			"infoTooltip": UPGRADE_INFO_TOOLTIPS.get(track_id, ""),
+			"canApply": false,
+			"cost": 0,
+			"blockedReason": "Manager already in place this level.",
+			"buttonText": "—",
+		}
+
+	var tier: int = 0 if track_id == "manager" else int(biz.upgrades.get(track_id, 0))
+	var level_text := "—" if track_id == "manager" else "%d / %d" % [tier, max_tier]
+	var stat_values := _improvement_stat_values(biz, preview, track_id, can_preview)
+	var profit_hint := ""
+	if track_id == "automation" and can_preview:
+		var delta: int = int(preview.get("profitDelta", 0))
+		if delta != 0:
+			var sign := "+" if delta >= 0 else ""
+			profit_hint = "%s%s/qtr profit" % [sign, MathUtil.fmt_money(delta)]
+
+	var can_apply := can_preview and state.action_points >= 1 and state.cash >= cost
+	if can_preview and state.action_points < 1:
+		blocked_reason = "Need 1 AP"
+	elif can_preview and state.cash < cost:
+		blocked_reason = "Insufficient cash"
+
+	return {
+		"trackId": track_id,
+		"category": category,
+		"levelText": level_text,
+		"statName": stat_values.get("statName", ""),
+		"currentValue": stat_values.get("currentValue", "—"),
+		"improvedValue": stat_values.get("improvedValue", "—"),
+		"profitHint": profit_hint,
+		"infoTooltip": UPGRADE_INFO_TOOLTIPS.get(track_id, ""),
+		"canApply": can_apply,
+		"cost": cost,
+		"blockedReason": blocked_reason,
+		"buttonText": "1 AP + %s" % MathUtil.fmt_money(cost) if can_preview else "—",
+	}
+
+
+static func _improvement_stat_values(
+	biz: BusinessInstance,
+	preview: Dictionary,
+	track_id: String,
+	can_preview: bool,
+) -> Dictionary:
+	match track_id:
+		"hire":
+			var before: Variant = preview.get("capacityBefore")
+			if before == null:
+				before = UpgradeSystem.capacity_units_for_business(Game.state, biz)
+			var current := "—"
+			if before != null:
+				current = "%d units" % int(before)
+			elif biz.upgrade_stats.has("capacityMult"):
+				current = "×%.2f" % float(biz.upgrade_stats.get("capacityMult", 1.0))
+			var improved := "—"
+			if can_preview:
+				var after: Variant = preview.get("capacityAfter")
+				if after != null:
+					improved = "%d units" % int(after)
+				else:
+					improved = "×%.2f" % (
+						float(biz.upgrade_stats.get("capacityMult", 1.0)) + UpgradeSystem.HIRE_PER_TIER
+					)
+			return {"statName": "Capacity", "currentValue": current, "improvedValue": improved}
+		"marketing":
+			var current_m := "×%.2f" % float(
+				preview.get("demandMultBefore", biz.upgrade_stats.get("demandMult", 1.0))
+			)
+			var improved_m := "—"
+			if can_preview:
+				improved_m = "×%.2f" % float(preview.get("demandMultAfter", 1.0))
+			return {"statName": "Demand", "currentValue": current_m, "improvedValue": improved_m}
+		"automation":
+			var current_o := "×%.2f" % float(
+				preview.get("opexMultBefore", biz.upgrade_stats.get("opexMult", 1.0))
+			)
+			var improved_o := "—"
+			if can_preview:
+				improved_o = "×%.2f" % float(preview.get("opexMultAfter", 1.0))
+			return {"statName": "Operating costs", "currentValue": current_o, "improvedValue": improved_o}
+		"care":
+			var current_c := "×%.2f" % float(
+				preview.get("careCrisisMultBefore", biz.upgrade_stats.get("careCrisisMult", 1.0))
+			)
+			var improved_c := "—"
+			if can_preview:
+				improved_c = "×%.2f" % float(preview.get("careCrisisMultAfter", 1.0))
+			return {"statName": "Crisis impact", "currentValue": current_c, "improvedValue": improved_c}
+		"manager":
+			var ap_before: int = int(
+				preview.get("autopilotBefore", biz.upgrade_stats.get("effectiveAutopilot", 3))
+			)
+			var current_ap := "★".repeat(ap_before) + "☆".repeat(maxi(0, 5 - ap_before))
+			var improved_ap := "—"
+			if can_preview:
+				var ap_after: int = int(preview.get("autopilotAfter", ap_before))
+				improved_ap = "★".repeat(ap_after) + "☆".repeat(maxi(0, 5 - ap_after))
+			return {"statName": "Autopilot", "currentValue": current_ap, "improvedValue": improved_ap}
+	return {"statName": "", "currentValue": "—", "improvedValue": "—"}
+
+
+## District supply/demand balance for the parcel business panel.
+static func business_supply_balance_view(
+	state: RunState,
+	biz: BusinessInstance,
+	district: Dictionary,
+	entry: Dictionary,
+) -> Dictionary:
+	if state == null or biz == null or not state.is_capital_farm():
+		return {"visible": false}
+
+	var district_id := str(district.get("id", ""))
+	var graph: Dictionary = SupplyChainGraphService.build_for_district(state, district_id, district)
+	var parcel_id := str(entry.get("id", ""))
+	var node_id := SupplyChainGraphService.find_node_id_for_parcel(graph, parcel_id)
+	if node_id.is_empty():
+		node_id = SupplyChainGraphService.find_node_id_for_business(graph, biz.id)
+
+	var synergies: Array = SynergySystem.compute_synergies(state)
+	var clients: Array = []
+	var suppliers: Array = []
+	if not node_id.is_empty():
+		clients = _district_client_rows(state, graph, node_id, biz, synergies)
+		suppliers = _district_supplier_rows(state, graph, node_id, biz, synergies)
+
+	var capacity_section: Dictionary = {}
+	var display_clients: Array = clients
+	if SynergySystem.is_allocatable_supplier(biz.template_id):
+		capacity_section = _capacity_bar_view(state, biz, clients)
+		display_clients = capacity_section.get("displayClients", clients)
+
+	return {
+		"visible": not display_clients.is_empty() or not suppliers.is_empty() or not capacity_section.is_empty(),
+		"capacity": capacity_section,
+		"clients": display_clients,
+		"suppliers": suppliers,
+	}
+
+
+static func _capacity_bar_view(state: RunState, biz: BusinessInstance, clients: Array) -> Dictionary:
+	var cap_variant: Variant = SynergySystem.effective_capacity(state, biz.template_id)
+	if cap_variant == null:
+		return {}
+	var cap: float = float(cap_variant)
+	if cap <= 0.0:
+		return {}
+
+	var balanced: Dictionary = _balance_district_client_capacity(clients, cap)
+	var display_clients: Array = balanced.get("clients", [])
+	var external_frac: float = float(balanced.get("externalFrac", 0.0))
+	var external_units: float = float(balanced.get("externalUnits", 0.0))
+
+	var total_allocated: float = 0.0
+	for row_variant in display_clients:
+		if typeof(row_variant) != TYPE_DICTIONARY:
+			continue
+		total_allocated += float((row_variant as Dictionary).get("allocatedUnits", 0.0))
+
+	var segments: Array = []
+	for row_variant in display_clients:
+		if typeof(row_variant) != TYPE_DICTIONARY:
+			continue
+		var row: Dictionary = row_variant
+		var units: float = float(row.get("capacityUnits", 0.0))
+		if units <= 0.0:
+			continue
+		var width_frac: float = units / cap
+		if width_frac <= 0.001:
+			continue
+		segments.append({
+			"colorIndex": int(row.get("colorIndex", 0)),
+			"color": row.get("color", SUPPLY_SEGMENT_COLORS[0]),
+			"label": str(row.get("name", "")),
+			"widthFrac": width_frac,
+			"units": int(round(units)),
+			"style": "client",
+		})
+
+	if external_units > 0.5:
+		segments.append({
+			"colorIndex": -1,
+			"color": SUPPLY_EXTERNAL_COLOR,
+			"label": DISTRICT_EXTERNAL_LABEL,
+			"widthFrac": external_units / cap,
+			"units": int(round(external_units)),
+			"style": "external",
+		})
+
+	var filled_frac: float = 0.0
+	for seg_variant in segments:
+		filled_frac += float((seg_variant as Dictionary).get("widthFrac", 0.0))
+	var spare_frac: float = maxf(0.0, 1.0 - filled_frac)
+	if spare_frac > 0.02:
+		segments.append({
+			"colorIndex": -2,
+			"color": SUPPLY_SPARE_COLOR,
+			"label": "Spare",
+			"widthFrac": spare_frac,
+			"units": int(round(cap * spare_frac)),
+			"style": "spare",
+		})
+
+	var balance_line := ""
+	if external_frac > 0.01:
+		balance_line = "District clients %d%% · Other markets %d%%" % [
+			int(round((1.0 - external_frac) * 100.0)),
+			int(round(external_frac * 100.0)),
+		]
+	elif spare_frac > 0.02:
+		balance_line = "%d spare" % int(round(cap * spare_frac))
+	else:
+		balance_line = "Fully allocated"
+
+	return {
+		"capacity": int(round(cap)),
+		"totalDemand": int(round(cap - cap * spare_frac)),
+		"totalAllocated": int(round(total_allocated)),
+		"overCapacity": false,
+		"balanceLine": balance_line,
+		"segments": segments,
+		"displayClients": display_clients,
+	}
+
+
+static func _balance_district_client_capacity(clients: Array, cap: float) -> Dictionary:
+	if clients.is_empty() or cap <= 0.0:
+		return {"clients": [], "externalFrac": 0.0, "externalUnits": 0.0}
+
+	var client_count := clients.size()
+	var external_frac: float = float(DISTRICT_CRUTCH_EXTERNAL.get(client_count, 0.0))
+	var district_frac: float = 1.0 - external_frac
+
+	var total_weight: float = 0.0
+	for row_variant in clients:
+		if typeof(row_variant) != TYPE_DICTIONARY:
+			continue
+		total_weight += float((row_variant as Dictionary).get("demandWeight", 0.0))
+
+	var balanced: Array = []
+	for row_variant in clients:
+		if typeof(row_variant) != TYPE_DICTIONARY:
+			continue
+		var row: Dictionary = (row_variant as Dictionary).duplicate(true)
+		var weight: float = float(row.get("demandWeight", 0.0))
+		var share: float = (weight / total_weight) if total_weight > 0.0 else (1.0 / float(client_count))
+		var units: float = 0.0
+		if external_frac > 0.0:
+			units = cap * district_frac * share
+		elif total_weight > cap:
+			units = cap * weight / total_weight
+		else:
+			units = weight
+		row["capacityUnits"] = units
+		row["capacityPct"] = int(round(units / cap * 100.0))
+		balanced.append(row)
+
+	balanced.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(b.get("capacityPct", 0)) < int(a.get("capacityPct", 0))
+	)
+
+	return {
+		"clients": balanced,
+		"externalFrac": external_frac,
+		"externalUnits": cap * external_frac,
+	}
+
+
+static func _district_client_rows(
+	state: RunState,
+	graph: Dictionary,
+	node_id: String,
+	biz: BusinessInstance,
+	synergies: Array,
+) -> Array:
+	var rows: Array = []
+	var edges: Array = graph.get("edges", [])
+	var nodes: Dictionary = graph.get("nodes", {})
+	var color_idx := 0
+
+	var edge_rows: Array = []
+	for edge_variant in edges:
+		if typeof(edge_variant) != TYPE_DICTIONARY:
+			continue
+		var edge: Dictionary = edge_variant
+		if str(edge.get("sourceId", "")) != node_id:
+			continue
+		var target: Dictionary = nodes.get(str(edge.get("targetId", "")), {})
+		if target.is_empty():
+			continue
+		var conn_id := str(edge.get("catalogId", ""))
+		var weight: float = float(SynergySystem.connection_demand_weight(state, conn_id))
+		edge_rows.append({"edge": edge, "target": target, "connId": conn_id, "weight": weight})
+
+	if edge_rows.is_empty():
+		return rows
+
+	var total_weight: float = 0.0
+	for item_variant in edge_rows:
+		total_weight += float((item_variant as Dictionary).get("weight", 0.0))
+
+	for item_variant in edge_rows:
+		var item: Dictionary = item_variant
+		var target: Dictionary = item.get("target", {})
+		var conn_id := str(item.get("connId", ""))
+		var weight: float = float(item.get("weight", 0.0))
+		var edge: Dictionary = item.get("edge", {})
+		var owned := bool(target.get("playerOwned", false))
+		var customer_id := str(target.get("businessId", ""))
+		var name := str(target.get("displayName", ""))
+		if name.is_empty():
+			var tmpl := Content.get_template(str(target.get("templateId", "")))
+			name = tmpl.name if tmpl else str(target.get("templateId", ""))
+
+		var syn: Dictionary = {}
+		if owned and not customer_id.is_empty():
+			syn = SynergySystem.find_synergy_for_link(synergies, biz.id, customer_id, conn_id)
+
+		var fulfill: float = float(syn.get("fulfillRatio", 0.0)) if not syn.is_empty() else 0.0
+		var allocated: float = weight * fulfill if owned and not syn.is_empty() else 0.0
+
+		var color: Color = SUPPLY_SEGMENT_COLORS[color_idx % SUPPLY_SEGMENT_COLORS.size()]
+		var row_color_idx := color_idx
+		color_idx += 1
+
+		rows.append({
+			"colorIndex": row_color_idx,
+			"color": color,
+			"name": name,
+			"flow": str(edge.get("flow", "")),
+			"demandWeight": weight,
+			"allocatedUnits": allocated,
+			"fulfillPct": int(round(fulfill * 100.0)) if owned and not syn.is_empty() else null,
+			"playerOwned": owned,
+		})
+
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(b.get("demandWeight", 0.0)) < float(a.get("demandWeight", 0.0))
+	)
+	return rows
+
+
+static func _district_supplier_rows(
+	state: RunState,
+	graph: Dictionary,
+	node_id: String,
+	biz: BusinessInstance,
+	synergies: Array,
+) -> Array:
+	var rows: Array = []
+	var edges: Array = graph.get("edges", [])
+	var nodes: Dictionary = graph.get("nodes", {})
+	var color_idx := 0
+
+	var edge_rows: Array = []
+	for edge_variant in edges:
+		if typeof(edge_variant) != TYPE_DICTIONARY:
+			continue
+		var edge: Dictionary = edge_variant
+		if str(edge.get("targetId", "")) != node_id:
+			continue
+		var source: Dictionary = nodes.get(str(edge.get("sourceId", "")), {})
+		if source.is_empty():
+			continue
+		var conn_id := str(edge.get("catalogId", ""))
+		var weight: float = float(SynergySystem.connection_demand_weight(state, conn_id))
+		edge_rows.append({"edge": edge, "source": source, "connId": conn_id, "weight": weight})
+
+	if edge_rows.is_empty():
+		return rows
+
+	var total_weight: float = 0.0
+	for item_variant in edge_rows:
+		total_weight += float((item_variant as Dictionary).get("weight", 0.0))
+
+	for item_variant in edge_rows:
+		var item: Dictionary = item_variant
+		var source: Dictionary = item.get("source", {})
+		var conn_id := str(item.get("connId", ""))
+		var weight: float = float(item.get("weight", 0.0))
+		var edge: Dictionary = item.get("edge", {})
+		var owned := bool(source.get("playerOwned", false))
+		var supplier_id := str(source.get("businessId", ""))
+		var name := str(source.get("displayName", ""))
+		if name.is_empty():
+			var tmpl := Content.get_template(str(source.get("templateId", "")))
+			name = tmpl.name if tmpl else str(source.get("templateId", ""))
+
+		var syn: Dictionary = {}
+		if owned and not supplier_id.is_empty():
+			syn = SynergySystem.find_synergy_for_link(synergies, supplier_id, biz.id, conn_id)
+
+		var fulfill: float = float(syn.get("fulfillRatio", 0.0)) if not syn.is_empty() else 0.0
+		var share_pct: int = int(round(weight / total_weight * 100.0)) if total_weight > 0.0 else 0
+
+		var color: Color = SUPPLY_EXTERNAL_COLOR if not owned else SUPPLY_SEGMENT_COLORS[color_idx % SUPPLY_SEGMENT_COLORS.size()]
+		if owned:
+			color_idx += 1
+
+		rows.append({
+			"colorIndex": color_idx - 1 if owned else -1,
+			"color": color,
+			"name": name,
+			"flow": str(edge.get("flow", "")),
+			"sharePct": share_pct,
+			"fulfillPct": int(round(fulfill * 100.0)) if owned and not syn.is_empty() else null,
+			"kind": "owned" if owned else "external",
+			"leverageLine": _supplier_leverage_line(owned, fulfill, syn),
+		})
+
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(b.get("sharePct", 0)) < int(a.get("sharePct", 0))
+	)
+	return rows
+
+
+static func _client_leverage_line(owned: bool, fulfill: float, syn: Dictionary) -> String:
+	if not owned:
+		return "External baseline — negotiate to contract"
+	if fulfill >= 0.95:
+		return "Fully supplied — buyer has leverage"
+	if fulfill >= 0.50:
+		return "Partial supply — balanced leverage"
+	if fulfill > 0.0:
+		return "Constrained — you control allocation"
+	if syn.is_empty():
+		return "Owned — no active link yet"
+	return "No supply allocated"
+
+
+static func _supplier_leverage_line(owned: bool, fulfill: float, syn: Dictionary) -> String:
+	if not owned:
+		return "External baseline — negotiate terms"
+	if fulfill >= 0.95:
+		return "Reliable supply — supplier has leverage"
+	if fulfill >= 0.50:
+		return "Partial fill — moderate dependency"
+	if fulfill > 0.0:
+		return "Strained supplier — your leverage"
+	if syn.is_empty():
+		return "Owned — awaiting supply link"
+	return "No inbound supply"
+
+
 ## Compact body text for the parcel panel (title/role carry name, layer, location).
 static func business_parcel_details(state: RunState, biz: BusinessInstance) -> PackedStringArray:
 	if UpgradeSystem.is_active(state):
@@ -79,15 +617,12 @@ static func business_parcel_details(state: RunState, biz: BusinessInstance) -> P
 	var ap_text := UpgradeSystem.autopilot_display(biz) if UpgradeSystem.is_active(state) else (
 		"★".repeat(tmpl.autopilot if tmpl else 3) + "☆".repeat(2)
 	)
-	lines.append("AP %s" % ap_text)
+	lines.append("Autopilot %s" % ap_text)
 
 	if UpgradeSystem.is_active(state):
 		var level_line := LevelUpSystem.progress_label(biz)
 		if not level_line.is_empty():
 			lines.append(level_line)
-		var levers := business_upgrade_pips_line(biz)
-		if not levers.is_empty():
-			lines.append(levers)
 	return lines
 
 
@@ -215,7 +750,7 @@ static func locked_district_panel(
 	lines.append("Reach net worth %s to unlock." % MathUtil.fmt_money(requirement))
 	lines.append("Your net worth: %s" % MathUtil.fmt_money(net_worth))
 	if can_unlock:
-		lines.append("Requirement met — district unlocks on next map refresh.")
+		lines.append("Requirement met — click the district on the map to enter.")
 	else:
 		lines.append("Keep growing portfolio value to access this district.")
 	return {
@@ -285,11 +820,11 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 		actions = {
 			"kind": "business",
 			"businessId": business_id,
-			"canImprove": UpgradeSystem.is_active(state) and state.action_points >= 1,
 			"canSell": state.action_points >= 1,
-			"improveLabel": "Improve (1 AP)",
 			"sellLabel": "Sell · ~%s (1 AP)" % MathUtil.fmt_money(sell_proceeds),
 		}
+		if biz != null and UpgradeSystem.is_active(state):
+			actions["improvements"] = business_improvements_view(state, biz)
 		if not urgency.is_empty():
 			actions["urgencyProblemId"] = str(urgency.get("id", ""))
 			actions["canNegotiateUrgency"] = state.action_points >= 1 and not negotiating
@@ -386,6 +921,7 @@ static func parcel_panel(state: RunState, entry: Dictionary, district: Dictionar
 		"ownershipColor": ownership_color(owner_state),
 		"ownerState": owner_state,
 		"actions": actions,
+		"supplyBalance": business_supply_balance_view(state, biz, district, entry) if biz != null else {},
 	}
 
 
